@@ -343,7 +343,7 @@
 
             progressBar.style.width = `${progress}%`;
         }
-        exportStatus.textContent = '导出完成！';
+        exportStatus.textContent = 'Cooked!';
         setTimeout(hideExportOverlay, 1500);
     }
     
