@@ -127,17 +127,17 @@
 
         switch(action) {
             case 'newPage': {
-                const name = prompt("输入新笔记名称:", "未命名笔记");
+                const name = prompt("Page Name", "MyPage");
                 if (name) ipc.createItem(parentPath, name, 'page');
                 break;
             }
             case 'newFolder': {
-                const name = prompt("输入新文件夹名称:", "未命名文件夹");
+                const name = prompt("Folder Name", "MyFolder");
                 if (name) ipc.createItem(parentPath, name, 'folder');
                 break;
             }
             case 'delete': {
-                if (confirm(`确定要删除 "${targetPath}" 吗？此操作不可恢复。`)) {
+                if (confirm(`Delete "${targetPath}" ?`)) {
                     ipc.deleteItem(targetPath);
                 }
                 break;
