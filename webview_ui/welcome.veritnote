@@ -1,0 +1,140 @@
+[
+  {
+    "children": [],
+    "content": "Welcome to VeritNote 👋",
+    "id": "welcome-h1",
+    "type": "heading1"
+  },
+  {
+    "children": [],
+    "content": "This is an example page.",
+    "id": "intro-p1",
+    "type": "paragraph"
+  },
+  {
+    "children": [],
+    "content": "You can <b>bold text</b>, <i>italic text</i>, <u>underlined text</u> or <span style=\"color: rgb(255, 107, 107);\">add color to text</span> like this.",
+    "id": "intro-p2",
+    "type": "paragraph"
+  },
+  {
+    "children": [],
+    "content": "How to get started ?",
+    "id": "howto-h2",
+    "type": "heading2"
+  },
+  {
+    "children": [],
+    "content": "Right-click on the folders in the sidebar on the left to create new page or new folder to organize your workspace.",
+    "id": "howto-p1",
+    "type": "paragraph"
+  },
+  {
+    "children": [],
+    "content": "In the editor, typing \"/\" will bring up the command menu, allowing you to quickly create different types of Blocks, as annotated below:",
+    "id": "howto-p2",
+    "type": "paragraph"
+  },
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "content": "<b>Try dragging a block to the left or right side of another block to create a <span style=\"color: rgb(247, 209, 84);\">column layout!</span></b>",
+                "id": "callout-child",
+                "type": "paragraph"
+              }
+            ],
+            "content": "<div class=\"block-container\" draggable=\"true\" data-id=\"callout-child\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"callout-child\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\"><b>Try dragging a block to the left or right side of another block to create a <span style=\"color: rgb(247, 209, 84);\">column layout!</span></b></div><div class=\"block-children\"></div></div>",
+            "id": "7acfbe0f-a2a9-4444-a151-3a12619971be",
+            "properties": {
+              "width": 0.5
+            },
+            "type": "column"
+          },
+          {
+            "children": [
+              {
+                "content": "<b style=\"color: rgb(178, 152, 220);\">Like this!</b>",
+                "id": "80fdec78-2441-43c8-9f91-1ef4701744de",
+                "type": "paragraph"
+              }
+            ],
+            "content": "<div class=\"block-container\" draggable=\"true\" data-id=\"80fdec78-2441-43c8-9f91-1ef4701744de\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"80fdec78-2441-43c8-9f91-1ef4701744de\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\"><b style=\"color: rgb(178, 152, 220);\">Like this!</b></div><div class=\"block-children\"></div></div>",
+            "id": "f37cc66a-8e7a-4195-8b56-97d02e2c65b4",
+            "properties": {
+              "width": 0.5
+            },
+            "type": "column"
+          }
+        ],
+        "content": "<div class=\"block-content\" data-id=\"7acfbe0f-a2a9-4444-a151-3a12619971be\" data-type=\"column\" style=\"width: 50%;\"><div class=\"block-container\" draggable=\"true\" data-id=\"callout-child\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"callout-child\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\"><b>Try dragging a block to the left or right side of another block to create a <span style=\"color: rgb(247, 209, 84);\">column layout!</span></b></div><div class=\"block-children\"></div></div></div><div class=\"column-resizer\"></div><div class=\"block-content\" data-id=\"f37cc66a-8e7a-4195-8b56-97d02e2c65b4\" data-type=\"column\" style=\"width: 50%;\"><div class=\"block-container\" draggable=\"true\" data-id=\"80fdec78-2441-43c8-9f91-1ef4701744de\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"80fdec78-2441-43c8-9f91-1ef4701744de\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\"><b style=\"color: rgb(178, 152, 220);\">Like this!</b></div><div class=\"block-children\"></div></div></div>",
+        "id": "38402b6d-7269-485e-9479-0f7d13ef4170",
+        "type": "columns"
+      }
+    ],
+    "content": "<div class=\"callout-icon\">💡</div><div class=\"callout-content-wrapper\"><div class=\"block-content\" data-id=\"38402b6d-7269-485e-9479-0f7d13ef4170\" data-type=\"columns\"><div class=\"block-content\" data-id=\"7acfbe0f-a2a9-4444-a151-3a12619971be\" data-type=\"column\" style=\"width: 50%;\"><div class=\"block-container\" draggable=\"true\" data-id=\"callout-child\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"callout-child\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\"><b>Try dragging a block to the left or right side of another block to create a <span style=\"color: rgb(247, 209, 84);\">column layout!</span></b></div><div class=\"block-children\"></div></div></div><div class=\"column-resizer\"></div><div class=\"block-content\" data-id=\"f37cc66a-8e7a-4195-8b56-97d02e2c65b4\" data-type=\"column\" style=\"width: 50%;\"><div class=\"block-container\" draggable=\"true\" data-id=\"80fdec78-2441-43c8-9f91-1ef4701744de\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"80fdec78-2441-43c8-9f91-1ef4701744de\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\"><b style=\"color: rgb(178, 152, 220);\">Like this!</b></div><div class=\"block-children\"></div></div></div></div></div>",
+    "id": "howto-callout",
+    "type": "callout"
+  },
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "content": "<a href=\"https://www.pexels.com/en-us/photo/358528/\"><img src=\"https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg\" alt=\"image\"></a>",
+            "id": "c4801f3d-d1e1-49ad-ac44-e0537c53c2bb",
+            "type": "image"
+          }
+        ],
+        "content": "<div class=\"block-container\" draggable=\"true\" data-id=\"c4801f3d-d1e1-49ad-ac44-e0537c53c2bb\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"c4801f3d-d1e1-49ad-ac44-e0537c53c2bb\" data-type=\"image\" contenteditable=\"true\"><a href=\"https://www.pexels.com/en-us/photo/358528/\"><img src=\"https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg\" alt=\"image\"></a></div><div class=\"block-children\"></div></div>",
+        "id": "55232c19-6941-4996-b463-a13a7da10c7f",
+        "properties": {
+          "width": 0.5
+        },
+        "type": "column"
+      },
+      {
+        "children": [
+          {
+            "children": [],
+            "content": "Images, text, and buttons can all be used for navigation.",
+            "id": "outro-p",
+            "type": "paragraph"
+          },
+          {
+            "content": "For example, click the image to view the original creator's webpage for this image.",
+            "id": "16bfe453-ef45-4466-b36a-5654b5a806e6",
+            "type": "paragraph"
+          },
+          {
+            "content": "Click <a href=\"http://github.com/veritnet/veritnote\">here</a> to view the VeritNote open-source repository.",
+            "id": "7333aa47-0443-4f3f-acc7-5b5b78529f8b",
+            "type": "paragraph"
+          },
+          {
+            "content": "🎉Enjoy using it! Feel free to ✨star or pull request <a href=\"http://github.com/veritnet/veritnote\">this repository.</a>",
+            "id": "af17e403-e4c6-4ea8-a922-f7282db19c90",
+            "type": "paragraph"
+          }
+        ],
+        "content": "<div class=\"block-container\" draggable=\"true\" data-id=\"outro-p\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"outro-p\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">Images, text, and buttons can all be used for navigation.</div><div class=\"block-children\"></div></div><div class=\"block-container\" draggable=\"true\" data-id=\"16bfe453-ef45-4466-b36a-5654b5a806e6\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"16bfe453-ef45-4466-b36a-5654b5a806e6\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">For example, click the image to view the original creator's webpage for this image.</div><div class=\"block-children\"></div></div><div class=\"block-container\" draggable=\"true\" data-id=\"7333aa47-0443-4f3f-acc7-5b5b78529f8b\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"7333aa47-0443-4f3f-acc7-5b5b78529f8b\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">Click <a href=\"http://github.com/veritnet/veritnote\">here</a> to view the VeritNote open-source repository.</div><div class=\"block-children\"></div></div><div class=\"block-container\" draggable=\"true\" data-id=\"af17e403-e4c6-4ea8-a922-f7282db19c90\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"af17e403-e4c6-4ea8-a922-f7282db19c90\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">🎉Enjoy using it! Feel free to ✨star or pull request <a href=\"http://github.com/veritnet/veritnote\">this repository.</a></div><div class=\"block-children\"></div></div>",
+        "id": "9ee02c07-bb90-4488-bd3b-bf250fc932ba",
+        "properties": {
+          "width": 0.5
+        },
+        "type": "column"
+      }
+    ],
+    "content": "<div class=\"block-content\" data-id=\"55232c19-6941-4996-b463-a13a7da10c7f\" data-type=\"column\" style=\"width: 50%;\"><div class=\"block-container\" draggable=\"true\" data-id=\"c4801f3d-d1e1-49ad-ac44-e0537c53c2bb\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"c4801f3d-d1e1-49ad-ac44-e0537c53c2bb\" data-type=\"image\" contenteditable=\"true\"><a href=\"https://www.pexels.com/en-us/photo/358528/\"><img src=\"https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg\" alt=\"image\"></a></div><div class=\"block-children\"></div></div></div><div class=\"column-resizer\"></div><div class=\"block-content\" data-id=\"9ee02c07-bb90-4488-bd3b-bf250fc932ba\" data-type=\"column\" style=\"width: 50%;\"><div class=\"block-container\" draggable=\"true\" data-id=\"outro-p\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"outro-p\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">Images, text, and buttons can all be used for navigation.</div><div class=\"block-children\"></div></div><div class=\"block-container\" draggable=\"true\" data-id=\"16bfe453-ef45-4466-b36a-5654b5a806e6\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"16bfe453-ef45-4466-b36a-5654b5a806e6\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">For example, click the image to view the original creator's webpage for this image.</div><div class=\"block-children\"></div></div><div class=\"block-container\" draggable=\"true\" data-id=\"7333aa47-0443-4f3f-acc7-5b5b78529f8b\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"7333aa47-0443-4f3f-acc7-5b5b78529f8b\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">Click <a href=\"http://github.com/veritnet/veritnote\">here</a> to view the VeritNote open-source repository.</div><div class=\"block-children\"></div></div><div class=\"block-container\" draggable=\"true\" data-id=\"af17e403-e4c6-4ea8-a922-f7282db19c90\">\n                <div class=\"block-controls\">\n                    <span class=\"drag-handle\" title=\"拖拽移动\">⠿</span>\n                    <span class=\"delete-btn\" title=\"删除\">🗑️</span>\n                </div>\n            <div class=\"block-content\" data-id=\"af17e403-e4c6-4ea8-a922-f7282db19c90\" data-type=\"paragraph\" contenteditable=\"true\" data-placeholder=\"输入'/'来唤起命令...\">🎉Enjoy using it! Feel free to ✨star or pull request <a href=\"http://github.com/veritnet/veritnote\">this repository.</a></div><div class=\"block-children\"></div></div></div>",
+    "id": "b03e366d-e179-4bf0-b833-c5f0520fd25b",
+    "type": "columns"
+  },
+  {
+    "content": "PS:&nbsp;Click the <span style=\"color: rgb(255, 107, 107);\">Cook</span> button in the bottom-left corner to export the entire workspace as <span style=\"color: rgb(69, 183, 209);\">native static HTML</span>, including <span style=\"color: rgb(69, 183, 209);\">all CSS styles and animations</span>!&nbsp;Additionally, your file will be <span style=\"color: rgb(78, 205, 196);\">saved automatically</span> as you edit!",
+    "id": "63e36060-0aa7-4759-81f5-63aa98c000e0",
+    "type": "paragraph"
+  }
+]
