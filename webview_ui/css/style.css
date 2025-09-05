@@ -444,37 +444,78 @@ a {
         background-color: var(--text-accent);
     }
 
-/* --- 7. "/" 命令菜单样式 --- */
+/* --- 7. "/" 命令菜单样式 (NEW & IMPROVED) --- */
 .command-menu {
     position: absolute;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--shadow-color);
-    padding: var(--spacing-xs);
-    width: 300px;
+    width: 320px;
+    border-radius: 8px; /* Slightly larger radius */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     z-index: 1000;
+    overflow: hidden; /* Important for border-radius on children */
+    /* --- Glassmorphism Effect --- */
+    background: rgba(45, 45, 45, 0.75); /* Semi-transparent background */
+    backdrop-filter: blur(12px) saturate(180%); /* The core of the glass effect */
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.command-menu-title {
+    padding: var(--spacing-s) var(--spacing-m);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.command-menu-list {
+    /* --- Scrollable Area --- */
+    max-height: 300px; /* Limit the height, this enables scrolling */
+    overflow-y: auto;
+    padding: 0 var(--spacing-xs) var(--spacing-xs) var(--spacing-xs); /* Padding for the list itself */
 }
 
 .command-item {
+    display: flex;
+    align-items: center;
     padding: var(--spacing-s);
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s ease;
 }
 
+    /* Use a more subtle hover effect for glass UI */
     .command-item:hover, .command-item.selected {
-        background-color: var(--bg-tertiary);
+        background-color: rgba(255, 255, 255, 0.1);
     }
 
-    .command-item strong {
-        display: block;
-        font-weight: 600;
+.command-item-icon {
+    font-size: 20px;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    margin-right: var(--spacing-m);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.command-item-text {
+    display: flex;
+    flex-direction: column;
+}
+
+    .command-item-text strong {
+        font-weight: 500;
+        color: var(--text-primary);
+        line-height: 1.2;
     }
 
-    .command-item small {
+    .command-item-text small {
         color: var(--text-secondary);
         font-size: 12px;
+        line-height: 1.2;
     }
 
 
@@ -624,9 +665,12 @@ a {
     padding: var(--spacing-xs) var(--spacing-s);
     border-radius: 4px;
     cursor: pointer;
-    font-size: 18px; /* 让 emoji 更清晰 */
-    line-height: 1;
+    font-size: 14px; /* Adjust font size for text buttons */
+    line-height: 1.2; /* Adjust line height */
     transition: background-color 0.2s ease;
+    display: flex; /* Use flexbox for alignment */
+    align-items: center;
+    gap: var(--spacing-xs); /* Space between icon and text */
 }
 
     .toolbar-button:hover {
@@ -655,6 +699,17 @@ a {
     box-shadow: 0 4px 12px var(--shadow-color);
     padding: var(--spacing-xs);
     z-index: 1000;
+}
+
+/* NEW: Styles for the language selector button in the toolbar */
+.toolbar-lang-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-color: currentColor; /* Inherit color from the button text */
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 18 22 12 16 6'%3E%3C/polyline%3E%3Cpolyline points='8 6 2 12 8 18'%3E%3C/polyline%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 18 22 12 16 6'%3E%3C/polyline%3E%3Cpolyline points='8 6 2 12 8 18'%3E%3C/polyline%3E%3C/svg%3E");
+    background-size: contain;
 }
 
 

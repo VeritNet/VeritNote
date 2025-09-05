@@ -1,0 +1,109 @@
+/* css/code-block.css */
+
+/* The main container for the code block visuals */
+.block-content[data-type="code"] {
+    position: relative;
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+    font-family: var(--font-family-monospace);
+    font-size: 14px;
+    line-height: 1.5;
+    /* Let the inner <pre> element define the padding and layout */
+}
+
+    /* The highlighted code container, this is what the user SEES */
+    .block-content[data-type="code"] pre {
+        margin: 0;
+        padding: var(--spacing-m);
+        white-space: pre;
+        overflow-x: auto; /* Horizontal scroll for the visible code */
+        min-height: 1.5em; /* Ensure it has height even when empty */
+    }
+
+    /* Override highlight.js theme specifics */
+    .block-content[data-type="code"] .hljs {
+        background: transparent !important;
+        color: var(--text-primary) !important;
+        padding: 0;
+    }
+
+/* The invisible textarea where the user TYPES */
+.code-block-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Style matching for perfect alignment */
+    padding: var(--spacing-m);
+    margin: 0;
+    border: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    /* *** THE FIX for the "white border" *** */
+    outline: none !important; /* Remove browser's focus outline */
+    /* Make the text invisible but keep the caret */
+    background: transparent;
+    color: transparent;
+    caret-color: var(--text-primary);
+    -webkit-text-fill-color: transparent;
+    resize: none;
+    white-space: pre;
+    /* Let the textarea scroll, which we sync to the <pre> */
+    overflow: auto;
+}
+
+
+/* --- Styles for the Language Picker Popover --- */
+
+/* The main container for the language picker inside the generic popover */
+#popover-language-picker {
+    display: flex;
+    flex-direction: column;
+    max-height: 250px; /* Make the list scrollable */
+}
+
+/* Style for the search input field */
+#popover-language-search {
+    /* *** FIX: Reuse styles from #popover-input in style.css *** */
+    width: 100%; /* Take full width */
+    box-sizing: border-box; /* Include padding and border in the width */
+    background-color: var(--bg-accent);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: var(--spacing-s);
+    outline: none;
+    margin-bottom: var(--spacing-s); /* Add some space below the input */
+    flex-shrink: 0;
+}
+
+    #popover-language-search:focus {
+        border-color: var(--text-accent); /* Highlight on focus */
+    }
+
+/* The scrollable list container */
+#popover-language-list {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+/* Style for each language item in the list */
+.language-item {
+    /* *** FIX: Reuse styles from .search-result-item in style.css *** */
+    padding: var(--spacing-s) var(--spacing-m);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color 0.2s ease;
+}
+
+    /* Hover and selected (via keyboard) effect for language items */
+    .language-item:hover, .language-item.selected {
+        background-color: var(--bg-tertiary);
+    }

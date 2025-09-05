@@ -18,6 +18,15 @@ add_executable(VeritNote WIN32
     src/main.cpp
  "src/Backend.cpp")
 
+set_target_properties(VeritNote PROPERTIES
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+)
+
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+endif()
+
 # --- 包含所有第三方库头文件 ---
 set(WebView2_INCLUDE_DIR "${VENDOR_DIR}/WebView2/include")
 set(WIL_INCLUDE_DIR "${VENDOR_DIR}/wil/include") # <--- 新增 WIL 的路径
