@@ -1,11 +1,16 @@
-#include <iostream>
+ï»¿#include <iostream>
 #include <codecvt>
 #include <locale>
+#include <vector>
 #include <filesystem>
 #include <fstream>
 
 #include "Backend.h"
 #include <ShlObj.h>
+
+
+// We need to store the next workspace path temporarily
+std::wstring g_nextWorkspacePath = L"";
 
 // Helper to convert wstring to string
 std::string wstring_to_string(const std::wstring& wstr) {
@@ -25,7 +30,7 @@ std::wstring string_to_wstring(const std::string& str) {
     return wstrTo;
 }
 
-// »ñÈ¡¿ÉÖ´ĞĞÎÄ¼şËùÔÚµÄÄ¿Â¼
+// è·å–å¯æ‰§è¡Œæ–‡ä»¶æ‰€åœ¨çš„ç›®å½•
 std::wstring GetExePath() {
     wchar_t path[MAX_PATH] = { 0 };
     GetModuleFileNameW(NULL, path, MAX_PATH);
@@ -42,20 +47,23 @@ void Backend::SetWebView(ICoreWebView2* webview) {
 
 void Backend::HandleWebMessage(const std::wstring& message) {
     try {
-        // WebView2 ·¢À´µÄÊÇ JSON ×Ö·û´®£¬ÏÈ½âÎö
+        // WebView2 å‘æ¥çš„æ˜¯ JSON å­—ç¬¦ä¸²ï¼Œå…ˆè§£æ
         auto json_msg = json::parse(wstring_to_string(message));
         std::string action = json_msg.value("action", "");
         json payload = json_msg.value("payload", json::object());
 
         if (action == "setWorkspace") {
-            // Ö»ÉèÖÃÂ·¾¶£¬²»Á¢¼´É¨Ãè£¡
             std::string path_str = payload.value("path", "");
             m_workspaceRoot = string_to_wstring(path_str);
         }
         else if (action == "jsReady") {
-            // ÊÕµ½ JS ×¼±¸ºÃµÄĞÅºÅºó£¬²Å¿ªÊ¼É¨Ãè²¢·¢ËÍ¹¤×÷ÇøÁĞ±í
+            // JS in index.html is ready and has already sent its workspace path.
+            // So we can now list the files.
             if (!m_workspaceRoot.empty()) {
-                ListWorkspace(json::object()); // ´«ÈëÒ»¸ö¿ÕµÄ payload ¼´¿É
+                // If the JS context is the editor, list the workspace.
+                // We might need a way to know which page is ready.
+                // For now, this is okay.
+                ListWorkspace(json::object());
             }
         }
         else if (action == "listWorkspace") {
@@ -85,12 +93,27 @@ void Backend::HandleWebMessage(const std::wstring& message) {
         else if (action == "openFileDialog") {
             OpenFileDialog();
         }
+        else if (action == "prepareExportLibs") {
+            PrepareExportLibs(payload);
+        }
+        else if (action == "openWorkspaceDialog") {
+            OpenWorkspaceDialog();
+        }
+        else if (action == "openWorkspace") {
+            OpenWorkspace(payload);
+        }
+        else if (action == "goToDashboard") {
+            GoToDashboard();
+        }
+        else if (action == "toggleFullscreen") {
+            ToggleFullscreen();
+        }
         else {
             std::cout << "Unknown Action: " + action << std::endl;
         }
     }
     catch (const json::parse_error& e) {
-        // JSON ½âÎöÊ§°Ü
+        // JSON è§£æå¤±è´¥
     }
 }
 
@@ -132,19 +155,19 @@ void Backend::ListWorkspace(const json& payload) {
         if (!m_workspaceRoot.empty()) {
             response["payload"] = scan_dir(m_workspaceRoot);
 
-            // ¡¾ºËĞÄĞŞ¸Ä¡¿¼ì²é¹¤×÷ÇøÊÇ·ñÎª¿Õ
+            // ã€æ ¸å¿ƒä¿®æ”¹ã€‘æ£€æŸ¥å·¥ä½œåŒºæ˜¯å¦ä¸ºç©º
             if (response["payload"]["children"].empty()) {
-                // Èç¹ûÎª¿Õ£¬¸´ÖÆÊ¾ÀıÎÄ¼ş
+                // å¦‚æœä¸ºç©ºï¼Œå¤åˆ¶ç¤ºä¾‹æ–‡ä»¶
                 std::filesystem::path exeDir = GetExePath();
                 std::filesystem::path exampleFilePath = exeDir / "webview_ui" / "welcome.veritnote";
 
-                // ÉèÖÃÄ¿±êÎÄ¼şÃû
+                // è®¾ç½®ç›®æ ‡æ–‡ä»¶å
                 std::filesystem::path destFilePath = std::filesystem::path(m_workspaceRoot) / "welcome.veritnote";
 
                 if (std::filesystem::exists(exampleFilePath)) {
                     std::filesystem::copy_file(exampleFilePath, destFilePath);
 
-                    // ¡¾¹Ø¼ü¡¿¸´ÖÆÍê³Éºó£¬ÖØĞÂÉ¨Ãè¹¤×÷Çø
+                    // ã€å…³é”®ã€‘å¤åˆ¶å®Œæˆåï¼Œé‡æ–°æ‰«æå·¥ä½œåŒº
                     response["payload"] = scan_dir(m_workspaceRoot);
                 }
             }
@@ -182,7 +205,7 @@ void Backend::LoadPage(const json& payload) {
         if (file.is_open()) {
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             if (content.empty()) {
-                // Èç¹ûÎÄ¼şÊÇ¿ÕµÄ£¬·µ»ØÒ»¸öÄ¬ÈÏµÄ¶ÎÂä block
+                // å¦‚æœæ–‡ä»¶æ˜¯ç©ºçš„ï¼Œè¿”å›ä¸€ä¸ªé»˜è®¤çš„æ®µè½ block
                 response["payload"]["content"] = json::array({
                     {{"id", "start-block"}, {"type", "paragraph"}, {"content", ""}, {"children", json::array()}}
                     });
@@ -214,7 +237,7 @@ void Backend::SavePage(const json& payload) {
     try {
         std::ofstream file(pagePath);
         if (file.is_open()) {
-            // Ê¹ÓÃ dump(2) ½øĞĞ¸ñÊ½»¯Êä³ö£¬ÃÀ¹Û
+            // ä½¿ç”¨ dump(2) è¿›è¡Œæ ¼å¼åŒ–è¾“å‡ºï¼Œç¾è§‚
             file << content.dump(2);
             response["payload"]["success"] = true;
         }
@@ -236,13 +259,13 @@ void Backend::StartExport(const json& payload) {
         std::filesystem::path buildPath = m_workspaceRoot;
         buildPath /= "build";
 
-        // Çå¿Õ²¢´´½¨ build ÎÄ¼ş¼Ğ
+        // æ¸…ç©ºå¹¶åˆ›å»º build æ–‡ä»¶å¤¹
         if (std::filesystem::exists(buildPath)) {
             std::filesystem::remove_all(buildPath);
         }
         std::filesystem::create_directory(buildPath);
 
-        // µ¼³öcss
+        // å¯¼å‡ºcss
         std::filesystem::path exeDir = GetExePath();
         std::filesystem::path sourceCssPath = exeDir / "webview_ui" / "css" / "style.css";
         std::filesystem::path destCssPath = buildPath / "style.css";
@@ -251,7 +274,7 @@ void Backend::StartExport(const json& payload) {
             std::filesystem::copy_file(sourceCssPath, destCssPath);
         }
 
-        // Í¨ÖªÇ°¶Ë¿ÉÒÔ¿ªÊ¼Öğ¸ö·¢ËÍÎÄ¼şÁË
+        // é€šçŸ¥å‰ç«¯å¯ä»¥å¼€å§‹é€ä¸ªå‘é€æ–‡ä»¶äº†
         SendMessageToJS({ {"action", "exportReady"} });
     }
     catch (const std::exception& e) {
@@ -268,26 +291,26 @@ void Backend::ExportPageAsHtml(const json& payload) {
         std::filesystem::path workspacePath(m_workspaceRoot);
         std::filesystem::path buildPath = workspacePath / "build";
 
-        // ¼ÆËãÏà¶ÔÂ·¾¶
+        // è®¡ç®—ç›¸å¯¹è·¯å¾„
         std::filesystem::path relativePath = std::filesystem::relative(sourcePath, workspacePath);
 
-        // ¹¹½¨Ä¿±êÂ·¾¶
+        // æ„å»ºç›®æ ‡è·¯å¾„
         std::filesystem::path targetPath = buildPath / relativePath;
         targetPath.replace_extension(".html");
 
-        // Èç¹ûĞèÒª£¬´´½¨¸¸Ä¿Â¼
+        // å¦‚æœéœ€è¦ï¼Œåˆ›å»ºçˆ¶ç›®å½•
         if (targetPath.has_parent_path()) {
             std::filesystem::create_directories(targetPath.parent_path());
         }
 
-        // Ğ´ÈëÎÄ¼ş
+        // å†™å…¥æ–‡ä»¶
         std::ofstream file(targetPath);
         file << htmlContent;
         file.close();
 
     }
     catch (const std::exception& e) {
-        // ¿ÉÒÔÑ¡ÔñĞÔµØÏòÇ°¶Ë±¨¸æ´íÎó
+        // å¯ä»¥é€‰æ‹©æ€§åœ°å‘å‰ç«¯æŠ¥å‘Šé”™è¯¯
     }
 }
 
@@ -300,20 +323,20 @@ void Backend::CreateItem(const json& payload) {
         std::filesystem::path fullPath = std::filesystem::path(parentPathStr) / name;
 
         if (type == "folder") {
-            fullPath.replace_extension(""); // È·±£Ã»ÓĞÀ©Õ¹Ãû
+            fullPath.replace_extension(""); // ç¡®ä¿æ²¡æœ‰æ‰©å±•å
             std::filesystem::create_directory(fullPath);
         }
         else { // page
             fullPath.replace_extension(".veritnote");
             std::ofstream file(fullPath);
-            file << "[]"; // ´´½¨Ò»¸ö¿ÕµÄ JSON Êı×é×÷Îª³õÊ¼ÄÚÈİ
+            file << "[]"; // åˆ›å»ºä¸€ä¸ªç©ºçš„ JSON æ•°ç»„ä½œä¸ºåˆå§‹å†…å®¹
             file.close();
         }
-        // Í¨ÖªÇ°¶Ë¸üĞÂÎÄ¼şÊ÷
+        // é€šçŸ¥å‰ç«¯æ›´æ–°æ–‡ä»¶æ ‘
         SendMessageToJS({ {"action", "workspaceUpdated"} });
     }
     catch (const std::exception& e) {
-        // ´íÎó´¦Àí
+        // é”™è¯¯å¤„ç†
     }
 }
 
@@ -322,20 +345,20 @@ void Backend::DeleteItem(const json& payload) {
         std::string pathStr = payload.value("path", "");
         std::filesystem::path fullPath(pathStr);
         if (std::filesystem::exists(fullPath)) {
-            std::filesystem::remove_all(fullPath); // ¶ÔÎÄ¼şºÍÎÄ¼ş¼Ğ¶¼ÓĞĞ§
+            std::filesystem::remove_all(fullPath); // å¯¹æ–‡ä»¶å’Œæ–‡ä»¶å¤¹éƒ½æœ‰æ•ˆ
         }
-        // Í¨ÖªÇ°¶Ë¸üĞÂÎÄ¼şÊ÷
+        // é€šçŸ¥å‰ç«¯æ›´æ–°æ–‡ä»¶æ ‘
         SendMessageToJS({ {"action", "workspaceUpdated"} });
     }
     catch (const std::exception& e) {
-        // ´íÎó´¦Àí
+        // é”™è¯¯å¤„ç†
     }
 }
 
 void Backend::RequestNoteList() {
     json noteList = json::array();
 
-    // µİ¹éÉ¨Ãèº¯Êı
+    // é€’å½’æ‰«æå‡½æ•°
     std::function<void(const std::filesystem::path&)> scan =
         [&](const std::filesystem::path& dir_path) {
         for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
@@ -364,23 +387,23 @@ void Backend::RequestNoteList() {
 
 
 void Backend::OpenFileDialog() {
-    // Õâ¸öº¯ÊıĞèÒªÖ÷´°¿Ú¾ä±ú£¬ÎÒÃÇ¿ÉÒÔ°ÑËü´æ´¢ÆğÀ´
-    // ÔÚ wWinMain ´´½¨´°¿Úºó£¬¿ÉÒÔµ÷ÓÃÒ»¸ö backend.SetMainWindow(hWnd)
-    // Îª¼òµ¥Æğ¼û£¬ÎÒÃÇÏÈ¼ÙÉèÄÜ»ñÈ¡µ½Ëü£¬»òÕßÓÃ NULL
-    HWND hWnd = NULL; // ÀíÏëÇé¿öÏÂÓ¦¸Ã±£´æÖ÷´°¿Ú¾ä±ú
+    // è¿™ä¸ªå‡½æ•°éœ€è¦ä¸»çª—å£å¥æŸ„ï¼Œæˆ‘ä»¬å¯ä»¥æŠŠå®ƒå­˜å‚¨èµ·æ¥
+    // åœ¨ wWinMain åˆ›å»ºçª—å£åï¼Œå¯ä»¥è°ƒç”¨ä¸€ä¸ª backend.SetMainWindow(hWnd)
+    // ä¸ºç®€å•èµ·è§ï¼Œæˆ‘ä»¬å…ˆå‡è®¾èƒ½è·å–åˆ°å®ƒï¼Œæˆ–è€…ç”¨ NULL
+    HWND hWnd = NULL; // ç†æƒ³æƒ…å†µä¸‹åº”è¯¥ä¿å­˜ä¸»çª—å£å¥æŸ„
 
     IFileOpenDialog* pfd;
     std::wstring selectedPath = L"";
 
     if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))) {
         if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pfd)))) {
-            // ÉèÖÃÎÄ¼şÀàĞÍ¹ıÂËÆ÷
+            // è®¾ç½®æ–‡ä»¶ç±»å‹è¿‡æ»¤å™¨
             COMDLG_FILTERSPEC fileTypes[] = {
                 { L"Image Files", L"*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp" },
                 { L"All Files", L"*. *" }
             };
             pfd->SetFileTypes(ARRAYSIZE(fileTypes), fileTypes);
-            pfd->SetTitle(L"Ñ¡ÔñÍ¼Æ¬ÎÄ¼ş");
+            pfd->SetTitle(L"é€‰æ‹©å›¾ç‰‡æ–‡ä»¶");
 
             if (SUCCEEDED(pfd->Show(hWnd))) {
                 IShellItem* psi;
@@ -398,22 +421,157 @@ void Backend::OpenFileDialog() {
         CoUninitialize();
     }
 
-    // ¼ÆËãÏà¶ÔÂ·¾¶
+    // è®¡ç®—ç›¸å¯¹è·¯å¾„
     std::filesystem::path imagePath(selectedPath);
     std::filesystem::path workspacePath(m_workspaceRoot);
     std::string finalPathStr;
 
-    // ¼ì²éÍ¼Æ¬ÊÇ·ñÔÚ¹¤×÷ÇøÄÚ
+    // æ£€æŸ¥å›¾ç‰‡æ˜¯å¦åœ¨å·¥ä½œåŒºå†…
     if (imagePath.string().find(workspacePath.string()) == 0) {
-        // ÊÇ£¬ÔòÊ¹ÓÃÏà¶ÔÂ·¾¶
+        // æ˜¯ï¼Œåˆ™ä½¿ç”¨ç›¸å¯¹è·¯å¾„
         finalPathStr = std::filesystem::relative(imagePath, workspacePath).string();
     }
     else {
-        // ·ñ£¬ÔòÊ¹ÓÃ¾ø¶ÔÂ·¾¶£¬²¢×ª»»Îª file:/// Ğ­Òé
+        // å¦ï¼Œåˆ™ä½¿ç”¨ç»å¯¹è·¯å¾„ï¼Œå¹¶è½¬æ¢ä¸º file:/// åè®®
         finalPathStr = "file:///" + wstring_to_string(selectedPath);
     }
-    // Ìæ»»·´Ğ±¸Ü
+    // æ›¿æ¢åæ–œæ 
     std::replace(finalPathStr.begin(), finalPathStr.end(), '\\', '/');
 
     SendMessageToJS({ {"action", "fileDialogClosed"}, {"payload", {{"path", finalPathStr}}} });
+}
+
+
+
+void Backend::PrepareExportLibs(const json& payload) {
+    try {
+        std::filesystem::path buildPath = m_workspaceRoot;
+        buildPath /= "build";
+        std::filesystem::path vendorBuildPath = buildPath / "vendor";
+
+        // Get the source directory of our UI files
+        std::filesystem::path exeDir = GetExePath();
+        std::filesystem::path sourceUiPath = exeDir / "webview_ui";
+
+        // Ensure the build/vendor directory exists
+        if (!std::filesystem::exists(vendorBuildPath)) {
+            std::filesystem::create_directories(vendorBuildPath);
+        }
+
+        // The payload contains an array of relative paths
+        if (payload.contains("paths") && payload["paths"].is_array()) {
+            for (const auto& item : payload["paths"]) {
+                if (item.is_string()) {
+                    std::string libPathStr = item.get<std::string>();
+
+                    // Construct source and destination paths
+                    std::filesystem::path sourceLibPath = sourceUiPath / libPathStr;
+                    std::filesystem::path destLibPath = buildPath / libPathStr;
+
+                    // Create parent directories for the destination if they don't exist
+                    if (destLibPath.has_parent_path() && !std::filesystem::exists(destLibPath.parent_path())) {
+                        std::filesystem::create_directories(destLibPath.parent_path());
+                    }
+
+                    // Copy the file if it exists
+                    if (std::filesystem::exists(sourceLibPath)) {
+                        std::filesystem::copy_file(sourceLibPath, destLibPath, std::filesystem::copy_options::overwrite_existing);
+                    }
+                }
+            }
+        }
+
+        // After copying all files, notify the frontend that it can proceed
+        SendMessageToJS({ {"action", "exportLibsReady"} });
+    }
+    catch (const std::exception& e) {
+        SendMessageToJS({ {"action", "exportError"}, {"error", e.what()} });
+    }
+}
+
+
+void Backend::SetMainWindowHandle(HWND hWnd) {
+    m_hWnd = hWnd;
+}
+
+
+void Backend::OpenWorkspaceDialog() {
+    IFileOpenDialog* pfd;
+    if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))) {
+        if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pfd)))) {
+            DWORD dwOptions;
+            if (SUCCEEDED(pfd->GetOptions(&dwOptions))) {
+                pfd->SetOptions(dwOptions | FOS_PICKFOLDERS);
+            }
+            if (SUCCEEDED(pfd->Show(m_hWnd))) {
+                IShellItem* psi;
+                if (SUCCEEDED(pfd->GetResult(&psi))) {
+                    PWSTR pszFilePath = NULL;
+                    if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath))) {
+                        json payload = { {"path", wstring_to_string(pszFilePath)} };
+                        OpenWorkspace(payload);
+                        CoTaskMemFree(pszFilePath);
+                    }
+                    psi->Release();
+                }
+            }
+            pfd->Release();
+        }
+        CoUninitialize();
+    }
+}
+
+void Backend::OpenWorkspace(const json& payload) {
+    std::string path = payload.value("path", "");
+    if (path.empty()) return;
+
+    // --- Step 1: Store the workspace path for later injection ---
+    g_nextWorkspacePath = string_to_wstring(path);
+
+    // --- Step 2: Tell the dashboard to add this to its recent list (same as before) ---
+    std::string escaped_path = "";
+    for (char c : path) {
+        if (c == '\\') {
+            escaped_path += "\\\\";
+        }
+        else {
+            escaped_path += c;
+        }
+    }
+    std::wstring script = L"window.addRecentWorkspace(\"" + string_to_wstring(escaped_path) + L"\")";
+    m_webview->ExecuteScript(script.c_str(), nullptr);
+
+    // --- Step 3: Navigate to index.html WITHOUT any query parameters ---
+    std::wstring exePath = GetExePath();
+    std::wstring editorPath = exePath + L"\\webview_ui\\index.html";
+    m_webview->Navigate(editorPath.c_str());
+}
+
+void Backend::GoToDashboard() {
+    std::wstring exePath = GetExePath();
+    std::wstring dashboardPath = exePath + L"\\webview_ui\\dashboard.html";
+    m_webview->Navigate(dashboardPath.c_str());
+}
+
+void Backend::ToggleFullscreen() {
+    if (!m_hWnd) return;
+    DWORD style = GetWindowLong(m_hWnd, GWL_STYLE);
+    if (style & WS_OVERLAPPEDWINDOW) {
+        // Go fullscreen
+        MONITORINFO mi = { sizeof(mi) };
+        if (GetMonitorInfo(MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTOPRIMARY), &mi)) {
+            SetWindowLong(m_hWnd, GWL_STYLE, style & ~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(m_hWnd, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top,
+                mi.rcMonitor.right - mi.rcMonitor.left,
+                mi.rcMonitor.bottom - mi.rcMonitor.top,
+                SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        }
+    }
+    else {
+        // Restore from fullscreen
+        SetWindowLong(m_hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+        SetWindowPos(m_hWnd, NULL, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+            SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
 }

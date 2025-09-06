@@ -227,33 +227,52 @@ class Editor {
 
     
     _onClick(e) {
-        // *** FIX: Simplified and more robust logic for clicking container whitespace ***
-        if (e.target.matches('.callout-content-wrapper, .block-content[data-type="column"]')) {
-            const containerId = e.target.closest('[data-id]').dataset.id;
-            const containerInstance = this._findBlockInstanceAndParent(containerId)?.block;
-            if (containerInstance) {
-                this._appendNewBlockToContainer(containerInstance);
-                return; 
-            }
-        }
-        
+    // 1. 高优先级检查：删除按钮
+    if (e.target.classList.contains('delete-btn')) {
         const blockContainerEl = e.target.closest('.block-container');
-        if (!blockContainerEl) {
-            if (e.target === this.container) {
-                this._onBackgroundClick();
-            }
-            return;
-        }
-
-        if (e.target.classList.contains('delete-btn')) {
-            const blockContainerEl = e.target.closest('.block-container');
+        if (blockContainerEl) {
             const blockInstance = this._findBlockInstanceAndParent(blockContainerEl.dataset.id)?.block;
             if (blockInstance) {
-                // *** FIX: Use the centralized deleteBlock method ***
                 this.deleteBlock(blockInstance);
             }
         }
+        return;
     }
+
+    // 2. 高优先级检查：编辑器背景
+    if (e.target === this.container) {
+        this._onBackgroundClick();
+        return;
+    }
+
+    // --- 容器点击逻辑 ---
+
+    // 3. 特殊待遇：检查是否直接点击了 Column 块的空白区域
+    // 因为 Column 块没有 .block-container 包装器，所以必须优先单独处理。
+    if (e.target.matches('.block-content[data-type="column"]')) {
+        const columnId = e.target.dataset.id;
+        const columnInstance = this._findBlockInstanceAndParent(columnId)?.block;
+        // 确保我们找到了一个有效的 Column 实例
+        if (columnInstance && columnInstance.isContainer) {
+            this._appendNewBlockToContainer(columnInstance);
+            return; // 操作完成，退出
+        }
+    }
+
+    // 4. 通用逻辑：检查是否点击了其他标准容器块（如 Callout）的空白区域
+    const blockContainerEl = e.target.closest('.block-container');
+    if (blockContainerEl) {
+        const containerInstance = this._findBlockInstanceAndParent(blockContainerEl.dataset.id)?.block;
+        const clickedBlockElement = e.target.closest('[data-id]');
+
+        // 关键判断：确保是容器，并且点击的是容器自身，而非其子块
+        if (containerInstance && containerInstance.isContainer &&
+            clickedBlockElement && clickedBlockElement.dataset.id === containerInstance.id) {
+            this._appendNewBlockToContainer(containerInstance);
+            return; // 操作完成，退出
+        }
+    }
+}
 
     _onBackgroundClick() {
         const newBlock = this.createBlockInstance({ type: 'paragraph' });
@@ -606,52 +625,52 @@ class Editor {
         let structuralChange = false;
 
         const traverseAndClean = (blocks, parent) => {
-            // Traverse from the end to avoid index issues when removing items
             for (let i = blocks.length - 1; i >= 0; i--) {
                 const block = blocks[i];
 
-                // Step 1: Recurse down to the deepest level first
                 if (block.children && block.children.length > 0) {
                     traverseAndClean(block.children, block);
                 }
 
-                // Step 2: Now, evaluate the current block
                 if (block.type === 'columns') {
-                    // Rule A: If a columns container has no columns left, remove it.
-                    if (block.children.length === 0) {
-                        blocks.splice(i, 1);
-                        structuralChange = true;
-                        continue; // Move to the next block in the parent
-                    }
+                    const originalColumnCount = block.children.length;
                     
-                    // Rule B: If it has only one column left, dissolve the container
-                    // and promote the column's children to this level.
-                    if (block.children.length === 1) {
-                        const survivingBlocks = block.children[0].children;
-                        blocks.splice(i, 1, ...survivingBlocks);
+                    // Rule A: Filter out any child columns that are now completely empty.
+                    const nonEmptyColumns = block.children.filter(col => col.children.length > 0);
+                    
+                    const columnsWereRemoved = nonEmptyColumns.length < originalColumnCount;
+
+                    if (columnsWereRemoved) {
+                        block.children = nonEmptyColumns;
                         structuralChange = true;
-                        continue;
                     }
 
-                    // Rule C: If multiple columns remain, rebalance their widths.
-                    // This is not a structural change, but good hygiene.
-                    const numCols = block.children.length;
-                    block.children.forEach(col => col.properties.width = 1 / numCols);
-                }
-                
-                // Rule D: If a column is now empty, it should be removed.
-                // This check happens after we've potentially cleaned up its children.
-                if (block.type === 'column' && block.children.length === 0) {
-                    // The parent of a column is always a 'columns' block
-                    if (parent && parent.type === 'columns') {
-                        blocks.splice(i, 1);
-                        structuralChange = true;
+                    // Now, evaluate the state of the columns container AFTER potential column removal.
+                    const currentColumnCount = block.children.length;
+
+                    // Find the container's position in the main tree to modify it if needed
+                    const info = this._findBlockInstanceAndParent(block.id);
+                    if (!info) continue;
+
+                    if (currentColumnCount === 0) {
+                        // Rule B: Dissolve the container if it's completely empty.
+                        info.parentArray.splice(info.index, 1);
+                    } else if (currentColumnCount === 1) {
+                        // Rule C: Dissolve if only one column remains, promoting its children.
+                        const survivingBlocks = block.children[0].children;
+                        info.parentArray.splice(info.index, 1, ...survivingBlocks);
+                    } else if (columnsWereRemoved) {
+                        // *** THE FIX IS HERE ***
+                        // ONLY rebalance widths IF the number of columns has actually changed.
+                        // If no columns were removed (e.g., just text was deleted inside a column),
+                        // this block will be skipped, preserving the custom widths.
+                        const numCols = block.children.length;
+                        block.children.forEach(col => col.properties.width = 1 / numCols);
                     }
                 }
             }
         };
         
-        // Start the process from the root blocks
         traverseAndClean(this.blocks, null);
         
         return structuralChange;
@@ -947,13 +966,31 @@ class Editor {
     }
 
     getSanitizedHtml(isForExport = false, workspaceRoot = '') {
+        // 1. Clone the container to avoid modifying the live editor
         const clonedContainer = this.container.cloneNode(true);
+
+        // 2. Remove all general editing controls
         clonedContainer.querySelectorAll('.block-controls, .column-resizer, .drop-indicator, .drop-indicator-vertical').forEach(el => el.remove());
+
+        // 3. *** FIX for Code Block Export Bug ***
+        //    Find all code blocks and remove their invisible textarea input.
+        clonedContainer.querySelectorAll('.block-content[data-type="code"]').forEach(codeBlockElement => {
+            const textarea = codeBlockElement.querySelector('.code-block-input');
+            if (textarea) {
+                textarea.remove();
+            }
+        });
+        
+        // 4. Remove contentEditable attributes and placeholders from all blocks
         clonedContainer.querySelectorAll('[contentEditable="true"]').forEach(el => {
             el.removeAttribute('contentEditable');
             el.removeAttribute('data-placeholder');
         });
+
+        // 5. Remove interaction-related classes
         clonedContainer.querySelectorAll('.toolbar-active').forEach(el => el.classList.remove('toolbar-active'));
+
+        // 6. Process internal links
         clonedContainer.querySelectorAll('a').forEach(a => {
             let href = a.getAttribute('href');
             if (href && href.endsWith('.veritnote')) {
@@ -966,6 +1003,8 @@ class Editor {
                 }
             }
         });
+
+        // Return the sanitized HTML string
         return clonedContainer.innerHTML;
     }
 

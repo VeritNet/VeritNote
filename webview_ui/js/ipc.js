@@ -57,6 +57,16 @@ const ipc = {
     openFileDialog: () => {
         ipc.send('openFileDialog');
     },
+
+    prepareExportLibs: (libPaths) => {
+        ipc.send('prepareExportLibs', { paths: libPaths });
+    },
+
+    openWorkspaceDialog: () => ipc.send('openWorkspaceDialog'),
+    openWorkspace: (path) => ipc.send('openWorkspace', path),
+    goToDashboard: () => ipc.send('goToDashboard'),
+    toggleFullscreen: () => ipc.send('toggleFullscreen'),
+    setWorkspace: (path) => ipc.send('setWorkspace', path),
 };
 
 // 立即初始化监听器

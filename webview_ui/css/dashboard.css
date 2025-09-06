@@ -1,0 +1,310 @@
+﻿:root {
+    --bg-primary: rgb(25, 25, 25);
+    --bg-secondary: #252526;
+    --bg-tertiary: #333333;
+    --text-primary: #cccccc;
+    --text-secondary: #8c8c8c;
+    --text-accent: #569cd6;
+    --border-color: #444444;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --spacing-s: 8px;
+    --spacing-m: 16px;
+    --spacing-l: 24px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+.background-noise {
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    right: -50%;
+    bottom: -50%;
+    width: 200%;
+    height: 200%;
+    background: transparent url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MDAgNTAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgZmlsdGVyPSJ1cmwoI25vaXNlKSIgb3BhY2l0eT0iMC4wMyIvPjwvc3ZnPg==') 0 0;
+    animation: noise 1s steps(2) infinite;
+    z-index: -1;
+}
+
+@keyframes noise {
+    0%, 100% {
+        transform: translate(0, 0);
+    }
+
+    50% {
+        transform: translate(5px, 5px);
+    }
+}
+
+.main-container {
+    display: flex;
+    flex-direction: column;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: var(--spacing-l);
+    height: 100vh;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-m) 0;
+}
+
+    header h1 {
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+.header-controls {
+    display: flex;
+    gap: var(--spacing-s);
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--spacing-s);
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+    .icon-btn:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+.content {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+    .content h2 {
+        font-size: 16px;
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-m);
+    }
+
+.search-bar input {
+    width: 100%;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 16px;
+    margin-bottom: var(--spacing-l);
+}
+
+    .search-bar input:focus {
+        border-color: var(--text-accent);
+        outline: none;
+    }
+
+.recent-list .item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-m);
+    border-radius: 6px;
+    margin-bottom: var(--spacing-s);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+    .recent-list .item:hover {
+        background-color: var(--bg-secondary);
+    }
+
+.item-details .name {
+    font-weight: 500;
+}
+
+.item-details .path {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.item-controls .remove-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+    padding: var(--spacing-s);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.recent-list .item:hover .remove-btn {
+    opacity: 1;
+}
+
+.remove-btn:hover {
+    color: #f44336;
+}
+
+.empty-list {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 40px;
+}
+
+footer {
+    padding: var(--spacing-l) 0;
+    text-align: center;
+}
+
+    footer #open-workspace-btn.primary-btn {
+        width: auto; /* 关键修复：覆盖全局的 width: 100% */
+        background-color: var(--text-accent);
+        color: white;
+        border: none;
+        padding: 10px 24px; /* 调整为一个舒适的短按钮 padding */
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-s);
+        transition: background-color: 0.2s;
+    }
+
+.primary-btn {
+    background-color: var(--text-accent);
+    color: white;
+    border: none;
+    /* *** FIX: Adjust padding for a shorter button *** */
+    padding: 10px 16px;
+    font-size: 14px; /* A slightly smaller font size is also common for such buttons */
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    transition: background-color 0.2s;
+}
+
+    .primary-btn:hover {
+        background-color: #4A90E2;
+    }
+
+/* Modal styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+
+.modal-content {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-l);
+    border-radius: 8px;
+    width: 480px;
+    max-width: 95vw;
+    position: relative;
+    border: 1px solid var(--border-color);
+    /* 将所有文本内容居中 */
+    text-align: center;
+}
+
+    .modal-content .close-btn {
+        position: absolute;
+        top: 10px; /* 微调以获得更好的视觉效果 */
+        right: 10px; /* 微调以获得更好的视觉效果 */
+
+        width: auto; /* <-- 这就是解决问题的关键！ */
+
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 24px;
+        cursor: pointer;
+        line-height: 1;
+        padding: 8px;
+        z-index: 10;
+    }
+
+    .modal-content h3 {
+        margin-bottom: 8px;
+    }
+
+    .modal-content .version {
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+    }
+
+.link-container {
+    display: flex;
+    align-items: center;
+    margin-top: 24px;
+    width: 100%;
+    /* KEY FIX #2: 移除 gap 属性，让元素自然接触 */
+    /* gap: var(--spacing-s); */ /* <-- 移除或注释掉此行 */
+}
+
+    /* 确保标签文本不会被压缩 */
+    .link-container label {
+        flex-shrink: 0;
+        white-space: nowrap;
+        margin-right: var(--spacing-s); /* 使用 margin 代替 gap 来创建间距 */
+    }
+
+    /* 让输入框占据所有可用空间 */
+    .link-container input {
+        flex-grow: 1;
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        border-radius: 4px 0 0 4px;
+        padding: 8px;
+        min-width: 0;
+    }
+
+    /* 针对复制按钮的精确修复 */
+    .link-container button#copy-link-btn {
+        width: auto;
+        flex-shrink: 0;
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        /* 现在 border-left: none 可以正常工作，因为没有 gap 了 */
+        border-left: none;
+        border-radius: 0 4px 4px 0;
+        padding: 8px 16px;
+        cursor: pointer;
+    }
+
+    .link-container button:hover {
+        background-color: var(--bg-accent);
+    }

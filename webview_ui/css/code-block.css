@@ -3,12 +3,13 @@
 /* The main container for the code block visuals */
 .block-content[data-type="code"] {
     position: relative;
+    margin: var(--spacing-xs) 0;
     background-color: var(--bg-secondary);
     border-radius: 4px;
-    font-family: var(--font-family-monospace);
+    /* We define the font here, at the top level */
+    font-family: "Courier New", Courier, monospace;
     font-size: 14px;
     line-height: 1.5;
-    /* Let the inner <pre> element define the padding and layout */
 }
 
     /* The highlighted code container, this is what the user SEES */
@@ -16,8 +17,8 @@
         margin: 0;
         padding: var(--spacing-m);
         white-space: pre;
-        overflow-x: auto; /* Horizontal scroll for the visible code */
-        min-height: 1.5em; /* Ensure it has height even when empty */
+        overflow-x: auto;
+        min-height: calc(1.5em + 2 * var(--spacing-m)); /* line-height + vertical padding */
     }
 
     /* Override highlight.js theme specifics */
@@ -34,65 +35,71 @@
     left: 0;
     width: 100%;
     height: 100%;
-    /* Style matching for perfect alignment */
+    /* --- Final Fix for Cursor Misalignment --- */
+    /* 1. Reset and explicitly define ALL typography from the parent */
+    font: inherit; /* This is a shorthand that inherits everything: family, size, weight, line-height, etc. */
+    /* 2. Force identical text wrapping and spacing behavior */
+    white-space: pre;
+    text-wrap: nowrap; /* CRUCIAL: Prevents any internal wrapping calculations in the textarea */
+    word-break: keep-all; /* Another layer to prevent breaking */
+    overflow-wrap: normal;
+    letter-spacing: normal;
+    word-spacing: normal;
+    /* 3. Disable all font rendering optimizations that could cause width differences */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-variant-ligatures: none;
+    text-rendering: geometricPrecision;
+    /* 4. Synchronize tab size */
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
+    /* 5. Ensure Box Model is identical */
     padding: var(--spacing-m);
     margin: 0;
     border: none;
+    outline: none !important;
     box-sizing: border-box;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: inherit;
-    /* *** THE FIX for the "white border" *** */
-    outline: none !important; /* Remove browser's focus outline */
-    /* Make the text invisible but keep the caret */
+    /* 6. Visual Properties */
     background: transparent;
     color: transparent;
     caret-color: var(--text-primary);
     -webkit-text-fill-color: transparent;
+    /* 7. Behavior */
     resize: none;
-    white-space: pre;
-    /* Let the textarea scroll, which we sync to the <pre> */
     overflow: auto;
 }
 
-
 /* --- Styles for the Language Picker Popover --- */
-
-/* The main container for the language picker inside the generic popover */
 #popover-language-picker {
     display: flex;
     flex-direction: column;
-    max-height: 250px; /* Make the list scrollable */
+    max-height: 250px;
 }
 
-/* Style for the search input field */
 #popover-language-search {
-    /* *** FIX: Reuse styles from #popover-input in style.css *** */
-    width: 100%; /* Take full width */
-    box-sizing: border-box; /* Include padding and border in the width */
+    width: 100%;
+    box-sizing: border-box;
     background-color: var(--bg-accent);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     border-radius: 4px;
     padding: var(--spacing-s);
     outline: none;
-    margin-bottom: var(--spacing-s); /* Add some space below the input */
+    margin-bottom: var(--spacing-s);
     flex-shrink: 0;
 }
 
     #popover-language-search:focus {
-        border-color: var(--text-accent); /* Highlight on focus */
+        border-color: var(--text-accent);
     }
 
-/* The scrollable list container */
 #popover-language-list {
     overflow-y: auto;
     flex-grow: 1;
 }
 
-/* Style for each language item in the list */
 .language-item {
-    /* *** FIX: Reuse styles from .search-result-item in style.css *** */
     padding: var(--spacing-s) var(--spacing-m);
     cursor: pointer;
     border-radius: 4px;
@@ -103,7 +110,6 @@
     transition: background-color 0.2s ease;
 }
 
-    /* Hover and selected (via keyboard) effect for language items */
     .language-item:hover, .language-item.selected {
         background-color: var(--bg-tertiary);
     }

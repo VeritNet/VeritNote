@@ -12,6 +12,8 @@
 
 </head>
 <body>
+    <div id="sidebar-peek-trigger"></div>
+
     <div class="app-container">
         <!-- 左侧边栏 -->
         <aside id="sidebar">
@@ -22,6 +24,11 @@
                 <div class="loading-placeholder">Loading workspace...</div>
             </div>
             <div class="sidebar-footer">
+                <!-- NEW: Collapse button -->
+                <button id="sidebar-toggle-btn" class="sidebar-footer-btn" title="Collapse sidebar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                    <span>Collapse</span>
+                </button>
                 <button id="export-btn">Cook Workspace</button>
             </div>
         </aside>
@@ -29,10 +36,14 @@
         <!-- 主内容区域 -->
         <main id="main-content">
             <div class="editor-toolbar">
+                <button id="back-to-dashboard-btn" title="Back to Dashboard">🏠</button>
                 <span id="current-page-path"></span>
                 <div class="mode-switcher">
                     <button id="editor-mode-btn" class="active">Edit</button>
                     <button id="preview-mode-btn">Preview</button>
+                    <button id="toggle-fullscreen-btn-editor" class="icon-btn-editor" title="Toggle Fullscreen">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                    </button>
                 </div>
             </div>
             <!-- 编辑器 -->

@@ -1,11 +1,18 @@
-// js/blocks/CodeBlock.js
+﻿// js/blocks/CodeBlock.js
 class CodeBlock extends Block {
     static type = 'code';
+    static icon = '&lt;/&gt;';
     static label = 'Code Block';
     static description = 'Capture and highlight code snippets.';
     static keywords = ['code', 'snippet', 'pre', 'highlight'];
-    static icon = '</>';
     static canBeToggled = true;
+
+    static get requiredExportLibs() {
+        return [
+            'vendor/highlight/highlight.min.js',
+            'vendor/highlight/theme.css'
+        ];
+    }
 
     constructor(data, editor) {
         super(data, editor);
@@ -19,7 +26,12 @@ class CodeBlock extends Block {
             this.properties.language = 'plaintext';
         }
 
-        this.availableLanguages = ['plaintext', 'javascript', 'typescript', 'python', 'java', 'csharp', 'cpp', 'css', 'html', 'xml', 'json', 'yaml', 'sql', 'bash', 'markdown'];
+        this.availableLanguages = [
+            'bash', 'cpp', 'csharp', 'css', 'diff', 'go', 'graphql', 'ini', 'java', 
+            'javascript', 'json', 'kotlin', 'less', 'lua', 'makefile', 'markdown', 
+            'objectivec', 'perl', 'php', 'plaintext', 'python', 'r', 'ruby', 'rust', 
+            'scss', 'shell', 'powershell', 'sql', 'swift', 'typescript', 'xml', 'yaml'
+        ].sort();
     }
 
     render() {

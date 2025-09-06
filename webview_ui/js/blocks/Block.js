@@ -208,4 +208,13 @@ class Block {
             (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
         );
     }
+
+
+    /**
+     * @returns {Array<string>} A list of vendor library paths required for this block when exported.
+     * Example: ['vendor/highlight/highlight.min.js', 'vendor/highlight/theme.css']
+     */
+    static get requiredExportLibs() {
+        return [];
+    }
 }

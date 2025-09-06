@@ -5,7 +5,12 @@
 #include <streambuf>
 #include <functional>
 #include <debugapi.h>
+#include <functional>
 #include <shlobj.h> // For SHGetFolderPath
+
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
+#include "nlohmann/json.hpp"
 
 #include <ShellScalingApi.h>
 #pragma comment(lib, "Shcore.lib")
@@ -17,6 +22,18 @@ using namespace Microsoft::WRL;
 static wil::com_ptr<ICoreWebView2Controller> webviewController;
 static wil::com_ptr<ICoreWebView2> webview;
 static Backend backend; // 我们的后端逻辑处理实例
+static HWND global_hWnd;
+extern std::wstring g_nextWorkspacePath;
+
+
+std::string wstring_to_string_main(const std::wstring& wstr) {
+    if (wstr.empty()) return std::string();
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
+}
+
 
 // 函数声明
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -56,6 +73,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
 
+    global_hWnd = hWnd;
+
+    BOOL useDarkMode = TRUE;
+    DwmSetWindowAttribute(
+        hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+        &useDarkMode, sizeof(useDarkMode)
+    );
+
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
@@ -90,12 +115,48 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                         GetClientRect(hWnd, &bounds);
                         webviewController->put_Bounds(bounds);
 
-                        // 获取可执行文件所在目录，并构建前端 index.html 的路径
+                        // 获取可执行文件所在目录，并构建前端 html 的路径
                         std::wstring exePath = GetExePath();
-                        std::wstring htmlPath = exePath + L"\\webview_ui\\index.html";
+                        std::wstring htmlPath = exePath + L"\\webview_ui\\dashboard.html";
 
                         // WebView2 导航到我们的本地 HTML 文件
                         webview->Navigate(htmlPath.c_str());
+
+
+                        EventRegistrationToken navigationToken;
+                        webview->add_NavigationCompleted(Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                            [](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+                                BOOL success;
+                                args->get_IsSuccess(&success);
+
+                                if (success && !g_nextWorkspacePath.empty()) {
+                                    // Navigation to a new page (likely index.html) is complete.
+                                    // Now, inject the workspace path.
+
+                                    // Escape the path for JavaScript string
+                                    std::wstring escapedPath;
+                                    for (wchar_t c : g_nextWorkspacePath) {
+                                        if (c == L'\\') {
+                                            escapedPath += L"\\\\";
+                                        }
+                                        else if (c == L'"') {
+                                            escapedPath += L"\\\"";
+                                        }
+                                        else {
+                                            escapedPath += c;
+                                        }
+                                    }
+
+                                    // Call a global JS function to initialize the workspace
+                                    std::wstring script = L"window.initializeWorkspace(\"" + escapedPath + L"\");";
+                                    sender->ExecuteScript(script.c_str(), nullptr);
+
+                                    // Clear the path so it's not reused on next navigation
+                                    g_nextWorkspacePath.clear();
+                                }
+                                return S_OK;
+                            }).Get(), &navigationToken);
+
 
                         // --- 关键：设置 WebMessageReceived 事件处理器 ---
                         // 这是前端 JS 向后端 C++ 发送消息的通道
@@ -117,29 +178,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
                         // 将 webview 实例传递给 backend，以便后端可以向前端发送消息
                         backend.SetWebView(webview.get());
+                        backend.SetMainWindowHandle(hWnd);
 
-                        // 选择工作区
-                        std::wstring workspacePath = OpenWorkspaceFolderDialog(hWnd);
-                        if (!workspacePath.empty()) {
-                            std::wstring escapedWorkspacePath;
-                            for (wchar_t c : workspacePath) {
-                                if (c == L'\\') {
-                                    escapedWorkspacePath += L"\\\\";
-                                }
-                                else {
-                                    escapedWorkspacePath += c;
-                                }
-                            }
-
-                            std::wstring jsonMessage = L"{\"action\":\"setWorkspace\", \"payload\":{\"path\":\"" + escapedWorkspacePath + L"\"}}";
-                            backend.HandleWebMessage(jsonMessage);
-
-                        }
-                        else {
-                            // 如果用户取消选择，可以关闭应用或显示提示
-                            MessageBox(hWnd, L"未选择工作区，应用程序将退出。", L"提示", MB_OK);
-                            PostMessage(hWnd, WM_CLOSE, 0, 0);
-                        }
 
                         return S_OK;
                     }).Get());

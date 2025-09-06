@@ -12,6 +12,7 @@ class Backend {
 public:
     Backend();
     void SetWebView(ICoreWebView2* webview);
+    void SetMainWindowHandle(HWND hWnd);
     void HandleWebMessage(const std::wstring& message);
 
 private:
@@ -27,9 +28,15 @@ private:
     void DeleteItem(const json& payload);
     void RequestNoteList();
     void OpenFileDialog();
+    void PrepareExportLibs(const json& payload);
+    void OpenWorkspaceDialog();
+    void OpenWorkspace(const json& payload);
+    void GoToDashboard();
+    void ToggleFullscreen();
 
 
     // --- Private Members ---
     wil::com_ptr<ICoreWebView2> m_webview;
     std::wstring m_workspaceRoot;
+    HWND m_hWnd;
 };

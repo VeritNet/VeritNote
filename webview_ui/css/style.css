@@ -43,6 +43,8 @@ body {
 .app-container {
     display: flex;
     height: 100vh;
+    /* NEW: Add transition for main content margin */
+    transition: grid-template-columns 0.3s ease;
 }
 
 #sidebar {
@@ -52,13 +54,65 @@ body {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    transition: width 0.3s ease, transform 0.3s ease, min-width 0.3s ease;
+    will-change: width, transform;
+    position: relative;
+    z-index: 50; /* Ensure sidebar is on top */
 }
+
+/* --- NEW: Collapsed State --- */
+.sidebar-collapsed #sidebar {
+    width: 0;
+    min-width: 0; /* Important for shrinking */
+    border-right: none;
+    transform: translateX(-100%);
+    padding: 0;
+}
+
+.sidebar-collapsed #main-content {
+    /* Main content takes full width when collapsed */
+}
+
+/* --- NEW: Temporary Hover-to-Show State --- */
+.sidebar-collapsed.sidebar-peek #sidebar {
+    width: 260px;
+    min-width: 260px;
+    transform: translateX(0);
+    border-right: 1px solid var(--border-color);
+    box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+}
+
+    .sidebar-collapsed.sidebar-peek #sidebar .sidebar-header,
+    .sidebar-collapsed.sidebar-peek #sidebar .workspace-tree,
+    .sidebar-collapsed.sidebar-peek #sidebar .sidebar-footer {
+        opacity: 1;
+        transition: opacity 0.2s ease 0.1s;
+    }
+
+/* --- 新增: 侧边栏悬浮触发器样式 --- */
+#sidebar-peek-trigger {
+    position: fixed; /* 固定在视口上 */
+    top: 0;
+    left: 0;
+    width: 10px; /* 触发区域的宽度 */
+    height: 100vh; /* 触发区域的高度 (整个屏幕高) */
+    z-index: 100; /* 确保它在最上层，能接收鼠标事件 */
+    /* background: rgba(255, 0, 0, 0.2); */ /* 取消注释此行以进行调试，您会看到一个红色区域 */
+}
+
+/* 当侧边栏展开时，我们不需要这个触发器 */
+.app-container:not(.sidebar-collapsed) ~ #sidebar-peek-trigger {
+    display: none;
+}
+
 
 #main-content {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* NEW: Add transition */
+    transition: margin-left 0.3s ease;
 }
 
 /* --- 3. 侧边栏样式 --- */
@@ -131,10 +185,43 @@ body {
     padding-left: var(--spacing-m);
 }
 
+
 .sidebar-footer {
     padding: var(--spacing-s);
     border-top: 1px solid var(--border-color);
+    display: flex; /* NEW */
+    flex-direction: column; /* NEW */
+    gap: var(--spacing-s); /* NEW */
 }
+
+.sidebar-footer-btn {
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: var(--spacing-s);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    font-size: 14px;
+    text-align: left;
+}
+
+    .sidebar-footer-btn:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+/* When sidebar is collapsed, hide text content */
+.sidebar-collapsed .sidebar-header,
+.sidebar-collapsed .workspace-tree,
+.sidebar-collapsed .sidebar-footer {
+    opacity: 0;
+    transition: opacity 0.1s ease;
+}
+
 
 button {
     background-color: var(--bg-accent);
@@ -162,22 +249,64 @@ button {
 /* --- 4. 主内容区 & 编辑器样式 --- */
 .editor-toolbar {
     display: flex;
-    justify-content: space-between;
+    /* 移除 justify-content，让元素自然靠左 */
     align-items: center;
     padding: var(--spacing-s) var(--spacing-l);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    gap: var(--spacing-m);
+}
+
+.toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-m); /* 调整左侧元素间距 */
 }
 
 #current-page-path {
     font-size: 14px;
     color: var(--text-secondary);
+    white-space: nowrap; /* 防止路径换行 */
+}
+
+.toolbar-right .mode-switcher {
+    display: flex;
 }
 
 .mode-switcher button {
     width: auto;
     margin-left: var(--spacing-s);
 }
+
+.mode-switcher {
+    margin-left: auto; /* 关键！这个属性会占据所有可用空间，把它自己推到最右边 */
+    display: flex; /* 确保内部按钮水平排列 */
+}
+
+#back-to-dashboard-btn {
+    width: auto;
+    padding: 4px 10px;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.icon-btn-editor {
+    width: auto;
+    padding: var(--spacing-xs) var(--spacing-s);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer; /* Ensure cursor is pointer */
+}
+
+    .icon-btn-editor:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
 
 .editor-view {
     flex-grow: 1;
@@ -307,6 +436,13 @@ button {
     color: var(--text-secondary);
     cursor: text;
     pointer-events: none;
+    /* By default, it's hidden */
+    display: none;
+}
+
+.block-content[data-placeholder]:empty:focus::before {
+    /* Only display it when the element is empty AND has focus */
+    display: inline;
 }
 
 .block-content[data-type="heading1"] {
@@ -543,22 +679,34 @@ a {
 
 /* --- 9. 自定义滚动条 --- */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 14px; /* Width of the entire scrollbar */
+    height: 14px; /* Height for horizontal scrollbar */
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
+    background: transparent; /* Make the track invisible */
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 5px;
+    background-color: var(--bg-accent); /* Color of the handle */
+    border-radius: 10px; /* Fully rounded handle */
+    /* Create a "padding" effect around the handle */
+    border: 4px solid var(--bg-primary);
 }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: #666;
+        background-color: #555; /* Lighter on hover */
+        border-color: var(--bg-secondary); /* Match sidebar bg on hover */
     }
+
+/* For sidebar, a slightly different track color */
+#sidebar ::-webkit-scrollbar-track {
+    background-color: var(--bg-secondary);
+}
+
+#sidebar ::-webkit-scrollbar-thumb {
+    border-color: var(--bg-secondary);
+}
 
 
 /* ==========================================================================
