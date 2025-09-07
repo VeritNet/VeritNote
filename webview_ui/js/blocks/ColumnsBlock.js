@@ -1,8 +1,6 @@
 ﻿// js/blocks/ColumnsBlock.js
 class ColumnsBlock extends Block {
     static type = 'columns';
-
-    // This block is structural and should not appear in the command menu.
     static canBeToggled = false;
     
     constructor(data, editor) {
@@ -10,19 +8,17 @@ class ColumnsBlock extends Block {
         this.isContainer = true;
     }
 
-    // Columns are special. They don't have the standard .block-container wrapper.
-    // Their element IS the content element.
     render() {
+        // 原始的、无包装器的渲染方法
         this.element = this._createContentElement();
         this.contentElement = this.element;
-        this.childrenContainer = this.element; // Children (columns) are appended directly
+        this.childrenContainer = this.element;
         
         this._renderChildren();
         
         return this.element;
     }
     
-    // Not directly editable or interactive
     onInput(e) { /* no-op */ }
     onKeyDown(e) { /* no-op */ }
 }

@@ -175,11 +175,11 @@ footer {
 }
 
     footer #open-workspace-btn.primary-btn {
-        width: auto; /* 关键修复：覆盖全局的 width: 100% */
+        width: auto;
         background-color: var(--text-accent);
         color: white;
         border: none;
-        padding: 10px 24px; /* 调整为一个舒适的短按钮 padding */
+        padding: 10px 24px;
         font-size: 14px;
         font-weight: 500;
         border-radius: 6px;
@@ -190,11 +190,14 @@ footer {
         transition: background-color: 0.2s;
     }
 
+        footer #open-workspace-btn.primary-btn:hover {
+            background-color: #4A90E2;
+        }
+
 .primary-btn {
     background-color: var(--text-accent);
     color: white;
     border: none;
-    /* *** FIX: Adjust padding for a shorter button *** */
     padding: 10px 16px;
     font-size: 14px; /* A slightly smaller font size is also common for such buttons */
     font-weight: 500;

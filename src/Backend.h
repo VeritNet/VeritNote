@@ -8,6 +8,56 @@
 
 using json = nlohmann::json;
 
+
+class DownloadProgressCallback : public IBindStatusCallback {
+public:
+    DownloadProgressCallback(std::function<void(ULONG, ULONG)> onProgress, std::function<void(HRESULT)> onComplete)
+        : m_ref(1), m_onProgress(onProgress), m_onComplete(onComplete) {
+    }
+
+    // IUnknown
+    STDMETHODIMP QueryInterface(REFIID riid, void** ppvObject) override {
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IBindStatusCallback)) {
+            *ppvObject = static_cast<IBindStatusCallback*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppvObject = NULL;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() override { return InterlockedIncrement(&m_ref); }
+    STDMETHODIMP_(ULONG) Release() override {
+        ULONG ulRef = InterlockedDecrement(&m_ref);
+        if (ulRef == 0) delete this;
+        return ulRef;
+    }
+
+    // IBindStatusCallback
+    STDMETHODIMP OnStartBinding(DWORD, IBinding*) override { return S_OK; }
+    STDMETHODIMP GetPriority(LONG*) override { return S_OK; }
+    STDMETHODIMP OnLowResource(DWORD) override { return S_OK; }
+    STDMETHODIMP OnProgress(ULONG ulProgress, ULONG ulProgressMax, ULONG, LPCWSTR) override {
+        if (m_onProgress && ulProgressMax > 0) {
+            m_onProgress(ulProgress, ulProgressMax);
+        }
+        return S_OK;
+    }
+    STDMETHODIMP OnStopBinding(HRESULT hresult, LPCWSTR) override {
+        if (m_onComplete) m_onComplete(hresult);
+        return S_OK;
+    }
+    STDMETHODIMP GetBindInfo(DWORD*, BINDINFO*) override { return E_NOTIMPL; }
+    STDMETHODIMP OnDataAvailable(DWORD, DWORD, FORMATETC*, STGMEDIUM*) override { return E_NOTIMPL; }
+    STDMETHODIMP OnObjectAvailable(REFIID, IUnknown*) override { return E_NOTIMPL; }
+
+private:
+    ULONG m_ref;
+    std::function<void(ULONG, ULONG)> m_onProgress;
+    std::function<void(HRESULT)> m_onComplete;
+};
+
+
+
 class Backend {
 public:
     Backend();
@@ -29,10 +79,12 @@ private:
     void RequestNoteList();
     void OpenFileDialog();
     void PrepareExportLibs(const json& payload);
+    void ProcessExportImages(const json& payload);
     void OpenWorkspaceDialog();
     void OpenWorkspace(const json& payload);
     void GoToDashboard();
     void ToggleFullscreen();
+    void CancelExport();
 
 
     // --- Private Members ---

@@ -23,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const appContainer = document.querySelector('.app-container'); // Get the top-level container
     const sidebarContainer = document.getElementById('sidebar');
     const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+    const cookSettingsModal = document.getElementById('cook-settings-modal');
+    const startCookBtn = document.getElementById('start-cook-btn');
+    const cancelCookBtn = document.getElementById('cancel-cook-btn');
 
     // --- Initialization ---
     // Create the editor instance
@@ -38,6 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
     editor.registerBlock(ColumnsBlock);
     editor.registerBlock(ColumnBlock);
     editor.registerBlock(CodeBlock);
+    editor.registerBlock(BulletedListItemBlock);
+    editor.registerBlock(TodoListItemBlock);
+    editor.registerBlock(NumberedListItemBlock);
+    editor.registerBlock(ToggleListItemBlock);
 
     let currentOpenFile = null;
     let popoverCallback = null;
@@ -281,20 +288,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function runExportProcess() {
+    async function runExportProcess(options, allFilesToExport) {
         exportStatus.textContent = 'Collecting file information...';
         progressBar.style.width = '5%';
-
-        // --- Step 1: Collect all unique required libraries from all pages ---
-        const requiredLibs = new Set();
+    
         const workspaceData = JSON.parse(sidebar.dataset.workspaceData || '{}');
-        
-        // Create a map of block types to their classes for easy lookup
-        const blockClassMap = new Map();
-        editor.blockRegistry.forEach((BlockClass, type) => {
-            blockClassMap.set(type, BlockClass);
-        });
-
+        const allPagesContent = [];
+    
         // A recursive function to find all unique block types used in a page's content
         const findBlockTypesRecursive = (blocks, typesSet) => {
             if (!blocks) return;
@@ -305,101 +305,122 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         };
-        
-        // This array will store the content of all pages to avoid loading them twice
-        const allPagesContent = []; 
-
+    
+        // Collect all page content first
         for (const path of allFilesToExport) {
-            // Load page content from the backend
+            if (isExportCancelled) return;
             const pageData = await new Promise(resolve => {
                 const handler = (e) => {
-                    // Make sure we're getting the content for the correct page
                     if (e.detail.payload.path === path) {
                         window.removeEventListener('pageLoaded', handler);
                         resolve(e.detail.payload);
                     }
                 };
                 window.addEventListener('pageLoaded', handler);
-                // Request the page content without any side effects like changing the current view
-                ipc.loadPage(path); 
+                ipc.loadPage(path);
             });
-            
-            allPagesContent.push(pageData); // Store content for later use
-
+            allPagesContent.push(pageData);
+        }
+        
+        if (isExportCancelled) return;
+    
+        // --- Step 1: Prepare the build environment and copy libraries FIRST ---
+        exportStatus.textContent = 'Preparing environment...';
+        progressBar.style.width = '10%';
+    
+        const requiredLibs = new Set();
+        const blockClassMap = new Map();
+        editor.blockRegistry.forEach((BlockClass, type) => {
+            blockClassMap.set(type, BlockClass);
+        });
+    
+        allPagesContent.forEach(pageData => {
             const blockTypesInPage = new Set();
             findBlockTypesRecursive(pageData.content, blockTypesInPage);
-
-            // For each unique block type in the page, get its required libraries
             blockTypesInPage.forEach(type => {
                 const BlockClass = blockClassMap.get(type);
                 if (BlockClass && BlockClass.requiredExportLibs.length > 0) {
                     BlockClass.requiredExportLibs.forEach(libPath => requiredLibs.add(libPath));
                 }
             });
-        }
-        
-        exportStatus.textContent = 'Preparing required libraries...';
-        progressBar.style.width = '15%';
-
-        // --- Step 2: Inform the C++ backend of all unique required libraries ---
+        });
+    
+        // This call now also creates the build folder and copies style.css
         ipc.prepareExportLibs(Array.from(requiredLibs));
         
-        // --- Step 3: Wait for confirmation from the backend that libs are copied and ready ---
+        // Wait for the backend to confirm that the environment is ready
         await new Promise(resolve => {
-            // The backend will send 'exportLibsReady' when it's done copying files
             window.addEventListener('exportLibsReady', resolve, { once: true });
         });
-
-        exportStatus.textContent = 'Generating HTML pages...';
         
-        // --- Step 4: Generate sidebar HTML once ---
-        function generateSidebarHtml(node, currentPath) {
-            let html = '';
-            if (node.type === 'folder') {
-                html += `<div class="sidebar-folder"><strong>${node.name}</strong>`;
-                if (node.children && node.children.length > 0) {
-                    html += '<ul>';
-                    node.children.forEach(child => {
-                        html += `<li>${generateSidebarHtml(child, currentPath)}</li>`;
-                    });
-                    html += '</ul>';
-                }
-                html += `</div>`;
-            } else if (node.type === 'page') {
-                const relativePath = node.path.substring(workspaceData.path.length + 1).replace(/\\/g, '/').replace('.veritnote', '.html');
-                const isCurrent = (node.path === currentPath);
-                html += `<a href="${relativePath}" class="${isCurrent ? 'current' : ''}">${node.name}</a>`;
+        if (isExportCancelled) return;
+    
+        // --- Step 2: Scan for and process images SECOND ---
+        let imageSrcMap = {};
+        if (options.copyLocal || options.downloadOnline) {
+            exportStatus.textContent = 'Processing images...';
+            progressBar.style.width = '15%';
+            
+            const imageTasks = [];
+            const findImagesRecursive = (blocks, pagePath) => {
+                if (!blocks) return;
+                blocks.forEach(block => {
+                    if (block.type === 'image' && block.content) {
+                        const match = block.content.match(/src="([^"]+)"/);
+                        if (match) {
+                            const src = match[1];
+                            const isLocal = /^[a-zA-Z]:\\/.test(src) || src.startsWith('file:///');
+                            const isOnline = src.startsWith('http');
+                            if ((options.copyLocal && isLocal) || (options.downloadOnline && isOnline)) {
+                                imageTasks.push({ originalSrc: src, pagePath: pagePath });
+                            }
+                        }
+                    }
+                    if (block.children) {
+                        findImagesRecursive(block.children, pagePath);
+                    }
+                });
+            };
+    
+            allPagesContent.forEach(pageData => findImagesRecursive(pageData.content, pageData.path));
+    
+            if (imageTasks.length > 0) {
+                ipc.processExportImages(imageTasks);
+                if (isExportCancelled) return;
+                imageSrcMap = await new Promise(resolve => {
+                    window.addEventListener('exportImagesProcessed', (e) => resolve(e.detail.payload.srcMap), { once: true });
+                });
             }
-            return html;
         }
-
-        // --- Step 5: Proceed with generating and exporting HTML for each page ---
+    
+        if (isExportCancelled) return;
+        
+        exportStatus.textContent = 'Generating HTML pages...';
+    
+        // --- Step 3: Generate and export HTML for each page ---
         for (let i = 0; i < allPagesContent.length; i++) {
+            if (isExportCancelled) return;
             const pageData = allPagesContent[i];
             const path = pageData.path;
-            const progress = 20 + ((i + 1) / allPagesContent.length) * 80; // Progress from 20% to 100%
-
+            const progress = 20 + ((i + 1) / allPagesContent.length) * 80;
+    
             exportStatus.textContent = `Cooking: ${path.substring(path.lastIndexOf('\\') + 1)}`;
             
-            // Use a temporary editor instance to generate sanitized HTML
             const tempEditorContainer = document.createElement('div');
             const tempEditor = new Editor(tempEditorContainer);
-            // Register all blocks for the temp editor
             editor.blockRegistry.forEach(BlockClass => tempEditor.registerBlock(BlockClass));
             
             tempEditor.load(pageData);
-            const mainContentHtml = tempEditor.getSanitizedHtml(true, workspaceData.path);
-
-            // --- Calculate relative paths for CSS and vendor libs ---
+            const mainContentHtml = tempEditor.getSanitizedHtml(true, workspaceData.path, options, imageSrcMap);
+    
             const sourcePath = path;
             const workspacePath = workspaceData.path;
             const relativePathStr = sourcePath.substring(workspacePath.length + 1);
             const depth = (relativePathStr.match(/\\/g) || []).length;
             const pathPrefix = depth > 0 ? '../'.repeat(depth) : './';
-
+    
             const cssRelativePath = `${pathPrefix}style.css`;
             
-            // --- Generate library include tags for this specific page ---
             let libIncludes = '';
             const blockTypesInThisPage = new Set();
             findBlockTypesRecursive(pageData.content, blockTypesInThisPage);
@@ -410,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     BlockClass.requiredExportLibs.forEach(libPath => requiredLibsForThisPage.add(libPath));
                 }
             });
-
+    
             requiredLibsForThisPage.forEach(libPath => {
                 const libRelativePath = `${pathPrefix}${libPath}`;
                 if (libPath.endsWith('.css')) {
@@ -419,71 +440,228 @@ document.addEventListener('DOMContentLoaded', () => {
                     libIncludes += `    <script src="${libRelativePath}"><\/script>\n`;
                 }
             });
-            // Add the init script for highlight.js if it's included
             if (requiredLibsForThisPage.has('vendor/highlight/highlight.min.js')) {
                 libIncludes += `    <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); });<\/script>\n`;
             }
+    
+            const filteredWorkspaceData = { ...workspaceData };
+            if (filteredWorkspaceData.children) {
+                filteredWorkspaceData.children = filteredWorkspaceData.children.filter(child => child.name !== 'build');
+            }
 
-            const sidebarHtml = `<nav class="exported-sidebar">${generateSidebarHtml(workspaceData, path)}</nav>`;
 
-            // --- Assemble the final HTML ---
+            function generateSidebarHtml(node, currentPath) {
+                let html = '';
+                if (node.type === 'folder') {
+                    html += `<div class="tree-node folder" data-path="${node.path}">
+                                <span class="icon"></span>
+                    <span class="name">${node.name}</span>
+                             </div>`;
+                    if (node.children && node.children.length > 0) {
+                        html += '<div class="tree-node-children">';
+                        node.children.forEach(child => {
+                            html += generateSidebarHtml(child, currentPath);
+                        });
+                        html += '</div>';
+                    }
+                } else if (node.type === 'page') {
+                    const relativePath = node.path.substring(JSON.parse(sidebar.dataset.workspaceData).path.length + 1).replace(/\\/g, '/').replace('.veritnote', '.html');
+                    const isActive = (node.path === currentPath);
+                    html += `<div class="tree-node page ${isActive ? 'active' : ''}" data-path="${node.path}">
+                                <span class="icon"></span>
+                                <span class="name"><a href="${relativePath}">${node.name}</a></span>
+                             </div>`;
+                }
+                return html;
+            }
+
+    
+            const sidebarHtml = `<nav id="exported-sidebar" class="exported-sidebar">${generateSidebarHtml(filteredWorkspaceData, path)}<button id="sidebar-toggle-btn">Collapse</button></nav>`;
+    
             const finalHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>${path.substring(path.lastIndexOf('\\') + 1).replace('.veritnote', '')}</title>
-    <link rel="stylesheet" href="${cssRelativePath}">
-${libIncludes}
-    <style>
-        body { display: flex; margin: 0; }
-        .exported-sidebar { width: 250px; flex-shrink: 0; padding: 20px; border-right: 1px solid #444; height: 100vh; overflow-y: auto; box-sizing: border-box; background-color: rgb(37,37,38); color: #ccc; }
-        .exported-sidebar a { display: block; color: #569cd6; text-decoration: none; padding: 5px; border-radius: 4px; }
-        .exported-sidebar a:hover { background-color: #333; }
-        .exported-sidebar a.current { background-color: #569cd6; color: #fff; font-weight: bold; }
-        .exported-sidebar strong { color: #fff; }
-        .exported-sidebar ul { list-style: none; padding-left: 20px; }
-        .exported-main { flex-grow: 1; height: 100vh; overflow-y: auto; box-sizing: border-box; background-color: rgb(25,25,25); color: #ccc; }
-        .exported-main .editor-view { padding: 40px; max-width: 900px; margin: 0 auto; } 
-    </style>
-</head>
-<body>
-    ${sidebarHtml}
-    <main class="exported-main">
-        <div class="editor-view">
-            <div id="editor-content-wrapper">${mainContentHtml}</div>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>${path.substring(path.lastIndexOf('\\') + 1).replace('.veritnote', '')}</title>
+        <link rel="stylesheet" href="${cssRelativePath}">
+    ${libIncludes}
+        <style>
+            body { margin: 0; font-family: ${getComputedStyle(document.body).fontFamily}; }
+            /* Core App Layout */
+            .app-container { display: flex; height: 100vh; transition: grid-template-columns 0.3s ease; }
+            .exported-main { flex-grow: 1; height: 100vh; overflow-y: auto; box-sizing: border-box; background-color: #191919; color: #ccc; }
+            .exported-main .editor-view { padding: 40px; max-width: 900px; margin: 0 auto; } 
+            /* Sidebar Styles */
+            .exported-sidebar { width: 260px; flex-shrink: 0; padding: 8px; border-right: 1px solid #444; height: 100vh; overflow-y: auto; box-sizing: border-box; background-color: #252526; color: #ccc; user-select: none; transition: width 0.3s ease, transform 0.3s ease, min-width 0.3s ease; position: relative; z-index: 50; }
+            /* Sidebar Tree Styles (mirrors editor) */
+            .tree-node { padding: 4px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; }
+            .tree-node:hover { background-color: #333; }
+            .tree-node.page a { color: #ccc; text-decoration: none; display: block; width: 100%; }
+            .tree-node.page.active { background-color: #569cd6; }
+            .tree-node.page.active a { color: #fff; }
+            .tree-node .icon { margin-right: 8px; width: 16px; height: 16px; text-align: center; }
+            .tree-node.folder > .icon::before { content: '▶'; font-size: 10px; display: inline-block; transition: transform 0.2s ease; }
+            .tree-node.folder.open > .icon::before { transform: rotate(90deg); }
+            .tree-node.page > .icon::before { content: '📄'; font-size: 12px; }
+            .tree-node-children { padding-left: 16px; display: none; }
+            /* Sidebar Collapse/Peek Logic */
+            .sidebar-collapsed .exported-sidebar { width: 0; min-width: 0; border-right: none; transform: translateX(-100%); padding: 0; }
+            .sidebar-collapsed.sidebar-peek .exported-sidebar { width: 260px; min-width: 260px; transform: translateX(0); border-right: 1px solid #444; box-shadow: 5px 0 15px rgba(0,0,0,0.2); }
+            #sidebar-peek-trigger { position: fixed; top: 0; left: 0; width: 10px; height: 100vh; z-index: 100; }
+            .app-container:not(.sidebar-collapsed) #sidebar-peek-trigger { display: none; }
+            #sidebar-toggle-btn { position: absolute; bottom: 8px; left: 8px; right: 8px; width: calc(100% - 16px); background: none; border: 1px solid #444; color: #8c8c8c; padding: 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
+            #sidebar-toggle-btn:hover { background-color: #333; color: #ccc; }
+        </style>
+    </head>
+    <body>
+        <div class="app-container">
+            <div id="sidebar-peek-trigger"></div>
+            ${sidebarHtml}
+            <main class="exported-main">
+                <div class="editor-view">
+                    <div id="editor-content-wrapper">${mainContentHtml}</div>
+                </div>
+            </main>
         </div>
-    </main>
-</body>
-</html>`;
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const SIDEBAR_COLLAPSED_KEY = 'veritnote_exported_sidebar_collapsed';
+                const appContainer = document.querySelector('.app-container');
+                const sidebar = document.getElementById('exported-sidebar');
+                const peekTrigger = document.getElementById('sidebar-peek-trigger');
+                const toggleBtn = document.getElementById('sidebar-toggle-btn');
+    
+                // Folder expand/collapse logic
+                sidebar.querySelectorAll('.folder').forEach(folder => {
+                    folder.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'A') return;
+                        e.stopPropagation();
+                        folder.classList.toggle('open');
+                        const children = folder.nextElementSibling;
+                        if (children && children.classList.contains('tree-node-children')) {
+                            children.style.display = folder.classList.contains('open') ? 'block' : 'none';
+                        }
+                    });
+                });
+    
+                // Sidebar collapse/expand main logic
+                function setSidebarCollapsed(collapsed) {
+                    if (collapsed) {
+                        appContainer.classList.add('sidebar-collapsed');
+                        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'true');
+                        toggleBtn.textContent = 'Expand';
+                    } else {
+                        appContainer.classList.remove('sidebar-collapsed');
+                        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'false');
+                        toggleBtn.textContent = 'Collapse';
+                    }
+                }
+    
+                toggleBtn.addEventListener('click', () => {
+                    setSidebarCollapsed(!appContainer.classList.contains('sidebar-collapsed'));
+                });
+    
+                peekTrigger.addEventListener('mouseenter', () => {
+                    if (appContainer.classList.contains('sidebar-collapsed')) {
+                        appContainer.classList.add('sidebar-peek');
+                    }
+                });
+    
+                sidebar.addEventListener('mouseleave', () => {
+                    if (appContainer.classList.contains('sidebar-peek')) {
+                        appContainer.classList.remove('sidebar-peek');
+                    }
+                });
+    
+                // Initial state
+                const wasCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+                setSidebarCollapsed(wasCollapsed);
+            });
+        <\/script>
+    </body>
+    </html>`;
             
             ipc.exportPageAsHtml(path, finalHtml);
             progressBar.style.width = `${progress}%`;
         }
-
+    
+        if (isExportCancelled) return;
+    
         exportStatus.textContent = 'Done!';
         setTimeout(hideExportOverlay, 1500);
     }
+
     
+    let isExportCancelled = false;
     function showExportOverlay() {
+        isExportCancelled = false; // Reset flag on show
         exportOverlay.style.display = 'flex';
         progressBar.style.width = '0%';
+        // Add a cancel button
+        if (!document.getElementById('cancel-export-btn')) {
+            const cancelBtn = document.createElement('button');
+            cancelBtn.id = 'cancel-export-btn';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.style.marginTop = '16px';
+            cancelBtn.onclick = () => {
+                isExportCancelled = true;
+                exportStatus.textContent = 'Cancelling...';
+                ipc.send('cancelExport');
+            };
+            exportOverlay.querySelector('.export-modal').appendChild(cancelBtn);
+        }
     }
 
     function hideExportOverlay() {
         exportOverlay.style.display = 'none';
+        const cancelBtn = document.getElementById('cancel-export-btn');
+        if (cancelBtn) cancelBtn.remove();
     }
+    
+    // Listen for cancellation confirmation from backend
+    window.addEventListener('exportCancelled', () => {
+        exportStatus.textContent = 'Cleanup complete.';
+        setTimeout(hideExportOverlay, 1000);
+    });
+    
+    // Listen for image download progress
+    window.addEventListener('exportImageProgress', (e) => {
+        const { originalSrc, percentage } = e.detail.payload;
+        const filename = originalSrc.substring(originalSrc.lastIndexOf('/') + 1);
+        exportStatus.textContent = `Downloading ${filename} (${percentage}%)`;
+    });
 
     exportBtn.addEventListener('click', () => {
+        cookSettingsModal.style.display = 'flex';
+    });
+
+    cancelCookBtn.addEventListener('click', () => {
+        cookSettingsModal.style.display = 'none';
+    });
+
+    startCookBtn.addEventListener('click', () => {
+        const options = {
+            copyLocal: document.getElementById('copy-local-images').checked,
+            downloadOnline: document.getElementById('download-online-images').checked,
+            disableDrag: document.getElementById('disable-drag-export').checked
+        };
+        
+        cookSettingsModal.style.display = 'none';
+
         const workspaceData = JSON.parse(sidebar.dataset.workspaceData || '{}');
-        allFilesToExport = [];
+        // This allFilesToExport is correctly populated here
+        const allFilesToExport = [];
         getAllFiles(workspaceData, allFilesToExport);
+
         if (allFilesToExport.length === 0) {
             alert('No pages to export in this workspace.');
             return;
         }
         showExportOverlay();
-        ipc.startExport();
+        // --- FIX: Pass the populated list as an argument ---
+        runExportProcess(options, allFilesToExport); 
     });
+
 
     // --- Popover Logic (no change) ---
     function showPopover(targetElement, options = {}) {
@@ -545,6 +723,7 @@ ${libIncludes}
             item.className = 'search-result-item';
             item.textContent = `📄 ${note.name}`;
             item.dataset.path = note.path;
+            item.title = note.path; // <-- FIX: Add this line to show the full path on hover
             searchResultsContainer.appendChild(item);
         });
     }

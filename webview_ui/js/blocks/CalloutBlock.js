@@ -28,6 +28,10 @@ class CalloutBlock extends ContainerBlock {
         `;
         // Important: Re-assign the childrenContainer to the new wrapper
         this.childrenContainer = this.contentElement.querySelector('.callout-content-wrapper');
+    
+        // --- 新增 ---
+        // 遵循新标准，为子块容器添加专用类
+        this.childrenContainer.classList.add('block-children-container');
     }
 
     // Callout content itself is not editable, its children are.

@@ -4,6 +4,8 @@
 #include <vector>
 #include <filesystem>
 #include <fstream>
+#include <urlmon.h>
+#pragma comment(lib, "urlmon.lib")
 
 #include "Backend.h"
 #include <ShlObj.h>
@@ -52,6 +54,10 @@ void Backend::HandleWebMessage(const std::wstring& message) {
         std::string action = json_msg.value("action", "");
         json payload = json_msg.value("payload", json::object());
 
+        std::string action_log = action + "\n";
+
+        OutputDebugStringA(action_log.c_str());
+
         if (action == "setWorkspace") {
             std::string path_str = payload.value("path", "");
             m_workspaceRoot = string_to_wstring(path_str);
@@ -96,6 +102,12 @@ void Backend::HandleWebMessage(const std::wstring& message) {
         else if (action == "prepareExportLibs") {
             PrepareExportLibs(payload);
         }
+        else if (action == "processExportImages") {
+            ProcessExportImages(payload);
+        }
+        else if (action == "cancelExport") {
+            CancelExport();
+        }
         else if (action == "openWorkspaceDialog") {
             OpenWorkspaceDialog();
         }
@@ -138,6 +150,9 @@ void Backend::ListWorkspace(const json& payload) {
 
         for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
             if (entry.is_directory()) {
+                if (entry.path().filename() == "build") {
+                    continue;
+                }
                 tree_node["children"].push_back(scan_dir(entry.path()));
             }
             else if (entry.is_regular_file() && entry.path().extension() == ".veritnote") {
@@ -255,7 +270,7 @@ void Backend::SavePage(const json& payload) {
 }
 
 void Backend::StartExport(const json& payload) {
-    try {
+    /*try {
         std::filesystem::path buildPath = m_workspaceRoot;
         buildPath /= "build";
 
@@ -279,7 +294,7 @@ void Backend::StartExport(const json& payload) {
     }
     catch (const std::exception& e) {
         SendMessageToJS({ {"action", "exportError"}, {"error", e.what()} });
-    }
+    }*/
 }
 
 void Backend::ExportPageAsHtml(const json& payload) {
@@ -445,12 +460,33 @@ void Backend::OpenFileDialog() {
 
 void Backend::PrepareExportLibs(const json& payload) {
     try {
-        std::filesystem::path buildPath = m_workspaceRoot;
-        buildPath /= "build";
+        // --- START OF MOVED LOGIC ---
+        // This logic was moved from the old StartExport function.
+        // It's the first step of any export process.
+        std::filesystem::path buildPath = std::filesystem::path(m_workspaceRoot).append(L"build");
+
+        // Clear and create the build folder
+        if (std::filesystem::exists(buildPath)) {
+            std::filesystem::remove_all(buildPath);
+        }
+        std::filesystem::create_directory(buildPath);
+
+        // Export the main style.css
+        std::filesystem::path exeDir = GetExePath();
+        std::filesystem::path sourceCssPath = exeDir / "webview_ui" / "css" / "style.css";
+        std::filesystem::path destCssPath = buildPath / "style.css";
+
+        if (std::filesystem::exists(sourceCssPath)) {
+            std::filesystem::copy_file(sourceCssPath, destCssPath);
+        }
+        // --- END OF MOVED LOGIC ---
+
+
+        // The original logic for preparing libraries continues here...
         std::filesystem::path vendorBuildPath = buildPath / "vendor";
 
         // Get the source directory of our UI files
-        std::filesystem::path exeDir = GetExePath();
+        // std::filesystem::path exeDir = GetExePath(); // Already got this above
         std::filesystem::path sourceUiPath = exeDir / "webview_ui";
 
         // Ensure the build/vendor directory exists
@@ -486,6 +522,142 @@ void Backend::PrepareExportLibs(const json& payload) {
     }
     catch (const std::exception& e) {
         SendMessageToJS({ {"action", "exportError"}, {"error", e.what()} });
+    }
+}
+
+
+// --- Implementation of the image processing function ---
+void Backend::ProcessExportImages(const json& payload) {
+    json response;
+    response["action"] = "exportImagesProcessed";
+    json srcMap = json::object();
+
+    try {
+        const auto& tasks = payload.at("tasks");
+        if (!tasks.is_array()) {
+            throw std::runtime_error("Image processing tasks must be an array.");
+        }
+
+        std::filesystem::path buildPath = std::filesystem::path(m_workspaceRoot).append(L"build");
+        std::filesystem::path workspacePath(m_workspaceRoot);
+
+        for (const auto& task : tasks) {
+            std::string originalSrc = task.at("originalSrc").get<std::string>();
+            std::string pagePathStr = task.at("pagePath").get<std::string>();
+            std::filesystem::path pagePath(pagePathStr);
+
+            // 1. Determine the target 'src' directory for this page
+            std::filesystem::path relativePagePath = std::filesystem::relative(pagePath, workspacePath);
+            std::filesystem::path targetHtmlPath = buildPath / relativePagePath;
+            targetHtmlPath.replace_extension(".html");
+            std::filesystem::path targetSrcDir = targetHtmlPath.parent_path() / "src";
+
+            // 2. Create the 'src' directory if it doesn't exist
+            if (!std::filesystem::exists(targetSrcDir)) {
+                std::filesystem::create_directories(targetSrcDir);
+            }
+
+            std::wstring newRelativePathStr;
+            std::wstring sourcePathW = string_to_wstring(originalSrc);
+
+            std::string fileUriPrefix = "file:///";
+            if (originalSrc.rfind(fileUriPrefix, 0) == 0) {
+                // It's a file URI. Strip the prefix and convert slashes.
+                sourcePathW = sourcePathW.substr(fileUriPrefix.length());
+                std::replace(sourcePathW.begin(), sourcePathW.end(), L'/', L'\\');
+            }
+            std::filesystem::path sourcePath(sourcePathW);
+
+            // 3. Check if it's a local file or an online URL
+            if (originalSrc.rfind("http", 0) == 0) {
+                // It's an online URL, download it
+                std::wstring originalSrcW = string_to_wstring(originalSrc);
+
+                // Generate a unique filename to avoid collisions
+                size_t hash = std::hash<std::string>{}(originalSrc);
+                std::wstring extension = sourcePath.extension().wstring();
+                std::wstring uniqueFilename = std::to_wstring(hash) + extension;
+
+                std::filesystem::path destPath = targetSrcDir / uniqueFilename;
+
+                // --- NEW: Use IBindStatusCallback for progress ---
+                int lastPercentage = -1;
+                auto onProgress = [&](ULONG progress, ULONG max) {
+                    int percentage = (int)(((float)progress / max) * 100);
+                    if (percentage != lastPercentage) {
+                        lastPercentage = percentage;
+                        SendMessageToJS({
+                            {"action", "exportImageProgress"},
+                            {"payload", {
+                                {"originalSrc", originalSrc},
+                                {"percentage", percentage}
+                            }}
+                            });
+                    }
+                    };
+
+                HRESULT downloadResult = E_FAIL;
+                auto onComplete = [&](HRESULT hr) {
+                    downloadResult = hr;
+                    };
+
+                // Create the callback object
+                DownloadProgressCallback* callback = new DownloadProgressCallback(onProgress, onComplete);
+
+                // Download the file with the callback
+                HRESULT hr = URLDownloadToFileW(NULL, originalSrcW.c_str(), destPath.c_str(), 0, callback);
+                callback->Release(); // Release reference
+
+                if (SUCCEEDED(hr)) {
+                    newRelativePathStr = L"src/" + uniqueFilename;
+                }
+                else {
+                    // Could not download, skip this image
+                    continue;
+                }
+            }
+            else {
+                // It's a local file, copy it
+                if (std::filesystem::exists(sourcePath)) {
+                    std::wstring filename = sourcePath.filename().wstring();
+                    std::filesystem::path destPath = targetSrcDir / filename;
+                    std::filesystem::copy_file(sourcePath, destPath, std::filesystem::copy_options::overwrite_existing);
+                    newRelativePathStr = L"src/" + filename;
+                }
+                else {
+                    // Source file doesn't exist, skip it
+                    continue;
+                }
+            }
+
+            // 4. Add the mapping to our map
+            // The new path needs to use forward slashes for HTML
+            std::string finalRelativePath = wstring_to_string(newRelativePathStr);
+            std::replace(finalRelativePath.begin(), finalRelativePath.end(), '\\', '/');
+            srcMap[originalSrc] = finalRelativePath;
+        }
+
+        response["payload"]["srcMap"] = srcMap;
+    }
+    catch (const std::exception& e) {
+        response["error"] = e.what();
+        response["payload"]["srcMap"] = json::object(); // Send empty map on error
+    }
+
+    SendMessageToJS(response);
+}
+
+void Backend::CancelExport() {
+    try {
+        std::filesystem::path buildPath = std::filesystem::path(m_workspaceRoot).append(L"build");
+        if (std::filesystem::exists(buildPath)) {
+            std::filesystem::remove_all(buildPath);
+        }
+        SendMessageToJS({ {"action", "exportCancelled"} });
+    }
+    catch (const std::exception& e) {
+        // Even if cleanup fails, notify frontend
+        SendMessageToJS({ {"action", "exportCancelled"} });
     }
 }
 

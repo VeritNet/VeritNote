@@ -62,6 +62,10 @@ const ipc = {
         ipc.send('prepareExportLibs', { paths: libPaths });
     },
 
+    processExportImages: (tasks) => {
+        ipc.send('processExportImages', { tasks });
+    },
+
     openWorkspaceDialog: () => ipc.send('openWorkspaceDialog'),
     openWorkspace: (path) => ipc.send('openWorkspace', path),
     goToDashboard: () => ipc.send('goToDashboard'),

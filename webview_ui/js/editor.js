@@ -227,14 +227,12 @@ class Editor {
 
     
     _onClick(e) {
-    // 1. 高优先级检查：删除按钮
-    if (e.target.classList.contains('delete-btn')) {
+        // 1. 高优先级检查：删除按钮
+        if (e.target.classList.contains('delete-btn')) {
         const blockContainerEl = e.target.closest('.block-container');
         if (blockContainerEl) {
             const blockInstance = this._findBlockInstanceAndParent(blockContainerEl.dataset.id)?.block;
-            if (blockInstance) {
-                this.deleteBlock(blockInstance);
-            }
+            if (blockInstance) { this.deleteBlock(blockInstance); }
         }
         return;
     }
@@ -245,31 +243,39 @@ class Editor {
         return;
     }
 
-    // --- 容器点击逻辑 ---
+    // --- 最终的、分层且无漏洞的容器点击逻辑 ---
 
-    // 3. 特殊待遇：检查是否直接点击了 Column 块的空白区域
-    // 因为 Column 块没有 .block-container 包装器，所以必须优先单独处理。
+    // 3. 第一层：为 Column 布局提供特殊处理
+    // 这个逻辑是正确的，因为当点击子块时，e.target 不会是 column 自身。
     if (e.target.matches('.block-content[data-type="column"]')) {
         const columnId = e.target.dataset.id;
         const columnInstance = this._findBlockInstanceAndParent(columnId)?.block;
-        // 确保我们找到了一个有效的 Column 实例
-        if (columnInstance && columnInstance.isContainer) {
+        if (columnInstance) {
             this._appendNewBlockToContainer(columnInstance);
-            return; // 操作完成，退出
+            return;
         }
     }
 
-    // 4. 通用逻辑：检查是否点击了其他标准容器块（如 Callout）的空白区域
-    const blockContainerEl = e.target.closest('.block-container');
-    if (blockContainerEl) {
-        const containerInstance = this._findBlockInstanceAndParent(blockContainerEl.dataset.id)?.block;
+    // 4. 第二层：为所有其他标准容器块提供统一的、无漏洞的处理
+    const childrenContainer = e.target.closest('.block-children-container');
+    if (childrenContainer) {
+        // 找到这个 childrenContainer 所属的容器块的 DOM 元素
+        // 例如，对于 Callout，这将是 .block-content[data-type="callout"]
+        const containerElement = childrenContainer.closest('[data-id]');
+
+        // 找到从点击位置（e.target）向上追溯的第一个块的 DOM 元素
+        // 这就是我们实际点击的那个块
         const clickedBlockElement = e.target.closest('[data-id]');
 
-        // 关键判断：确保是容器，并且点击的是容器自身，而非其子块
-        if (containerInstance && containerInstance.isContainer &&
-            clickedBlockElement && clickedBlockElement.dataset.id === containerInstance.id) {
-            this._appendNewBlockToContainer(containerInstance);
-            return; // 操作完成，退出
+        // **这就是您提出的关键性检查**
+        // 只有当“实际点击的块”就是“我们所在的容器块”时，才视为点击了空白区域。
+        // 如果它们不相等，说明我们点击的是一个子块。
+        if (containerElement && clickedBlockElement && containerElement.dataset.id === clickedBlockElement.dataset.id) {
+            const containerInstance = this._findBlockInstanceAndParent(containerElement.dataset.id)?.block;
+            if (containerInstance) {
+                this._appendNewBlockToContainer(containerInstance);
+                return;
+            }
         }
     }
 }
@@ -501,7 +507,7 @@ class Editor {
         }
     }
     
-    _onDragLeave(e) { /* No change needed */ }
+    _onDragLeave(e) {  }
 
     // We need a way to find a block and its parent instance
     _findBlockInstanceAndParent(id, rootBlocks = this.blocks, parent = null) {
@@ -634,45 +640,38 @@ class Editor {
 
                 if (block.type === 'columns') {
                     const originalColumnCount = block.children.length;
-                    
-                    // Rule A: Filter out any child columns that are now completely empty.
-                    const nonEmptyColumns = block.children.filter(col => col.children.length > 0);
-                    
-                    const columnsWereRemoved = nonEmptyColumns.length < originalColumnCount;
+                
+                    // 规则 A: 过滤掉空的子列
+                    block.children = block.children.filter(col => col.children.length > 0);
+                    const newColumnCount = block.children.length;
+
+                    const columnsWereRemoved = newColumnCount < originalColumnCount;
 
                     if (columnsWereRemoved) {
-                        block.children = nonEmptyColumns;
                         structuralChange = true;
                     }
 
-                    // Now, evaluate the state of the columns container AFTER potential column removal.
-                    const currentColumnCount = block.children.length;
-
-                    // Find the container's position in the main tree to modify it if needed
                     const info = this._findBlockInstanceAndParent(block.id);
                     if (!info) continue;
 
-                    if (currentColumnCount === 0) {
-                        // Rule B: Dissolve the container if it's completely empty.
+                    if (newColumnCount === 0) {
+                        // 规则 B: 如果完全空了，删除整个 columns 容器
                         info.parentArray.splice(info.index, 1);
-                    } else if (currentColumnCount === 1) {
-                        // Rule C: Dissolve if only one column remains, promoting its children.
+                    } else if (newColumnCount === 1) {
+                        // 规则 C: 如果只剩一列，将其子元素“提升”出来，替换掉 columns 容器
                         const survivingBlocks = block.children[0].children;
                         info.parentArray.splice(info.index, 1, ...survivingBlocks);
                     } else if (columnsWereRemoved) {
-                        // *** THE FIX IS HERE ***
-                        // ONLY rebalance widths IF the number of columns has actually changed.
-                        // If no columns were removed (e.g., just text was deleted inside a column),
-                        // this block will be skipped, preserving the custom widths.
+                        // 关键修复：只有在列数实际减少时，才重新平衡宽度
                         const numCols = block.children.length;
                         block.children.forEach(col => col.properties.width = 1 / numCols);
                     }
                 }
             }
         };
-        
+    
         traverseAndClean(this.blocks, null);
-        
+    
         return structuralChange;
     }
 
@@ -732,45 +731,71 @@ class Editor {
     _createColumnResizer(leftColumn, rightColumn) {
         const resizer = document.createElement('div');
         resizer.className = 'column-resizer';
+
+        // 找到共同的父级 ColumnsBlock 实例
+        const parentColumnsBlock = this._findBlockInstanceAndParent(leftColumn.id)?.parentInstance;
+
         resizer.addEventListener('mousedown', (e) => {
             e.preventDefault();
+        
+            // 如果找不到父级，则不执行任何操作
+            if (!parentColumnsBlock || !parentColumnsBlock.contentElement) return;
+
             const startX = e.clientX;
             const leftInitialWidth = leftColumn.properties.width;
             const rightInitialWidth = rightColumn.properties.width;
-            const leftEl = leftColumn.contentElement;
-            const rightEl = rightColumn.contentElement;
-
+        
             const onMouseMove = (moveEvent) => {
-                const deltaX = moveEvent.clientX - startX;
-                const parentWidth = resizer.parentElement.offsetWidth;
+                // 关键修复：从稳定的 JS 实例获取父容器宽度
+                const parentWidth = parentColumnsBlock.contentElement.offsetWidth;
                 if (parentWidth === 0) return;
+
+                const deltaX = moveEvent.clientX - startX;
                 const deltaPercentage = deltaX / parentWidth;
+            
                 let newLeftWidth = leftInitialWidth + deltaPercentage;
                 let newRightWidth = rightInitialWidth - deltaPercentage;
-                if (newLeftWidth < 0.1 || newRightWidth < 0.1) return;
-                leftEl.style.width = `${newLeftWidth * 100}%`;
-                rightEl.style.width = `${newRightWidth * 100}%`;
+
+                // 限制最小宽度，防止一列完全消失
+                const minWidth = 0.1; // 10%
+                if (newLeftWidth < minWidth || newRightWidth < minWidth) return;
+
+                // 直接更新 DOM 以提供实时反馈
+                leftColumn.contentElement.style.width = `${newLeftWidth * 100}%`;
+                rightColumn.contentElement.style.width = `${newRightWidth * 100}%`;
             };
+
             const onMouseUp = (upEvent) => {
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
+            
+                const parentWidth = parentColumnsBlock.contentElement.offsetWidth;
+                if (parentWidth === 0) return;
+
                 const deltaX = upEvent.clientX - startX;
-                const parentWidth = resizer.parentElement.offsetWidth;
                 const deltaPercentage = deltaX / parentWidth;
+            
                 let finalLeftWidth = leftInitialWidth + deltaPercentage;
                 let finalRightWidth = rightInitialWidth - deltaPercentage;
-                if (finalLeftWidth < 0.1) {
-                    finalRightWidth += finalLeftWidth - 0.1;
-                    finalLeftWidth = 0.1;
+
+                // 最终计算时再次确保不小于最小宽度
+                const minWidth = 0.1;
+                if (finalLeftWidth < minWidth) {
+                    finalRightWidth += (finalLeftWidth - minWidth);
+                    finalLeftWidth = minWidth;
                 }
-                if(finalRightWidth < 0.1) {
-                    finalLeftWidth += finalRightWidth - 0.1;
-                    finalRightWidth = 0.1;
+                if (finalRightWidth < minWidth) {
+                    finalLeftWidth += (finalRightWidth - minWidth);
+                    finalRightWidth = minWidth;
                 }
+
+                // 关键：将最终计算出的比例保存回数据模型
                 leftColumn.properties.width = finalLeftWidth;
                 rightColumn.properties.width = finalRightWidth;
+            
                 this.emitChange(true, 'resize-column');
             };
+
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         });
@@ -965,47 +990,228 @@ class Editor {
         return null;
     }
 
-    getSanitizedHtml(isForExport = false, workspaceRoot = '') {
-        // 1. Clone the container to avoid modifying the live editor
+    getSanitizedHtml(isForExport = false, workspaceRoot = '', options = {}, imageSrcMap = {}) {
         const clonedContainer = this.container.cloneNode(true);
 
-        // 2. Remove all general editing controls
+        // --- 移除编辑控件 (保持不变) ---
         clonedContainer.querySelectorAll('.block-controls, .column-resizer, .drop-indicator, .drop-indicator-vertical').forEach(el => el.remove());
-
-        // 3. *** FIX for Code Block Export Bug ***
-        //    Find all code blocks and remove their invisible textarea input.
         clonedContainer.querySelectorAll('.block-content[data-type="code"]').forEach(codeBlockElement => {
             const textarea = codeBlockElement.querySelector('.code-block-input');
-            if (textarea) {
-                textarea.remove();
-            }
+            if (textarea) { textarea.remove(); }
         });
-        
-        // 4. Remove contentEditable attributes and placeholders from all blocks
         clonedContainer.querySelectorAll('[contentEditable="true"]').forEach(el => {
             el.removeAttribute('contentEditable');
             el.removeAttribute('data-placeholder');
         });
+        clonedContainer.querySelectorAll('.toolbar-active, .vn-active').forEach(el => {
+            el.classList.remove('toolbar-active', 'vn-active');
+        });
 
-        // 5. Remove interaction-related classes
-        clonedContainer.querySelectorAll('.toolbar-active').forEach(el => el.classList.remove('toolbar-active'));
+        // --- Make blocks non-draggable if option is selected ---
+        if (isForExport && options.disableDrag) {
+            clonedContainer.querySelectorAll('[draggable="true"]').forEach(el => {
+                el.removeAttribute('draggable');
+            });
+        }
 
-        // 6. Process internal links
-        clonedContainer.querySelectorAll('a').forEach(a => {
-            let href = a.getAttribute('href');
-            if (href && href.endsWith('.veritnote')) {
+        // --- 修正: 处理 To-do List 的状态继承 ---
+        // 这个逻辑对预览和导出都必须执行
+        clonedContainer.querySelectorAll('.block-content[data-type="todoListItem"]').forEach(clonedTodoEl => {
+            const clonedCheckbox = clonedTodoEl.querySelector('.todo-checkbox');
+            const clonedTextEl = clonedTodoEl.querySelector('.list-item-text-area');
+
+            if (clonedCheckbox && clonedTextEl) {
+                // 关键修复：通过 ID 在原始的、正在编辑的容器中找到对应的 checkbox
+                const originalCheckbox = this.container.querySelector('#' + clonedCheckbox.id);
+
+                // 如果找到了原始 checkbox 并且它是勾选状态
+                if (originalCheckbox && originalCheckbox.checked) {
+                    // 1. 在克隆的 checkbox 上设置 'checked' 属性，使其在 HTML 中默认为勾选
+                    clonedCheckbox.setAttribute('checked', '');
+                    // 2. 在克隆的文本元素上添加删除线样式
+                    clonedTextEl.classList.add('todo-checked');
+                }
+
+                // 如果是导出模式，还需要为 localStorage 脚本添加 data-id
                 if (isForExport) {
-                    const relativePath = href.substring(workspaceRoot.length + 1).replace(/\\/g, '/');
-                    a.setAttribute('href', relativePath.replace('.veritnote', '.html'));
-                } else {
-                    a.setAttribute('href', '#');
-                    a.setAttribute('onclick', `window.chrome.webview.postMessage({ action: 'loadPage', payload: { path: '${href.replace(/\\/g, '\\\\')}', fromPreview: true } }); return false;`);
+                    clonedCheckbox.setAttribute('data-id', clonedCheckbox.id);
                 }
             }
         });
 
-        // Return the sanitized HTML string
-        return clonedContainer.innerHTML;
+        // --- NEW: Handle Toggle List state inheritance (for preview and export) ---
+        clonedContainer.querySelectorAll('.block-content[data-type="toggleListItem"]').forEach(clonedToggleEl => {
+            const originalBlock = this._findBlockInstanceById(this.blocks, clonedToggleEl.dataset.id)?.block;
+            if (originalBlock) {
+                if (originalBlock.properties.isCollapsed) {
+                    clonedToggleEl.classList.add('is-collapsed');
+                }
+
+                const toggleTriangle = clonedToggleEl.querySelector('.toggle-triangle');
+                if (toggleTriangle) {
+                    if (isForExport) {
+                        // For EXPORT, add a data-id for the localStorage script to find.
+                        toggleTriangle.setAttribute('data-id', `toggle-${originalBlock.id}`);
+                    } else {
+                        // --- FIX: For PREVIEW, inject a simple, non-persistent onclick handler. ---
+                        const onclickScript = "this.closest('.block-content[data-type=\"toggleListItem\"]').classList.toggle('is-collapsed');";
+                        toggleTriangle.setAttribute('onclick', onclickScript);
+                    }
+                }
+            }
+        });
+
+        // --- 链接处理 ---
+        clonedContainer.querySelectorAll('a, img').forEach(el => {
+            const isLink = el.tagName === 'A';
+            const isImage = el.tagName === 'IMG';
+            let pathAttr = isLink ? 'href' : 'src';
+            let originalPath = el.getAttribute(pathAttr);
+
+            if (!originalPath) return;
+
+            // --- Replace image paths using the map from the backend ---
+            if (isImage && imageSrcMap[originalPath]) {
+                el.setAttribute(pathAttr, imageSrcMap[originalPath]);
+                return; // Path has been replaced, no further processing needed
+            }
+            
+            // Handle page links (existing logic)
+            if (isLink && originalPath.endsWith('.veritnote')) {
+                if (isForExport) {
+                    const relativePath = originalPath.substring(workspaceRoot.length + 1).replace(/\\/g, '/');
+                    el.setAttribute('href', relativePath.replace('.veritnote', '.html'));
+                } else {
+                    el.setAttribute('href', '#');
+                    el.setAttribute('onclick', `window.chrome.webview.postMessage({ action: 'loadPage', payload: { path: '${originalPath.replace(/\\/g, '\\\\')}', fromPreview: true } }); return false;`);
+                }
+            }
+        });
+
+
+        // --- 最终返回 ---
+        let finalHtml = clonedContainer.innerHTML;
+
+        // --- 注入 todolist localStorage 脚本 (只在导出时) ---
+        if (isForExport && finalHtml.includes('data-type="todoListItem"')) {
+            const script = `
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const STORAGE_KEY = 'veritnote_todo_state';
+        
+        // 1. 加载状态
+        function loadState() {
+            try {
+                const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                document.querySelectorAll('.todo-checkbox[data-id]').forEach(checkbox => {
+                    const id = checkbox.getAttribute('data-id');
+                    if (savedState[id] !== undefined) {
+                        checkbox.checked = savedState[id];
+                    }
+                    // 更新文本样式
+                    const textEl = checkbox.closest('.block-content').querySelector('.list-item-text-area');
+                    if (textEl) {
+                        if (checkbox.checked) {
+                            textEl.classList.add('todo-checked');
+                        } else {
+                            textEl.classList.remove('todo-checked');
+                        }
+                    }
+                });
+            } catch (e) { console.error('Failed to load to-do state:', e); }
+        }
+
+        // 2. 保存状态
+        function saveState(id, isChecked) {
+            try {
+                const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                savedState[id] = isChecked;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+            } catch (e) { console.error('Failed to save to-do state:', e); }
+        }
+
+        // 3. 绑定事件
+        document.querySelectorAll('.todo-checkbox[data-id]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const id = e.target.getAttribute('data-id');
+                const isChecked = e.target.checked;
+                saveState(id, isChecked);
+                // 更新文本样式
+                const textEl = e.target.closest('.block-content').querySelector('.list-item-text-area');
+                if (textEl) {
+                    if (isChecked) {
+                        textEl.classList.add('todo-checked');
+                    } else {
+                        textEl.classList.remove('todo-checked');
+                    }
+                }
+            });
+        });
+
+        // 初始加载
+        loadState();
+    });
+<\/script>
+`;
+            finalHtml += script;
+        }
+
+        // --- NEW: Inject localStorage script for Toggle Lists (only on export) ---
+        if (isForExport && finalHtml.includes('data-type="toggleListItem"')) {
+            const script = `
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const STORAGE_KEY = 'veritnote_toggle_state';
+        
+        // 1. Load state from localStorage
+        function loadState() {
+            try {
+                const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                document.querySelectorAll('.toggle-triangle[data-id]').forEach(triangle => {
+                    const id = triangle.getAttribute('data-id');
+                    const container = triangle.closest('.block-content[data-type="toggleListItem"]');
+                    if (savedState[id] !== undefined && container) {
+                        if (savedState[id]) { // if state is true (collapsed)
+                            container.classList.add('is-collapsed');
+                        } else {
+                            container.classList.remove('is-collapsed');
+                        }
+                    }
+                });
+            } catch (e) { console.error('Failed to load toggle state:', e); }
+        }
+
+        // 2. Save state to localStorage
+        function saveState(id, isCollapsed) {
+            try {
+                const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                savedState[id] = isCollapsed;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
+            } catch (e) { console.error('Failed to save toggle state:', e); }
+        }
+
+        // 3. Bind click events
+        document.querySelectorAll('.toggle-triangle[data-id]').forEach(triangle => {
+            triangle.addEventListener('click', (e) => {
+                const id = e.target.getAttribute('data-id');
+                const container = e.target.closest('.block-content[data-type="toggleListItem"]');
+                if (container) {
+                    container.classList.toggle('is-collapsed');
+                    const isNowCollapsed = container.classList.contains('is-collapsed');
+                    saveState(id, isNowCollapsed);
+                }
+            });
+        });
+
+        // Initial load
+        loadState();
+    });
+<\/script>
+`;
+            finalHtml += script;
+        }
+
+        return finalHtml;
     }
 
 

@@ -191,13 +191,6 @@ class Block {
             this.editor.insertNewBlockAfter(this);
         }
 
-        if (e.key === 'Backspace' && (this.contentElement.innerHTML === '' || this.contentElement.innerHTML === '<br>')) {
-             e.preventDefault();
-             // *** FIX: Use the centralized editor.deleteBlock method ***
-             this.editor.deleteBlock(this); 
-             // We don't need to focus previous here, deleteBlock can handle that if needed in the future.
-        }
-
         if (e.key === '/') {
             setTimeout(() => this.editor.showCommandMenuForBlock(this), 0);
         }

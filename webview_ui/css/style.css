@@ -335,7 +335,9 @@ button {
 .block-controls {
     position: absolute;
     top: 2px;
-    left: 4px;
+    /* 关键修改：将控件的右边缘对齐到内容区的左边缘，并留出4px间距 */
+    left: 32px;
+    transform: translateX(-100%);
     display: flex;
     align-items: center;
     opacity: 0;
@@ -515,30 +517,57 @@ a {
 /* 6.3.1. Callout Block (标注块) */
 
 .block-content[data-type="callout"] {
-    /* 【修复】所有视觉样式都在这个顶级容器上 */
     background-color: rgba(86, 156, 214, 0.1);
     border: 1px solid rgba(86, 156, 214, 0.2);
     border-radius: 4px;
-    padding: var(--spacing-m);
-    display: flex;
+    display: flex; /* 使用 flex 布局 */
     position: relative;
-    padding-bottom: 32px; /* 底部留白 */
-    min-height: 50px; /* 确保空 callout 可交互 */
+    min-height: 50px;
+    /* 移除外层 padding，让内部容器填充 */
+    padding: var(--spacing-s);
 }
 
 .callout-icon {
     margin-right: var(--spacing-s);
     font-size: 1.2em;
     user-select: none;
+    /* 确保图标与内部容器的 padding 对齐 */
+    padding-top: var(--spacing-s);
 }
 
-.callout-content-wrapper {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    /* 【修复】强制换行的关键 */
-    min-width: 0;
+/* 这就是可点击的空白区域 */
+.callout-content-wrapper.block-children-container {
+    flex-grow: 1; /* 占据所有剩余空间 */
+    min-width: 0; /* 修复 flex 布局中的换行问题 */
+    /* 关键：内边距现在在这里，为子块创建边距 */
+    padding: var(--spacing-s);
+    /* 确保即使是空的，也有可点击的高度 */
+    min-height: 100%;
 }
+
+.block-children-container:empty {
+    /* 当容器为空时，给它一个最小高度，以便用户可以点击来创建第一个块 */
+    min-height: 24px;
+    /* (可选) 添加一个微妙的背景提示，帮助用户发现这个区域 */
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+    .block-children-container:empty:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+/* --- 新增: 专门为空的 Column 块提供可点击区域 --- */
+.block-content[data-type="column"]:empty {
+    min-height: 40px; /* 确保即使是空的列也有足够的高度被点击 */
+    /* 添加与其它容器一致的悬浮效果 */
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+    .block-content[data-type="column"]:empty:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
 
 
 /* 6.3.2. Columns Layout (列布局) */
@@ -949,3 +978,222 @@ a {
     .color-swatch:hover {
         border-color: var(--text-primary);
     }
+
+
+/* --- 12. Cook Settings Modal --- */
+.cook-settings-content {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-l);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px var(--shadow-color);
+    width: 500px;
+    max-width: 95vw;
+}
+
+    .cook-settings-content h3 {
+        text-align: center;
+        margin-bottom: var(--spacing-l);
+    }
+
+.cook-options-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-m);
+    margin-bottom: var(--spacing-l);
+}
+
+.cook-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    font-size: 14px;
+}
+
+    .cook-option input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--text-accent);
+    }
+
+.cook-settings-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-s);
+    margin-top: var(--spacing-l);
+}
+
+    .cook-settings-footer button {
+        width: auto;
+    }
+
+
+
+
+
+/* --- 最终的、通用的 List Item 样式 --- */
+
+/* 1. 主容器 flex 布局 (通用) */
+.block-content[data-type="bulletedListItem"],
+.block-content[data-type="todoListItem"],
+.block-content[data-type="numberedListItem"],
+.block-content[data-type="toggleListItem"] {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+/* 2. 左侧符号 (bullet 或 checkbox) */
+.bullet-point {
+    line-height: 1.6;
+    user-select: none;
+}
+
+.todo-checkbox-wrapper {
+    padding-top: 5px;
+}
+
+/* 3. 内容包装器 (通用) */
+.list-item-content-wrapper {
+    flex-grow: 1;
+}
+
+/* 4. 可编辑文本区域 (通用) */
+.list-item-text-area {
+    outline: none;
+    min-height: 26px;
+}
+
+/* 5. 子块容器的默认样式 (通用) */
+.list-item-children-container {
+    height: auto;
+    overflow: hidden;
+    transition: min-height 0.2s ease-out;
+}
+
+    /* 6. 当子块容器不为空时 (通用) */
+    .list-item-children-container:not(:empty) {
+        padding-left: 28px;
+        padding-top: var(--spacing-xs);
+        padding-bottom: 12px;
+        min-height: 24px;
+    }
+
+    /* 7. 空的子块容器默认高度为0 (通用) */
+    .list-item-children-container:empty {
+        min-height: 0;
+    }
+
+/* 8. 激活时撑开空的子块容器 (通用) */
+.block-container.vn-active .list-item-children-container:empty {
+    min-height: 24px;
+}
+
+/* --- To-do List 的专属样式 --- */
+
+/* 9. 美化 Checkbox */
+.todo-checkbox {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    margin: 0;
+    font: inherit;
+    color: var(--text-secondary);
+    width: 1.15em;
+    height: 1.15em;
+    border: 0.15em solid currentColor;
+    border-radius: 0.15em;
+    transform: translateY(-0.075em);
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+}
+
+    .todo-checkbox::before {
+        content: "";
+        width: 0.65em;
+        height: 0.65em;
+        transform: scale(0);
+        transition: 120ms transform ease-in-out;
+        box-shadow: inset 1em 1em var(--text-accent);
+        transform-origin: bottom left;
+        clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    }
+
+    .todo-checkbox:checked::before {
+        transform: scale(1);
+    }
+
+/* 10. 已勾选状态的文本样式 */
+.list-item-text-area.todo-checked {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+}
+
+
+/* --- Numbered List Item Specific Styles --- */
+
+/* Wrapper for the number and the dot */
+.number-point-wrapper {
+    display: flex;
+    align-items: baseline; /* Aligns number and dot nicely */
+    gap: 2px;
+    /* Match line-height of text for vertical alignment */
+    line-height: 1.6;
+    user-select: none;
+    color: var(--text-secondary);
+}
+
+/* The editable number itself */
+.number-point {
+    outline: none;
+    min-width: 1em; /* Prevents collapsing when empty */
+    text-align: right; /* Keeps numbers aligned for 1, 10, 100 etc. */
+}
+
+
+/* --- Toggle List Item Specific Styles --- */
+
+.toggle-triangle-wrapper {
+    padding-top: 5px;
+    flex-shrink: 0;
+}
+
+.toggle-triangle {
+    width: 1.15em;
+    height: 1.15em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .toggle-triangle::before {
+        content: '';
+        border-style: solid;
+        border-width: 4px 0 4px 6px;
+        border-color: transparent transparent transparent var(--text-secondary);
+        transform: rotate(90deg);
+        transition: transform 0.2s ease-in-out;
+    }
+
+/* Collapsed State Styling */
+.block-content.is-collapsed .toggle-triangle::before {
+    transform: rotate(0deg);
+}
+
+.block-content.is-collapsed .list-item-children-container {
+    max-height: 0;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* Add a transition to the children container for smooth animation */
+.list-item-children-container {
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
+    overflow: hidden;
+    /* Set a large max-height for the expanded state */
+    max-height: 2000px; /* Adjust if you have extremely long nested content */
+}
