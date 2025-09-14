@@ -120,6 +120,21 @@ void Backend::HandleWebMessage(const std::wstring& message) {
         else if (action == "toggleFullscreen") {
             ToggleFullscreen();
         }
+        else if (action == "minimizeWindow") {
+            MinimizeWindow();
+        }
+        else if (action == "maximizeWindow") {
+            MaximizeWindow();
+        }
+        else if (action == "closeWindow") {
+            CloseWindow();
+        }
+        else if (action == "startWindowDrag") {
+            StartWindowDrag();
+        }
+        else if (action == "checkWindowState") {
+            CheckWindowState();
+        }
         else {
             std::cout << "Unknown Action: " + action << std::endl;
         }
@@ -210,19 +225,28 @@ void Backend::LoadPage(const json& payload) {
 
     bool fromPreview = payload.value("fromPreview", false);
 
+    // ** THE CORE FIX: A safer way to extract an optional string value **
+    std::string blockIdToFocus = ""; // Initialize with a default empty string
+    if (payload.contains("blockIdToFocus") && payload["blockIdToFocus"].is_string()) {
+        blockIdToFocus = payload["blockIdToFocus"].get<std::string>();
+    }
+
     json response;
     response["action"] = "pageLoaded";
     response["payload"]["path"] = path_str;
     response["payload"]["fromPreview"] = fromPreview;
+
+    if (!blockIdToFocus.empty()) {
+        response["payload"]["blockIdToFocus"] = blockIdToFocus;
+    }
 
     try {
         std::ifstream file(pagePath);
         if (file.is_open()) {
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
             if (content.empty()) {
-                // 如果文件是空的，返回一个默认的段落 block
                 response["payload"]["content"] = json::array({
-                    {{"id", "start-block"}, {"type", "paragraph"}, {"content", ""}, {"children", json::array()}}
+                    {{"type", "paragraph"}, {"content", ""}}
                     });
             }
             else {
@@ -729,7 +753,12 @@ void Backend::ToggleFullscreen() {
     if (!m_hWnd) return;
     DWORD style = GetWindowLong(m_hWnd, GWL_STYLE);
     if (style & WS_OVERLAPPEDWINDOW) {
-        // Go fullscreen
+        // --- 进入全屏 ---
+        m_isFullscreen = true;
+
+        // 保存进入全屏前的窗口位置和大小
+        GetWindowPlacement(m_hWnd, &m_wpPrev);
+
         MONITORINFO mi = { sizeof(mi) };
         if (GetMonitorInfo(MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTOPRIMARY), &mi)) {
             SetWindowLong(m_hWnd, GWL_STYLE, style & ~WS_OVERLAPPEDWINDOW);
@@ -738,12 +767,101 @@ void Backend::ToggleFullscreen() {
                 mi.rcMonitor.bottom - mi.rcMonitor.top,
                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
         }
+        SendMessageToJS({ {"action", "windowStateChanged"}, {"payload", {{"state", "fullscreen"}}} });
     }
     else {
-        // Restore from fullscreen
+        // --- 退出全屏 ---
+        m_isFullscreen = false;
         SetWindowLong(m_hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
-        SetWindowPos(m_hWnd, NULL, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
-            SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+
+        // 检查之前是否是最大化状态
+        if (m_wpPrev.showCmd == SW_SHOWMAXIMIZED) {
+            // 如果是，则直接恢复到最大化
+            SetWindowPlacement(m_hWnd, &m_wpPrev);
+        }
+        else {
+            // 如果不是，恢复到之前的位置，但可以调整一下大小
+            RECT rc = m_wpPrev.rcNormalPosition;
+            int width = rc.right - rc.left;
+            int height = rc.bottom - rc.top;
+
+            // 获取显示器大小
+            MONITORINFO mi = { sizeof(mi) };
+            GetMonitorInfo(MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTOPRIMARY), &mi);
+            int screenWidth = mi.rcMonitor.right - mi.rcMonitor.left;
+            int screenHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
+
+            // 如果恢复后的窗口尺寸过大（例如超过屏幕的95%），则将其缩小
+            if (width >= screenWidth * 0.95 || height >= screenHeight * 0.95) {
+                width = screenWidth * 0.8;
+                height = screenHeight * 0.8;
+                // 居中窗口
+                int x = (screenWidth - width) / 2;
+                int y = (screenHeight - height) / 2;
+                SetWindowPos(m_hWnd, NULL, x, y, width, height, SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+            }
+            else {
+                // 否则，直接恢复到之前的位置和大小
+                SetWindowPlacement(m_hWnd, &m_wpPrev);
+            }
+        }
+
+        SendMessageToJS({ {"action", "windowStateChanged"}, {"payload", {{"state", "restored_from_fullscreen"}}} });
+        CheckWindowState();
+    }
+}
+
+
+
+void Backend::MinimizeWindow() {
+    if (m_hWnd) {
+        ShowWindow(m_hWnd, SW_MINIMIZE);
+    }
+}
+
+void Backend::MaximizeWindow() {
+    if (m_hWnd) {
+        WINDOWPLACEMENT wp = { sizeof(WINDOWPLACEMENT) };
+        GetWindowPlacement(m_hWnd, &wp);
+        if (wp.showCmd == SW_MAXIMIZE) {
+            ShowWindow(m_hWnd, SW_RESTORE);
+            SendMessageToJS({ {"action", "windowStateChanged"}, {"payload", {{"state", "restored"}}} });
+        }
+        else {
+            ShowWindow(m_hWnd, SW_MAXIMIZE);
+            SendMessageToJS({ {"action", "windowStateChanged"}, {"payload", {{"state", "maximized"}}} });
+        }
+    }
+}
+
+bool Backend::IsFullscreen() const {
+    return m_isFullscreen;
+}
+
+void Backend::CloseWindow() {
+    if (m_hWnd) {
+        PostMessage(m_hWnd, WM_CLOSE, 0, 0);
+    }
+}
+
+void Backend::StartWindowDrag() {
+    if (m_hWnd) {
+        // 释放鼠标捕获，然后向窗口发送一个伪造的“在标题栏上按下鼠标左键”的消息
+        // Windows 将接管并开始标准的窗口拖动操作
+        ReleaseCapture();
+        SendMessage(m_hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    }
+}
+
+void Backend::CheckWindowState() {
+    if (m_hWnd) {
+        WINDOWPLACEMENT wp = { sizeof(WINDOWPLACEMENT) };
+        GetWindowPlacement(m_hWnd, &wp);
+        if (wp.showCmd == SW_MAXIMIZE) {
+            SendMessageToJS({ {"action", "windowStateChanged"}, {"payload", {{"state", "maximized"}}} });
+        }
+        else {
+            SendMessageToJS({ {"action", "windowStateChanged"}, {"payload", {{"state", "restored"}}} });
+        }
     }
 }

@@ -67,7 +67,7 @@ class CodeBlock extends Block {
     onInput() {
         this.updateHighlight();
         // Use 'typing' action type to get coalescing for free
-        this.editor.emitChange(true, 'typing');
+        this.editor.emitChange(true, 'typing', this);
     }
     
     // Code blocks don't need default keydown handlers (no Enter for new blocks, etc.)
@@ -135,12 +135,11 @@ class CodeBlock extends Block {
     // *** NEW: Handle the toolbar action ***
     handleToolbarAction(action, buttonElement) {
         if (action === 'changeLanguage') {
-            // It passes the button element to showLanguagePicker
             this.showLanguagePicker(buttonElement);
         }
     }
     
-    showLanguagePicker(buttonElement) { // Let's call it `buttonElement` to be explicit
+    showLanguagePicker(buttonElement) {
         const popoverContent = `
             <div id="popover-language-picker">
                 <input type="text" id="popover-language-search" placeholder="Search language...">
@@ -155,11 +154,11 @@ class CodeBlock extends Block {
             listEl.innerHTML = filteredLangs.map(lang => `<div class="language-item" data-lang="${lang}">${lang}</div>`).join('');
         };
         
-        // Use the received parameter `buttonElement` directly
+        // ** The key change: Call the editor's generic popover **
         this.editor.showCustomPopover({
-            targetElement: buttonElement, // <--- This now refers to the function's parameter
+            targetElement: buttonElement,
             content: popoverContent,
-            onOpen: () => {
+            onOpen: (customWrapper, editor) => {
                 const searchInput = document.getElementById('popover-language-search');
                 const listEl = document.getElementById('popover-language-list');
                 
@@ -171,7 +170,7 @@ class CodeBlock extends Block {
                     const item = event.target.closest('.language-item');
                     if (item) {
                         this.setLanguage(item.dataset.lang);
-                        this.editor.hidePopover();
+                        editor.hidePopover();
                     }
                 });
                 
@@ -186,7 +185,7 @@ class CodeBlock extends Block {
         // No need to update button text here, the toolbar will be re-rendered on next hover
         this.highlightedElement.className = `language-${lang}`;
         this.updateHighlight();
-        this.editor.emitChange(true, 'change-language');
+        this.editor.emitChange(true, 'change-language', this);
         
         // Force the toolbar to redraw to show the new language name
         if (this.editor.activeToolbarBlock === this) {

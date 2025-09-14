@@ -64,6 +64,8 @@ public:
     void SetWebView(ICoreWebView2* webview);
     void SetMainWindowHandle(HWND hWnd);
     void HandleWebMessage(const std::wstring& message);
+    bool IsFullscreen() const;
+    void CheckWindowState();
 
 private:
     void SendMessageToJS(const json& message);
@@ -86,9 +88,16 @@ private:
     void ToggleFullscreen();
     void CancelExport();
 
+    void MinimizeWindow();
+    void MaximizeWindow();
+    void CloseWindow();
+    void StartWindowDrag();
+
 
     // --- Private Members ---
     wil::com_ptr<ICoreWebView2> m_webview;
     std::wstring m_workspaceRoot;
     HWND m_hWnd;
+    bool m_isFullscreen = false;
+    WINDOWPLACEMENT m_wpPrev = { sizeof(m_wpPrev) };
 };

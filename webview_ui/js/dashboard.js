@@ -2,11 +2,15 @@
     const searchInput = document.getElementById('search-input');
     const recentList = document.getElementById('recent-list');
     const openWorkspaceBtn = document.getElementById('open-workspace-btn');
-    const toggleFullscreenBtn = document.getElementById('toggle-fullscreen-btn');
+    const dragRegion = document.getElementById('drag-region');
     const aboutBtn = document.getElementById('about-btn');
     const aboutModal = document.getElementById('about-modal');
     const closeModalBtn = aboutModal.querySelector('.close-btn');
     const copyLinkBtn = document.getElementById('copy-link-btn');
+
+    const minimizeBtn = document.getElementById('minimize-btn');
+    const maximizeBtn = document.getElementById('maximize-btn');
+    const closeBtn = document.getElementById('close-btn');
 
     const STORAGE_KEY = 'veritnote_recent_workspaces';
 
@@ -78,10 +82,11 @@
     openWorkspaceBtn.addEventListener('click', () => {
         ipc.send('openWorkspaceDialog');
     });
-    
-    toggleFullscreenBtn.addEventListener('click', () => {
-        ipc.send('toggleFullscreen');
-    });
+
+    // --- 新增: 窗口控件事件监听 ---
+    minimizeBtn.addEventListener('click', () => ipc.minimizeWindow());
+    maximizeBtn.addEventListener('click', () => ipc.maximizeWindow());
+    closeBtn.addEventListener('click', () => ipc.closeWindow());
 
     recentList.addEventListener('click', (e) => {
         const item = e.target.closest('.item');
@@ -112,6 +117,11 @@
         document.execCommand('copy');
         copyLinkBtn.textContent = 'Copied!';
         setTimeout(() => { copyLinkBtn.textContent = 'Copy'; }, 1500);
+    });
+
+
+    dragRegion.addEventListener('mousedown', () => {
+        ipc.startWindowDrag();
     });
 
     // --- Initial Load ---

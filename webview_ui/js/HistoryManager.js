@@ -121,10 +121,19 @@ class HistoryManager {
     _applySnapshot(snapshot) {
         if (!snapshot) return;
         const pageContent = JSON.parse(snapshot);
-        // We can re-use the editor's load method, but we need to fake a pageData object.
+        
         this.editor.load({
             path: this.editor.currentPagePath,
             content: pageContent
         });
+
+        // ** NEW: Dispatch a global update event after history change **
+        // This tells listeners like ReferenceManager to re-check everything.
+        window.dispatchEvent(new CustomEvent('history:applied', {
+            detail: {
+                filePath: this.editor.currentPagePath,
+                allBlockData: this.editor.getBlocksForSaving() // Send the complete new state
+            }
+        }));
     }
 }

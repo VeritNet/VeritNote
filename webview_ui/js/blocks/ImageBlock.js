@@ -26,40 +26,40 @@ class ImageBlock extends Block {
     }
     
     handleToolbarAction(action, buttonElement) {
-        const isImageSourceAction = action === 'editImage';
-        const isImageLinkAction = action === 'linkImage';
-
-        let existingValue = '';
-        if (isImageSourceAction) {
-            existingValue = this.content.match(/src="([^"]+)"/)?.[1] || '';
-        } else if (isImageLinkAction) {
-            existingValue = this.content.match(/<a[^>]*href="([^"]*)"/)?.[1] || '';
-        }
-
-        window.dispatchEvent(new CustomEvent('showLinkPopover', { detail: {
-            targetElement: buttonElement,
-            isImageSource: isImageSourceAction,
-            isImageLink: isImageLinkAction,
-            existingValue: existingValue,
-            callback: (value) => {
-                // Update block content based on the action
-                if (isImageSourceAction) {
+        if (action === 'editImage') {
+            // This button now correctly calls the dedicated image source popover
+            const existingValue = this.content.match(/src="([^"]+)"/)?.[1] || '';
+            window.showImageSourcePopover({
+                targetElement: buttonElement,
+                existingValue: existingValue,
+                callback: (value) => {
                     let currentHref = this.content.match(/href="([^"]+)"/)?.[1] || '';
                     let imgTag = value ? `<img src="${value}" alt="image">` : '';
                     this.content = currentHref && imgTag ? `<a href="${currentHref}">${imgTag}</a>` : imgTag;
-                } else if (isImageLinkAction) {
+                    if (!this.content) {
+                        this.content = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
+                    }
+                    this.syncContentToDOM();
+                    this.editor.emitChange(true, 'edit-image-src', this);
+                }
+            });
+        } else if (action === 'linkImage') {
+            // This button correctly calls the generic link popover
+            const existingValue = this.content.match(/<a[^>]*href="([^"]*)"/)?.[1] || '';
+             window.showLinkPopover({
+                targetElement: buttonElement,
+                existingValue: existingValue,
+                callback: (value) => {
                     let currentSrc = this.content.match(/src="([^"]+)"/)?.[1] || '';
                     let imgTag = currentSrc ? `<img src="${currentSrc}" alt="image">` : '';
                     this.content = value && imgTag ? `<a href="${value}">${imgTag}</a>` : imgTag;
+                    if (!this.content) {
+                        this.content = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
+                    }
+                    this.syncContentToDOM();
+                    this.editor.emitChange(true, 'edit-image-link', this);
                 }
-
-                if (!this.content) {
-                    this.content = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
-                }
-
-                this.syncContentToDOM();
-                this.editor.emitChange(true, 'edit-image');
-            }
-        }}));
+            });
+        }
     }
 }

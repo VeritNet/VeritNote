@@ -86,12 +86,37 @@ class Editor {
     /**
      * Emits a custom event to notify main.js that content has changed.
      */
-    emitChange(recordHistory = true, actionType = 'unknown') {
+    emitChange(recordHistory = true, actionType = 'unknown', blockInstance = null) {
         if (recordHistory && !this.history.isUndoingOrRedoing) {
             this.history.record(actionType);
         }
-        // This event now ONLY signals "unsaved changes" status to main.js
+        
+        // Dispatch event for unsaved status
         window.dispatchEvent(new CustomEvent('editor:change'));
+
+        // ** REVISED: Dispatch specific event for the block AND ALL ITS PARENTS **
+        if (blockInstance) {
+            let currentBlock = blockInstance;
+            
+            // Start with the block that was directly changed
+            // Then loop upwards through all its parents
+            while (currentBlock) {
+                // We need to ensure the parent's data object is fully up-to-date
+                // before dispatching the event. `currentBlock.data` getter handles this.
+                const currentBlockData = currentBlock.data;
+
+                window.dispatchEvent(new CustomEvent('block:updated', {
+                    detail: {
+                        filePath: this.currentPagePath,
+                        blockData: currentBlockData
+                    }
+                }));
+
+                // Move up to the next parent
+                const parentInfo = this._findBlockInstanceById(this.blocks, currentBlock.id);
+                currentBlock = parentInfo ? parentInfo.parentBlock : null;
+            }
+        }
     }
 
     // --- Core Rendering ---
@@ -145,6 +170,7 @@ class Editor {
         this.container.addEventListener('dragover', this._onDragOver.bind(this));
         this.container.addEventListener('dragleave', this._onDragLeave.bind(this));
         this.container.addEventListener('drop', this._onDrop.bind(this));
+        this.container.addEventListener('dragend', this._onDragEnd.bind(this));
         
         this.commandMenu.addEventListener('click', this._onCommandMenuClick.bind(this));
 
@@ -215,13 +241,39 @@ class Editor {
     deleteBlock(blockInstance) {
         const info = this._findBlockInstanceAndParent(blockInstance.id);
         if (info) {
+            // ** STEP 1: Dispatch deletion event for the block itself **
+            window.dispatchEvent(new CustomEvent('block:deleted', {
+                detail: {
+                    filePath: this.currentPagePath,
+                    blockId: blockInstance.id
+                }
+            }));
+            
+            // ** STEP 2: Actually remove the block from its parent's children array **
             info.parentArray.splice(info.index, 1);
             
-            // *** FIX: Call cleanup immediately after deletion. ***
+            // ** STEP 3: (REVISED) Trigger updates for all parent containers **
+            let parentToUpdate = info.parentInstance;
+            while(parentToUpdate) {
+                // Get the parent's most up-to-date data (which now excludes the deleted child)
+                const parentData = parentToUpdate.data;
+                
+                window.dispatchEvent(new CustomEvent('block:updated', {
+                    detail: {
+                        filePath: this.currentPagePath,
+                        blockData: parentData
+                    }
+                }));
+                
+                // Move up to the next parent
+                const grandParentInfo = this._findBlockInstanceById(this.blocks, parentToUpdate.id);
+                parentToUpdate = grandParentInfo ? grandParentInfo.parentBlock : null;
+            }
+
+            // ** STEP 4: Perform cleanup, render, and record history **
             this._cleanupData();
-            
             this.render();
-            this.emitChange(true, 'delete-block');
+            this.emitChange(true, 'delete-block', null); // Pass null as we've handled updates manually
         }
     }
 
@@ -315,36 +367,31 @@ class Editor {
         newBlockInstance.focus();
         this.emitChange(true, 'insert-block');
     }
-
-    deleteBlock(blockToDelete, focusPrevious = false) {
-        const { parent, index } = this._findBlockInstanceById(this.blocks, blockToDelete.id);
-        if (parent) {
-            parent.splice(index, 1);
-            
-            // Focus logic
-            if (focusPrevious) {
-                const prevBlock = parent[index - 1] || (this._findBlockInstanceById(this.blocks, blockToDelete.id)?.parentBlock);
-                if (prevBlock) {
-                    prevBlock.focus();
-                }
-            }
-
-            this._cleanupData();
-            this.render();
-            this.emitChange();
-        }
-    }
     
     // --- Command Menu ---
     showCommandMenuForBlock(blockInstance) {
         const blockEl = blockInstance.contentElement;
         if (!blockEl) return;
 
-        const rect = blockEl.getBoundingClientRect();
-        this.commandMenu.style.left = `${rect.left}px`;
-        this.commandMenu.style.top = `${rect.bottom}px`;
-        this.commandMenu.style.display = 'block';
+        this.commandMenu.style.display = 'block'; // Show first to measure height
         this.activeCommandBlock = blockInstance;
+
+        const rect = blockEl.getBoundingClientRect();
+        const menuHeight = this.commandMenu.offsetHeight;
+        const windowHeight = window.innerHeight;
+        const buffer = 10; // 10px spacing from the edge
+
+        let topPosition = rect.bottom;
+
+        // Check if the menu would go off-screen at the bottom
+        if (rect.bottom + menuHeight > windowHeight - buffer) {
+            // If so, position it ABOVE the block instead
+            topPosition = rect.top - menuHeight;
+        }
+
+        this.commandMenu.style.left = `${rect.left}px`;
+        this.commandMenu.style.top = `${topPosition}px`;
+        
         this._updateCommandMenu(blockEl.textContent.substring(1));
     }
 
@@ -467,11 +514,21 @@ class Editor {
             this.draggedBlock = blockContainer;
             e.dataTransfer.setData('text/plain', blockContainer.dataset.id);
             setTimeout(() => e.target.style.opacity = '0.5', 0);
+            document.body.classList.add('is-dragging-block');
         }
     }
 
     _onDragOver(e) {
         e.preventDefault();
+
+        if (e.target.closest('#right-sidebar')) {
+            this._cleanupDragIndicators();
+            this.currentDropInfo = null; // Important: Clear drop info
+            e.dataTransfer.dropEffect = 'copy'; // Show a copy cursor
+            window.dispatchEvent(new CustomEvent('block:dragover:right-sidebar'));
+            return;
+        }
+
         this._cleanupDragIndicators();
     
         let targetEl = e.target.closest('.block-container');
@@ -527,9 +584,14 @@ class Editor {
     }
 
     _onDrop(e) {
+        document.body.classList.remove('is-dragging-block');
         e.preventDefault();
         this._cleanupDragIndicators();
-        if (this.draggedBlock) this.draggedBlock.style.opacity = '1';
+        if (this.draggedBlock) {
+            this.draggedBlock.style.opacity = '1';
+            // Reset the editor's draggedBlock reference AFTER drop.
+            this.draggedBlock = null; 
+        }
 
         const draggedId = e.dataTransfer.getData('text/plain');
         if (!draggedId || !this.currentDropInfo) return;
@@ -589,6 +651,17 @@ class Editor {
         this._cleanupData();
         this.render();
         this.emitChange(true, 'drag-drop');
+    }
+
+    _onDragEnd(e) {
+        // This handles cases where the block is dropped outside a valid target.
+        document.body.classList.remove('is-dragging-block');
+        this._cleanupDragIndicators();
+        // The draggedBlock might still exist if drop didn't happen on a valid target
+        if (this.draggedBlock) {
+            this.draggedBlock.style.opacity = '1';
+            this.draggedBlock = null;
+        }
     }
     
     // *** FIX: A much simpler, instance-based column drop logic ***
@@ -673,25 +746,6 @@ class Editor {
         traverseAndClean(this.blocks, null);
     
         return structuralChange;
-    }
-
-    // And update the centralized delete method to re-render if needed
-    deleteBlock(blockInstance, focusPrevious = false) {
-        const info = this._findBlockInstanceAndParent(blockInstance.id);
-        if (info) {
-            const { parentArray, index } = info;
-            parentArray.splice(index, 1);
-
-            // After deletion, run cleanup. It returns true if the structure was changed.
-            const structureChanged = this._cleanupData();
-            
-            // Always re-render after a deletion or structural change.
-            this.render();
-            this.emitChange();
-            
-            // Future logic for focusing can be added here
-            // For example, find the block at `index - 1` and focus it.
-        }
     }
 
     // --- Drag & Drop Visual Helpers (Identical logic) ---
@@ -934,25 +988,25 @@ class Editor {
             
             case 'colorPicker':
                 this.richTextEditingState = { isActive: true, blockId: blockInstance.id, savedRange: this.currentSelection };
-                window.dispatchEvent(new CustomEvent('showColorPicker', { detail: { 
+                window.showColorPicker({ 
                     targetElement: button,
                     callback: (color) => {
                         document.execCommand('styleWithCSS', false, true);
                         forceRestoreAndExecute('foreColor', color);
                         document.execCommand('styleWithCSS', false, false);
                     }
-                }}));
+                });
                 break;
 
             case 'link':
                 this.richTextEditingState = { isActive: true, blockId: blockInstance.id, savedRange: this.currentSelection };
-                window.dispatchEvent(new CustomEvent('showLinkPopover', { detail: {
+                window.showLinkPopover({
                     targetElement: button,
                     existingValue: this.currentSelection?.commonAncestorContainer.parentNode.href || '',
                     callback: (value) => {
                         forceRestoreAndExecute(value ? 'createLink' : 'unlink', value || undefined);
                     }
-                }}));
+                });
                 break;
 
             // Actions for specific blocks (e.g., Image, LinkButton)
@@ -990,70 +1044,53 @@ class Editor {
         return null;
     }
 
+    
     getSanitizedHtml(isForExport = false, workspaceRoot = '', options = {}, imageSrcMap = {}) {
         const clonedContainer = this.container.cloneNode(true);
 
-        // --- 移除编辑控件 (保持不变) ---
+        // --- 1. Standard Cleanup ---
         clonedContainer.querySelectorAll('.block-controls, .column-resizer, .drop-indicator, .drop-indicator-vertical').forEach(el => el.remove());
-        clonedContainer.querySelectorAll('.block-content[data-type="code"]').forEach(codeBlockElement => {
-            const textarea = codeBlockElement.querySelector('.code-block-input');
-            if (textarea) { textarea.remove(); }
-        });
+        clonedContainer.querySelectorAll('.block-content[data-type="code"] .code-block-input').forEach(el => el.remove());
         clonedContainer.querySelectorAll('[contentEditable="true"]').forEach(el => {
             el.removeAttribute('contentEditable');
             el.removeAttribute('data-placeholder');
         });
-        clonedContainer.querySelectorAll('.toolbar-active, .vn-active').forEach(el => {
-            el.classList.remove('toolbar-active', 'vn-active');
+        clonedContainer.querySelectorAll('.toolbar-active, .vn-active, .is-highlighted').forEach(el => {
+            el.classList.remove('toolbar-active', 'vn-active', 'is-highlighted');
         });
-
-        // --- Make blocks non-draggable if option is selected ---
         if (isForExport && options.disableDrag) {
-            clonedContainer.querySelectorAll('[draggable="true"]').forEach(el => {
-                el.removeAttribute('draggable');
-            });
+            clonedContainer.querySelectorAll('[draggable="true"]').forEach(el => el.removeAttribute('draggable'));
         }
 
-        // --- 修正: 处理 To-do List 的状态继承 ---
-        // 这个逻辑对预览和导出都必须执行
+        // --- 2. List Items State Inheritance ---
+        // To-do List state
         clonedContainer.querySelectorAll('.block-content[data-type="todoListItem"]').forEach(clonedTodoEl => {
             const clonedCheckbox = clonedTodoEl.querySelector('.todo-checkbox');
             const clonedTextEl = clonedTodoEl.querySelector('.list-item-text-area');
-
             if (clonedCheckbox && clonedTextEl) {
-                // 关键修复：通过 ID 在原始的、正在编辑的容器中找到对应的 checkbox
                 const originalCheckbox = this.container.querySelector('#' + clonedCheckbox.id);
-
-                // 如果找到了原始 checkbox 并且它是勾选状态
                 if (originalCheckbox && originalCheckbox.checked) {
-                    // 1. 在克隆的 checkbox 上设置 'checked' 属性，使其在 HTML 中默认为勾选
                     clonedCheckbox.setAttribute('checked', '');
-                    // 2. 在克隆的文本元素上添加删除线样式
                     clonedTextEl.classList.add('todo-checked');
                 }
-
-                // 如果是导出模式，还需要为 localStorage 脚本添加 data-id
                 if (isForExport) {
                     clonedCheckbox.setAttribute('data-id', clonedCheckbox.id);
                 }
             }
         });
 
-        // --- NEW: Handle Toggle List state inheritance (for preview and export) ---
+        // Toggle List state
         clonedContainer.querySelectorAll('.block-content[data-type="toggleListItem"]').forEach(clonedToggleEl => {
             const originalBlock = this._findBlockInstanceById(this.blocks, clonedToggleEl.dataset.id)?.block;
             if (originalBlock) {
                 if (originalBlock.properties.isCollapsed) {
                     clonedToggleEl.classList.add('is-collapsed');
                 }
-
                 const toggleTriangle = clonedToggleEl.querySelector('.toggle-triangle');
                 if (toggleTriangle) {
                     if (isForExport) {
-                        // For EXPORT, add a data-id for the localStorage script to find.
                         toggleTriangle.setAttribute('data-id', `toggle-${originalBlock.id}`);
                     } else {
-                        // --- FIX: For PREVIEW, inject a simple, non-persistent onclick handler. ---
                         const onclickScript = "this.closest('.block-content[data-type=\"toggleListItem\"]').classList.toggle('is-collapsed');";
                         toggleTriangle.setAttribute('onclick', onclickScript);
                     }
@@ -1061,67 +1098,76 @@ class Editor {
             }
         });
 
-        // --- 链接处理 ---
-        clonedContainer.querySelectorAll('a, img').forEach(el => {
-            const isLink = el.tagName === 'A';
-            const isImage = el.tagName === 'IMG';
-            let pathAttr = isLink ? 'href' : 'src';
-            let originalPath = el.getAttribute(pathAttr);
 
-            if (!originalPath) return;
+        // --- 3. Universal Link and Image Processing ---
+        
+        // Handle Links (<a> tags)
+        clonedContainer.querySelectorAll('a').forEach((el, index) => {
+            let href = el.getAttribute('href');
+            if (!href) return;
 
-            // --- Replace image paths using the map from the backend ---
-            if (isImage && imageSrcMap[originalPath]) {
-                el.setAttribute(pathAttr, imageSrcMap[originalPath]);
-                return; // Path has been replaced, no further processing needed
-            }
+            let normalizedHref = href.replace(/\\/g, '/');
             
-            // Handle page links (existing logic)
-            if (isLink && originalPath.endsWith('.veritnote')) {
+            let pathPart = normalizedHref;
+            let hashPart = '';
+
+            if (normalizedHref.includes('#')) {
+                const parts = normalizedHref.split('#');
+                pathPart = parts[0];
+                hashPart = '#' + parts[1];
+            }
+
+            if (pathPart.endsWith('.veritnote')) {
                 if (isForExport) {
-                    const relativePath = originalPath.substring(workspaceRoot.length + 1).replace(/\\/g, '/');
-                    el.setAttribute('href', relativePath.replace('.veritnote', '.html'));
-                } else {
+                    const relativePath = pathPart.substring(workspaceRoot.length + 1).replace('.veritnote', '.html');
+                    el.setAttribute('href', relativePath + hashPart);
+                } else { // In-app preview mode
                     el.setAttribute('href', '#');
-                    el.setAttribute('onclick', `window.chrome.webview.postMessage({ action: 'loadPage', payload: { path: '${originalPath.replace(/\\/g, '\\\\')}', fromPreview: true } }); return false;`);
+                    el.setAttribute('data-internal-link', href);
+                    el.classList.add('internal-link');
+                    // ** DEBUG: Add a unique ID for logging **
+                    el.setAttribute('data-debug-id', `link-${index}`);
                 }
             }
         });
+        
+        // Handle Images (<img> tags)
+        clonedContainer.querySelectorAll('img').forEach(el => {
+            const originalPath = el.getAttribute('src');
+            if (!originalPath) return;
+
+            // Priority: Check if the backend provided a new path in the imageSrcMap (for copied/downloaded images)
+            if (isForExport && imageSrcMap[originalPath]) {
+                el.setAttribute('src', imageSrcMap[originalPath]);
+                return; // Path has been replaced, no further processing needed for this image
+            }
+
+            // Note: Unlike links, image `src` usually doesn't need path rewriting for in-app preview,
+            // as local file paths (`file:///...`) or online URLs work directly.
+            // Export logic is handled by the imageSrcMap.
+        });
 
 
-        // --- 最终返回 ---
+        // --- 4. Final HTML Assembly & Script Injection ---
         let finalHtml = clonedContainer.innerHTML;
 
-        // --- 注入 todolist localStorage 脚本 (只在导出时) ---
+        // Inject script for To-do list state persistence on export
         if (isForExport && finalHtml.includes('data-type="todoListItem"')) {
             const script = `
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const STORAGE_KEY = 'veritnote_todo_state';
-        
-        // 1. 加载状态
         function loadState() {
             try {
                 const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
                 document.querySelectorAll('.todo-checkbox[data-id]').forEach(checkbox => {
                     const id = checkbox.getAttribute('data-id');
-                    if (savedState[id] !== undefined) {
-                        checkbox.checked = savedState[id];
-                    }
-                    // 更新文本样式
+                    if (savedState[id] !== undefined) { checkbox.checked = savedState[id]; }
                     const textEl = checkbox.closest('.block-content').querySelector('.list-item-text-area');
-                    if (textEl) {
-                        if (checkbox.checked) {
-                            textEl.classList.add('todo-checked');
-                        } else {
-                            textEl.classList.remove('todo-checked');
-                        }
-                    }
+                    if (textEl) { textEl.classList.toggle('todo-checked', checkbox.checked); }
                 });
             } catch (e) { console.error('Failed to load to-do state:', e); }
         }
-
-        // 2. 保存状态
         function saveState(id, isChecked) {
             try {
                 const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -1129,41 +1175,27 @@ class Editor {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
             } catch (e) { console.error('Failed to save to-do state:', e); }
         }
-
-        // 3. 绑定事件
         document.querySelectorAll('.todo-checkbox[data-id]').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
                 const id = e.target.getAttribute('data-id');
                 const isChecked = e.target.checked;
                 saveState(id, isChecked);
-                // 更新文本样式
                 const textEl = e.target.closest('.block-content').querySelector('.list-item-text-area');
-                if (textEl) {
-                    if (isChecked) {
-                        textEl.classList.add('todo-checked');
-                    } else {
-                        textEl.classList.remove('todo-checked');
-                    }
-                }
+                if (textEl) { textEl.classList.toggle('todo-checked', isChecked); }
             });
         });
-
-        // 初始加载
         loadState();
     });
-<\/script>
-`;
+<\/script>`;
             finalHtml += script;
         }
 
-        // --- NEW: Inject localStorage script for Toggle Lists (only on export) ---
+        // Inject script for Toggle list state persistence on export
         if (isForExport && finalHtml.includes('data-type="toggleListItem"')) {
             const script = `
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const STORAGE_KEY = 'veritnote_toggle_state';
-        
-        // 1. Load state from localStorage
         function loadState() {
             try {
                 const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -1171,17 +1203,11 @@ class Editor {
                     const id = triangle.getAttribute('data-id');
                     const container = triangle.closest('.block-content[data-type="toggleListItem"]');
                     if (savedState[id] !== undefined && container) {
-                        if (savedState[id]) { // if state is true (collapsed)
-                            container.classList.add('is-collapsed');
-                        } else {
-                            container.classList.remove('is-collapsed');
-                        }
+                        container.classList.toggle('is-collapsed', savedState[id]);
                     }
                 });
             } catch (e) { console.error('Failed to load toggle state:', e); }
         }
-
-        // 2. Save state to localStorage
         function saveState(id, isCollapsed) {
             try {
                 const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -1189,73 +1215,76 @@ class Editor {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
             } catch (e) { console.error('Failed to save toggle state:', e); }
         }
-
-        // 3. Bind click events
         document.querySelectorAll('.toggle-triangle[data-id]').forEach(triangle => {
             triangle.addEventListener('click', (e) => {
-                const id = e.target.getAttribute('data-id');
                 const container = e.target.closest('.block-content[data-type="toggleListItem"]');
                 if (container) {
+                    const id = e.target.getAttribute('data-id');
                     container.classList.toggle('is-collapsed');
-                    const isNowCollapsed = container.classList.contains('is-collapsed');
-                    saveState(id, isNowCollapsed);
+                    saveState(id, container.classList.contains('is-collapsed'));
                 }
             });
         });
-
-        // Initial load
         loadState();
     });
-<\/script>
-`;
+<\/script>`;
             finalHtml += script;
+        }
+
+        // Inject script for Block Highlighting on exported pages
+        if (isForExport) {
+            const highlightScript = `
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        function highlightBlockFromHash() {
+            try {
+                // Clear any previous highlight first
+                document.querySelectorAll('.is-highlighted').forEach(el => el.classList.remove('is-highlighted'));
+
+                const hash = window.location.hash;
+                if (!hash || hash.length < 2) return;
+                
+                const blockId = decodeURIComponent(hash.substring(1));
+                const targetEl = document.querySelector(\`.block-container[data-id="\${blockId}"]\`);
+
+                if (targetEl) {
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    targetEl.classList.add('is-highlighted');
+
+                    const removeHighlight = () => {
+                        targetEl.classList.remove('is-highlighted');
+                        document.removeEventListener('click', removeHighlight, true);
+                        document.removeEventListener('keydown', removeHighlight, true);
+                    };
+                    setTimeout(() => {
+                        document.addEventListener('click', removeHighlight, { once: true, capture: true });
+                        document.addEventListener('keydown', removeHighlight, { once: true, capture: true });
+                    }, 100);
+                }
+            } catch(e) { console.error('Failed to highlight block:', e); }
+        }
+        highlightBlockFromHash();
+        window.addEventListener('hashchange', highlightBlockFromHash);
+    });
+<\/script>`;
+            finalHtml += highlightScript;
         }
 
         return finalHtml;
     }
 
 
+
     // NEW Method for flexible popovers
     showCustomPopover({ targetElement, content, onOpen }) {
-        const popover = document.getElementById('popover');
-        const popoverContent = popover.querySelector('.popover-content');
-
-        // Hide all standard internal elements
-        popover.querySelectorAll('#popover-input-group, #popover-search-results, #popover-color-picker').forEach(el => {
-            el.style.display = 'none';
-        });
-
-        // Clear previous custom content
-        popover.querySelectorAll('.custom-popover-content').forEach(el => el.remove());
-
-        // Add our new content
-        const customWrapper = document.createElement('div');
-        customWrapper.className = 'custom-popover-content';
-        customWrapper.innerHTML = content;
-        popoverContent.appendChild(customWrapper);
-
-        // Position and show the popover
-        const rect = targetElement.getBoundingClientRect();
-        popover.style.top = `${rect.bottom + 5}px`;
-        if (rect.left + 320 > window.innerWidth) { // Assuming 320px width
-            popover.style.left = `${window.innerWidth - 330}px`;
-        } else {
-            popover.style.left = `${rect.left}px`;
-        }
-        popover.style.display = 'block';
-
-        // Call the setup callback
-        if (typeof onOpen === 'function') {
-            onOpen();
-        }
+        // This is a global function now, defined in main.js.
+        // But we are now passing `this.hidePopover.bind(this)` as part of the options,
+        // so the custom content can close itself.
+        window.showCustomPopover({ targetElement, content, onOpen, editor: this });
     }
     
     hidePopover() {
-        const popover = document.getElementById('popover');
-        if (popover.style.display === 'block') {
-            popover.style.display = 'none';
-            // Clean up custom content to prevent conflicts
-            popover.querySelectorAll('.custom-popover-content').forEach(el => el.remove());
-        }
+        // This is a global function now, defined in main.js
+        window.hidePopover();
     }
 }

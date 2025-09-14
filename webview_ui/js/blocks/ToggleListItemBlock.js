@@ -62,7 +62,7 @@ class ToggleListItemBlock extends TextBlock {
         this.toggleElement.addEventListener('click', () => {
             this.properties.isCollapsed = !this.properties.isCollapsed;
             this.updateCollapsedStateStyle();
-            this.editor.emitChange(true, 'toggle-collapse'); // Notify the editor of the change
+            this.editor.emitChange(true, 'toggle-collapse', this); // Notify the editor of the change
         });
 
         // Manually bind onKeyDown to the text area

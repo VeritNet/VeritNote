@@ -1,10 +1,16 @@
-﻿/* --- 1. 设计系统 & 全局样式 --- */
+﻿html, body {
+    -webkit-app-region: no-drag;
+}
+
+/* --- 1. 设计系统 & 全局样式 --- */
 :root {
     /* 颜色 */
     --bg-primary: rgb(25,25,25); /* 主背景 (深灰) */
-    --bg-secondary: #252526; /* 侧边栏/弹出菜单背景 */
+    --bg-secondary: rgb(30, 30, 30); /* 侧边栏/弹出菜单背景 (调深) */
     --bg-tertiary: #333333; /* 悬停/活动状态背景 */
     --bg-accent: #3a3d41; /* 突出背景，如输入框 */
+    --bg-active-item: #3a3d41; /* 新增：侧边栏选中项背景 (亮灰) */
+    --bg-save-unsaved: #4a6a8f; /* 新增：保存按钮在未保存状态下的背景 */
 
     --text-primary: #cccccc; /* 主要文字 (浅灰) */
     --text-secondary: #8c8c8c; /* 次要文字/占位符 */
@@ -39,16 +45,17 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- 2. 整体布局 --- */
+/* --- 2. 整体应用布局 --- */
 .app-container {
     display: flex;
     height: 100vh;
-    /* NEW: Add transition for main content margin */
-    transition: grid-template-columns 0.3s ease;
 }
 
+/* --- 3. 左侧边栏样式 --- */
 #sidebar {
-    width: 260px;
+    width: 260px; /* Default width */
+    min-width: 120px;
+    max-width: 650px;
     flex-shrink: 0;
     background-color: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
@@ -57,67 +64,22 @@ body {
     transition: width 0.3s ease, transform 0.3s ease, min-width 0.3s ease;
     will-change: width, transform;
     position: relative;
-    z-index: 50; /* Ensure sidebar is on top */
+    z-index: 50;
 }
 
-/* --- NEW: Collapsed State --- */
-.sidebar-collapsed #sidebar {
-    width: 0;
-    min-width: 0; /* Important for shrinking */
-    border-right: none;
-    transform: translateX(-100%);
-    padding: 0;
-}
-
-.sidebar-collapsed #main-content {
-    /* Main content takes full width when collapsed */
-}
-
-/* --- NEW: Temporary Hover-to-Show State --- */
-.sidebar-collapsed.sidebar-peek #sidebar {
-    width: 260px;
-    min-width: 260px;
-    transform: translateX(0);
-    border-right: 1px solid var(--border-color);
-    box-shadow: 5px 0 15px rgba(0,0,0,0.2);
-}
-
-    .sidebar-collapsed.sidebar-peek #sidebar .sidebar-header,
-    .sidebar-collapsed.sidebar-peek #sidebar .workspace-tree,
-    .sidebar-collapsed.sidebar-peek #sidebar .sidebar-footer {
-        opacity: 1;
-        transition: opacity 0.2s ease 0.1s;
-    }
-
-/* --- 新增: 侧边栏悬浮触发器样式 --- */
-#sidebar-peek-trigger {
-    position: fixed; /* 固定在视口上 */
+#sidebar-resizer {
+    position: absolute;
     top: 0;
-    left: 0;
-    width: 10px; /* 触发区域的宽度 */
-    height: 100vh; /* 触发区域的高度 (整个屏幕高) */
-    z-index: 100; /* 确保它在最上层，能接收鼠标事件 */
-    /* background: rgba(255, 0, 0, 0.2); */ /* 取消注释此行以进行调试，您会看到一个红色区域 */
+    right: 0;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 60;
 }
 
-/* 当侧边栏展开时，我们不需要这个触发器 */
-.app-container:not(.sidebar-collapsed) ~ #sidebar-peek-trigger {
-    display: none;
-}
-
-
-#main-content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    /* NEW: Add transition */
-    transition: margin-left 0.3s ease;
-}
-
-/* --- 3. 侧边栏样式 --- */
 .sidebar-header {
     padding: var(--spacing-m);
+    padding-left: var(--spacing-s);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
@@ -141,12 +103,14 @@ body {
 
 .tree-node {
     padding: var(--spacing-xs) var(--spacing-s);
+    margin-bottom: 2px;
     border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
     user-select: none;
     transition: background-color 0.2s ease;
+    gap: var(--spacing-s);
 }
 
     .tree-node:hover {
@@ -154,15 +118,18 @@ body {
     }
 
     .tree-node.active {
-        background-color: var(--text-accent);
-        color: var(--text-on-accent-bg);
+        background-color: var(--bg-active-item);
+        color: var(--text-primary);
     }
 
     .tree-node .icon {
-        margin-right: var(--spacing-s);
         width: 16px;
         height: 16px;
         text-align: center;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .tree-node.folder > .icon::before {
@@ -185,16 +152,16 @@ body {
     padding-left: var(--spacing-m);
 }
 
-
 .sidebar-footer {
     padding: var(--spacing-s);
     border-top: 1px solid var(--border-color);
-    display: flex; /* NEW */
-    flex-direction: column; /* NEW */
-    gap: var(--spacing-s); /* NEW */
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-s);
 }
 
-.sidebar-footer-btn {
+#sidebar > .sidebar-footer > .sidebar-footer-btn,
+#right-sidebar > .right-sidebar-footer > .sidebar-footer-btn {
     width: 100%;
     background: none;
     border: none;
@@ -207,23 +174,17 @@ body {
     gap: var(--spacing-s);
     font-size: 14px;
     text-align: left;
+    transition: background-color 0.2s ease, color 0.2s ease; /* Add transition */
+    justify-content: flex-start;
 }
 
-    .sidebar-footer-btn:hover {
+    #sidebar > .sidebar-footer > .sidebar-footer-btn:hover,
+    #right-sidebar > .right-sidebar-footer > .sidebar-footer-btn:hover {
         background-color: var(--bg-tertiary);
         color: var(--text-primary);
     }
 
-/* When sidebar is collapsed, hide text content */
-.sidebar-collapsed .sidebar-header,
-.sidebar-collapsed .workspace-tree,
-.sidebar-collapsed .sidebar-footer {
-    opacity: 0;
-    transition: opacity 0.1s ease;
-}
-
-
-button {
+#sidebar .sidebar-footer button {
     background-color: var(--bg-accent);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
@@ -234,108 +195,301 @@ button {
     font-size: 14px;
     transition: background-color 0.2s ease, color 0.2s ease;
     width: 100%;
+    text-align: center;
+    justify-content: center;
 }
 
-    button:hover {
+    #sidebar .sidebar-footer button:hover {
         background-color: var(--bg-tertiary);
     }
 
-    button.active {
-        background-color: var(--text-accent);
-        color: var(--text-on-accent-bg);
-        border-color: var(--text-accent);
+/* --- 左侧边栏折叠/窥视 --- */
+.sidebar-collapsed #sidebar {
+    width: 0;
+    min-width: 0;
+    border-right: none;
+    transform: translateX(-100%);
+    padding: 0;
+}
+
+    .sidebar-collapsed #sidebar .sidebar-header,
+    .sidebar-collapsed #sidebar .workspace-tree,
+    .sidebar-collapsed #sidebar .sidebar-footer {
+        opacity: 0;
+        transition: opacity 0.1s ease;
     }
 
-/* --- 4. 主内容区 & 编辑器样式 --- */
-.editor-toolbar {
+.sidebar-collapsed.sidebar-peek #sidebar {
+    width: 260px;
+    min-width: 260px;
+    transform: translateX(0);
+    border-right: 1px solid var(--border-color);
+    box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+}
+
+    .sidebar-collapsed.sidebar-peek #sidebar .sidebar-header,
+    .sidebar-collapsed.sidebar-peek #sidebar .workspace-tree,
+    .sidebar-collapsed.sidebar-peek #sidebar .sidebar-footer {
+        opacity: 1;
+        transition: opacity 0.2s ease 0.1s;
+    }
+
+#sidebar-peek-trigger {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 10px;
+    height: 100vh;
+    z-index: 100;
+}
+
+.app-container:not(.sidebar-collapsed) #sidebar-peek-trigger {
+    display: none;
+}
+
+/* ==========================================================================
+   4. 主内容区布局 (重构)
+   ========================================================================== */
+
+#main-content {
+    flex-grow: 1;
     display: flex;
-    /* 移除 justify-content，让元素自然靠左 */
+    flex-direction: column; /* 垂直堆叠: 标题栏, 标签栏, 主体内容 */
+    overflow: hidden;
+    position: relative;
+}
+
+#window-controls {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 40px;
+    display: flex;
     align-items: center;
-    padding: var(--spacing-s) var(--spacing-l);
-    border-bottom: 1px solid var(--border-color);
-    flex-shrink: 0;
-    gap: var(--spacing-m);
+    z-index: 2000;
+    -webkit-app-region: no-drag;
 }
 
-.toolbar-left, .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-m); /* 调整左侧元素间距 */
-}
-
-#current-page-path {
-    font-size: 14px;
-    color: var(--text-secondary);
-    white-space: nowrap; /* 防止路径换行 */
-}
-
-.toolbar-right .mode-switcher {
-    display: flex;
-}
-
-.mode-switcher button {
-    width: auto;
-    margin-left: var(--spacing-s);
-}
-
-.mode-switcher {
-    margin-left: auto; /* 关键！这个属性会占据所有可用空间，把它自己推到最右边 */
-    display: flex; /* 确保内部按钮水平排列 */
-}
-
-#back-to-dashboard-btn {
-    width: auto;
-    padding: 4px 10px;
-    font-size: 20px;
-    line-height: 1;
-}
-
-.icon-btn-editor {
-    width: auto;
-    padding: var(--spacing-xs) var(--spacing-s);
+.window-control-btn {
+    width: 46px;
+    height: 100%;
     background: none;
     border: none;
     color: var(--text-secondary);
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    cursor: pointer; /* Ensure cursor is pointer */
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-    .icon-btn-editor:hover {
+    .window-control-btn:hover {
         background-color: var(--bg-tertiary);
         color: var(--text-primary);
     }
 
+    .window-control-btn.danger:hover {
+        background-color: #e81123;
+        color: white;
+    }
+
+.is-fullscreen #maximize-btn {
+    pointer-events: none;
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+#tab-bar {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-primary);
+    padding: 4px var(--spacing-s) 0 0;
+    flex-shrink: 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border-color);
+    -webkit-app-region: drag;
+    padding-right: 184px; /* 46px * 4 for window controls */
+    min-height: 40px;
+    box-sizing: border-box;
+}
+
+.is-fullscreen #tab-bar {
+    -webkit-app-region: no-drag;
+}
+
+#tab-bar::-webkit-scrollbar {
+    display: none;
+}
+
+#dynamic-tabs-container {
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+}
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--text-secondary);
+    position: relative;
+    -webkit-app-region: no-drag;
+}
+
+    .tab-item:hover {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+
+    .tab-item.active {
+        background-color: var(--bg-secondary);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .tab-item.dragging {
+        opacity: 0.5;
+    }
+
+.unsaved-dot {
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .unsaved-dot::before {
+        content: '';
+        display: block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--text-secondary);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+.tab-item.unsaved .unsaved-dot::before {
+    opacity: 1;
+}
+
+.tab-item.active.unsaved .unsaved-dot::before {
+    background-color: var(--text-primary);
+}
+
+.tab-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px;
+    border-radius: 50%;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .tab-close-btn:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+.tab-item.active .unsaved-dot::before {
+    display: none;
+}
+
+.tab-item.active.unsaved .tab-close-btn {
+    background-image: radial-gradient(circle, var(--text-primary) 40%, transparent 45%);
+    background-position: center;
+    background-repeat: no-repeat;
+    color: transparent;
+}
+
+    .tab-item.active.unsaved .tab-close-btn:hover {
+        color: var(--text-primary);
+        background-image: none;
+    }
+
+#back-to-dashboard-btn {
+    flex-shrink: 0;
+    margin: 0 var(--spacing-s) 0 0;
+    -webkit-app-region: no-drag;
+    position: absolute;
+}
+
+/* 核心布局修复: 主体内容区 */
+#main-content-body {
+    display: flex; /* 水平排列: 编辑器, 右侧边栏 */
+    flex-grow: 1; /* 占据所有剩余的垂直空间 */
+    overflow: hidden; /* 防止子元素溢出 */
+    min-height: 0; /* flexbox hack to ensure children can shrink */
+}
+
+#editor-area-container {
+    position: relative;
+    flex-grow: 1; /* 占据所有剩余的水平空间 */
+    overflow: hidden;
+    display: flex; /* Make it a flex container to center its children */
+    flex-direction: column;
+}
+
+.editor-instance-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
 .editor-view {
     flex-grow: 1;
     overflow-y: auto;
-    padding: var(--spacing-m) var(--spacing-l);
+    padding: var(--spacing-m) var(--spacing-l) 15vh;
     max-width: 900px;
     margin: 0 auto;
     width: 100%;
+}
+
+#no-file-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: 18px;
+    user-select: none;
 }
 
 /* ==========================================================================
    5. Block 核心样式 (Core Block Styles)
    ========================================================================== */
 
-/* --- 5.1. 基础 Block 容器 (Base Container) --- */
-
 .block-container {
     position: relative;
-    padding-left: 36px; /* 为左侧控件留出空间 */
+    padding-left: 36px;
     margin-bottom: var(--spacing-xs);
     display: flex;
     flex-direction: column;
 }
 
-/* --- 5.2. Block 交互控件 (Controls) --- */
 .block-controls {
     position: absolute;
     top: 2px;
-    /* 关键修改：将控件的右边缘对齐到内容区的左边缘，并留出4px间距 */
     left: 32px;
     transform: translateX(-100%);
     display: flex;
@@ -353,7 +507,7 @@ button {
     color: var(--text-secondary);
     cursor: pointer;
     padding: 4px;
-    z-index: 2; /* 层级高于工具栏背景 */
+    z-index: 2;
 }
 
 .drag-handle {
@@ -368,23 +522,14 @@ button {
     color: #f44336;
 }
 
-
-/* --- 5.3. Block 内容区域 (Content Area) --- */
-
 .block-content {
     outline: none;
-    min-height: 26px; /* 约等于一行的高度 */
+    min-height: 26px;
     width: 100%;
     padding: 2px 0;
     overflow-wrap: break-word;
     word-break: break-word;
 }
-
-.block-structural {
-    padding: 0 !important; /* 结构块本身不应该有内边距 */
-}
-
-/* --- 5.4. 拖拽指示器与反馈 (Drag & Drop Indicators) --- */
 
 .drop-indicator {
     position: absolute;
@@ -403,47 +548,18 @@ button {
     z-index: 100;
 }
 
-.block-container.drag-over-inside > .block-content {
-    background-color: var(--bg-accent) !important;
-}
-
-.block-container:hover > .block-content {
-    background-color: rgba(58, 61, 65, 0.5) !important; /* 使用一个更微妙的背景色 */
-}
-
-/* 【新增】连接桥/保护区伪元素 */
-.block-container.toolbar-active::after {
-    content: '';
-    position: absolute;
-    /* 定位在块的顶部，向上延伸 */
-    bottom: 100%;
-    left: 0;
-    right: 0;
-    /* 高度就是我们工具栏和块之间的间隙大小 */
-    height: 10px;
-    /* 背景色设为透明，以便调试时可以设为半透明红色来观察区域 */
-    background-color: transparent;
-    /* pointer-events 默认为 auto，所以它可以捕获鼠标事件 */
-}
-
-
 /* ==========================================================================
-   6. 特定 Block 类型样式 (Specific Block Type Styles)
+   6. 特定 Block 类型样式
    ========================================================================== */
-
-/* --- 6.1. 文本与标题 (Text & Headings) --- */
-
 .block-content[data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: var(--text-secondary);
     cursor: text;
     pointer-events: none;
-    /* By default, it's hidden */
     display: none;
 }
 
 .block-content[data-placeholder]:empty:focus::before {
-    /* Only display it when the element is empty AND has focus */
     display: inline;
 }
 
@@ -464,13 +580,6 @@ button {
     margin-top: 0.8em;
     margin-bottom: 0.4em;
 }
-
-.block-content[data-type="paragraph"] {
-    /* 默认样式，无需特殊设置 */
-}
-
-
-/* --- 6.2. 媒体与链接 (Media & Links) --- */
 
 a {
     color: var(--text-accent);
@@ -511,19 +620,13 @@ a {
         background-color: var(--bg-tertiary);
     }
 
-
-/* --- 6.3. 容器类 Block (Container Blocks) --- */
-
-/* 6.3.1. Callout Block (标注块) */
-
 .block-content[data-type="callout"] {
     background-color: rgba(86, 156, 214, 0.1);
     border: 1px solid rgba(86, 156, 214, 0.2);
     border-radius: 4px;
-    display: flex; /* 使用 flex 布局 */
+    display: flex;
     position: relative;
     min-height: 50px;
-    /* 移除外层 padding，让内部容器填充 */
     padding: var(--spacing-s);
 }
 
@@ -531,24 +634,18 @@ a {
     margin-right: var(--spacing-s);
     font-size: 1.2em;
     user-select: none;
-    /* 确保图标与内部容器的 padding 对齐 */
     padding-top: var(--spacing-s);
 }
 
-/* 这就是可点击的空白区域 */
 .callout-content-wrapper.block-children-container {
-    flex-grow: 1; /* 占据所有剩余空间 */
-    min-width: 0; /* 修复 flex 布局中的换行问题 */
-    /* 关键：内边距现在在这里，为子块创建边距 */
+    flex-grow: 1;
+    min-width: 0;
     padding: var(--spacing-s);
-    /* 确保即使是空的，也有可点击的高度 */
     min-height: 100%;
 }
 
 .block-children-container:empty {
-    /* 当容器为空时，给它一个最小高度，以便用户可以点击来创建第一个块 */
     min-height: 24px;
-    /* (可选) 添加一个微妙的背景提示，帮助用户发现这个区域 */
     border-radius: 4px;
     transition: background-color 0.2s ease;
 }
@@ -557,10 +654,8 @@ a {
         background-color: rgba(255, 255, 255, 0.05);
     }
 
-/* --- 新增: 专门为空的 Column 块提供可点击区域 --- */
 .block-content[data-type="column"]:empty {
-    min-height: 40px; /* 确保即使是空的列也有足够的高度被点击 */
-    /* 添加与其它容器一致的悬浮效果 */
+    min-height: 40px;
     border-radius: 4px;
     transition: background-color 0.2s ease;
 }
@@ -569,20 +664,15 @@ a {
         background-color: rgba(255, 255, 255, 0.05);
     }
 
-
-/* 6.3.2. Columns Layout (列布局) */
-
 .block-content[data-type="columns"] {
     display: flex;
     width: 100%;
-    /* 【修复】使用 padding 代替 gap 来避免溢出 */
     margin: 0 calc(var(--spacing-m) / -2);
 }
 
 .block-content[data-type="column"] {
     min-width: 80px;
     flex-shrink: 0;
-    /* 【修复】列之间的间距由 padding 提供 */
     padding: 0 calc(var(--spacing-m) / 2);
     position: relative;
     padding-bottom: 24px;
@@ -591,7 +681,6 @@ a {
 
 .column-resizer {
     width: var(--spacing-m);
-    /* 调整 margin 让其在 padding 区域居中 */
     margin: 0 calc(var(--spacing-m) / -2);
     cursor: col-resize;
     z-index: 10;
@@ -608,18 +697,18 @@ a {
         width: 2px;
         background-color: var(--text-accent);
     }
-
-/* --- 7. "/" 命令菜单样式 (NEW & IMPROVED) --- */
+/* ==========================================================================
+   7. "/" 命令菜单样式
+   ========================================================================== */
 .command-menu {
     position: absolute;
     width: 320px;
-    border-radius: 8px; /* Slightly larger radius */
+    border-radius: 8px;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     z-index: 1000;
-    overflow: hidden; /* Important for border-radius on children */
-    /* --- Glassmorphism Effect --- */
-    background: rgba(45, 45, 45, 0.75); /* Semi-transparent background */
-    backdrop-filter: blur(12px) saturate(180%); /* The core of the glass effect */
+    overflow: hidden;
+    background: rgba(45, 45, 45, 0.75);
+    backdrop-filter: blur(12px) saturate(180%);
     -webkit-backdrop-filter: blur(12px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.18);
 }
@@ -633,10 +722,9 @@ a {
 }
 
 .command-menu-list {
-    /* --- Scrollable Area --- */
-    max-height: 300px; /* Limit the height, this enables scrolling */
+    max-height: 300px;
     overflow-y: auto;
-    padding: 0 var(--spacing-xs) var(--spacing-xs) var(--spacing-xs); /* Padding for the list itself */
+    padding: 0 var(--spacing-xs) var(--spacing-xs) var(--spacing-xs);
 }
 
 .command-item {
@@ -648,7 +736,6 @@ a {
     transition: background-color 0.2s ease;
 }
 
-    /* Use a more subtle hover effect for glass UI */
     .command-item:hover, .command-item.selected {
         background-color: rgba(255, 255, 255, 0.1);
     }
@@ -683,66 +770,36 @@ a {
         line-height: 1.2;
     }
 
-
-/* --- 8. 预览模式样式 --- */
-#preview {
-    line-height: 1.7;
-}
-
-    #preview h1, #preview h2, #preview h3 {
-        margin-top: 1.5em;
-        margin-bottom: 0.5em;
-    }
-
-    #preview h1 {
-        font-size: 2.5em;
-        font-weight: 800;
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 0.3em;
-    }
-
-    #preview h2 {
-        font-size: 1.8em;
-        font-weight: 700;
-    }
-
-/* --- 9. 自定义滚动条 --- */
+/* ==========================================================================
+   8. 自定义滚动条
+   ========================================================================== */
 ::-webkit-scrollbar {
-    width: 14px; /* Width of the entire scrollbar */
-    height: 14px; /* Height for horizontal scrollbar */
+    width: 14px;
+    height: 14px;
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent; /* Make the track invisible */
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: var(--bg-accent); /* Color of the handle */
-    border-radius: 10px; /* Fully rounded handle */
-    /* Create a "padding" effect around the handle */
+    background-color: var(--bg-accent);
+    border-radius: 10px;
     border: 4px solid var(--bg-primary);
 }
 
     ::-webkit-scrollbar-thumb:hover {
-        background-color: #555; /* Lighter on hover */
-        border-color: var(--bg-secondary); /* Match sidebar bg on hover */
+        background-color: #555;
     }
 
-/* For sidebar, a slightly different track color */
-#sidebar ::-webkit-scrollbar-track {
-    background-color: var(--bg-secondary);
-}
-
-#sidebar ::-webkit-scrollbar-thumb {
+#sidebar ::-webkit-scrollbar-thumb,
+#right-sidebar ::-webkit-scrollbar-thumb {
     border-color: var(--bg-secondary);
 }
 
-
 /* ==========================================================================
-   10. 交互式浮动元素 (Interactive Overlays)
+   9. 交互式浮动元素 (Interactive Overlays)
    ========================================================================== */
-
-/* --- 10.1. 右键上下文菜单 (Context Menu) --- */
 .context-menu {
     position: absolute;
     background-color: var(--bg-secondary);
@@ -779,7 +836,6 @@ a {
         padding: 0;
     }
 
-/* --- 10.2. 导出遮罩层 (Export Overlay) --- */
 .export-overlay {
     position: fixed;
     top: 0;
@@ -794,13 +850,12 @@ a {
     z-index: 3000;
 }
 
-.export-modal {
+.export-modal, .cook-settings-content {
     background-color: var(--bg-secondary);
     padding: var(--spacing-l);
     border-radius: 8px;
     box-shadow: 0 8px 24px var(--shadow-color);
     width: 400px;
-    text-align: center;
 }
 
     .export-modal h3 {
@@ -823,17 +878,231 @@ a {
     transition: width 0.2s ease;
 }
 
+#cancel-export-btn {
+    background-color: var(--bg-accent);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: var(--spacing-s) var(--spacing-m);
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: background-color 0.2s ease;
+    width: auto; /* Allow it to size to content */
+    margin: 0 auto; /* Center it */
+}
+
+    #cancel-export-btn:hover {
+        background-color: var(--bg-tertiary);
+    }
+
 #export-status {
     font-size: 14px;
     color: var(--text-secondary);
 }
 
+.cook-settings-content {
+    width: 500px;
+    max-width: 95vw;
+}
+
+    .cook-settings-content h3 {
+        text-align: center;
+        margin-bottom: var(--spacing-l);
+    }
+
+.cook-options-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-m);
+    margin-bottom: var(--spacing-l);
+}
+
+.cook-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    font-size: 14px;
+}
+
+    .cook-option input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--text-accent);
+    }
+
+.cook-settings-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-s);
+    margin-top: var(--spacing-l);
+}
+
+    .cook-settings-footer button {
+        width: auto;
+        background-color: var(--bg-accent);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        padding: var(--spacing-s) var(--spacing-m);
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 14px;
+        transition: background-color 0.2s ease;
+    }
+
+        .cook-settings-footer button:hover {
+            background-color: var(--bg-tertiary);
+        }
+
+        .cook-settings-footer button.primary-btn {
+            background-color: var(--text-accent);
+            border-color: var(--text-accent);
+            color: var(--text-on-accent-bg);
+        }
+
+            .cook-settings-footer button.primary-btn:hover {
+                background-color: #6ba1d4;
+            }
 
 /* ==========================================================================
-   11. 悬浮工具栏与弹出框 (Floating Toolbar & Popovers)
+   10. 悬浮工具栏与弹出框 (Floating Toolbar & Popovers)
    ========================================================================== */
+#floating-toolbar {
+    position: absolute;
+    bottom: var(--spacing-m);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    background: rgba(45, 45, 45, 0.75);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: var(--spacing-xs) var(--spacing-s);
+    border-radius: 50px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    will-change: transform;
+}
 
-/* --- 11.1. 悬浮块操作工具栏 (Block Toolbar) --- */
+#toolbar-peek-trigger {
+    position: absolute;
+    bottom: 100%; /* Position it right above the toolbar */
+    left: 0;
+    width: 100%;
+    height: 20px; /* A fixed, reliable height */
+    z-index: 999;
+}
+
+#main-content.toolbar-collapsed #floating-toolbar {
+    transform: translate(-50%, calc(100% + var(--spacing-m)));
+}
+
+#main-content.toolbar-collapsed.toolbar-peek #floating-toolbar {
+    transform: translateX(-50%);
+}
+
+#toggle-toolbar-btn svg {
+    transition: transform 0.3s ease;
+}
+
+#main-content.toolbar-collapsed #toggle-toolbar-btn svg {
+    transform: rotate(180deg);
+}
+
+.toolbar-icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--spacing-s);
+    border-radius: 6px;
+    transition: background-color 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+    .toolbar-icon-btn:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .toolbar-icon-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background-color: transparent;
+    }
+
+#save-btn.unsaved {
+    background-color: var(--bg-save-unsaved);
+    color: var(--text-on-accent-bg);
+}
+
+    #save-btn.unsaved:hover {
+        background-color: #5a7ea8;
+    }
+
+.mode-toggle {
+    display: flex;
+    align-items: center;
+    position: relative;
+    background-color: var(--bg-primary);
+    border-radius: 8px;
+    padding: 2px;
+    height: 36px;
+}
+
+.mode-toggle-option {
+    padding: var(--spacing-xs);
+    z-index: 2;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.mode-toggle.edit-active .mode-toggle-option[data-mode="edit"],
+.mode-toggle.preview-active .mode-toggle-option[data-mode="preview"] {
+    color: var(--text-primary);
+}
+
+.mode-toggle-slider {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 1;
+}
+
+.mode-toggle.preview-active .mode-toggle-slider {
+    left: calc(50% + 2px);
+}
+
+#block-toolbar {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px var(--shadow-color);
+    padding: var(--spacing-xs);
+    z-index: 1000;
+}
 
 .toolbar-button {
     background: none;
@@ -842,12 +1111,12 @@ a {
     padding: var(--spacing-xs) var(--spacing-s);
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px; /* Adjust font size for text buttons */
-    line-height: 1.2; /* Adjust line height */
+    font-size: 14px;
+    line-height: 1.2;
     transition: background-color 0.2s ease;
-    display: flex; /* Use flexbox for alignment */
+    display: flex;
     align-items: center;
-    gap: var(--spacing-xs); /* Space between icon and text */
+    gap: var(--spacing-xs);
 }
 
     .toolbar-button:hover {
@@ -859,38 +1128,6 @@ a {
         color: var(--text-on-accent-bg);
     }
 
-.toolbar-separator {
-    width: 1px;
-    height: 16px;
-    background-color: var(--border-color);
-    margin: 0 var(--spacing-xs);
-}
-
-#block-toolbar { /* 【恢复】使用 ID 选择器 */
-    position: absolute; /* 【恢复】绝对定位 */
-    display: flex;
-    align-items: center;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--shadow-color);
-    padding: var(--spacing-xs);
-    z-index: 1000;
-}
-
-/* NEW: Styles for the language selector button in the toolbar */
-.toolbar-lang-icon {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    background-color: currentColor; /* Inherit color from the button text */
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 18 22 12 16 6'%3E%3C/polyline%3E%3Cpolyline points='8 6 2 12 8 18'%3E%3C/polyline%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 18 22 12 16 6'%3E%3C/polyline%3E%3Cpolyline points='8 6 2 12 8 18'%3E%3C/polyline%3E%3C/svg%3E");
-    background-size: contain;
-}
-
-
-/* --- 11.2. 通用弹出框 (Popover) --- */
 .popover {
     position: absolute;
     background-color: var(--bg-secondary);
@@ -905,7 +1142,8 @@ a {
     padding: var(--spacing-s);
 }
 
-#popover-input {
+#popover-input,
+#popover-image-input { /* <-- ADD THIS SELECTOR */
     width: 100%;
     background-color: var(--bg-accent);
     border: 1px solid var(--border-color);
@@ -916,7 +1154,8 @@ a {
     box-sizing: border-box;
 }
 
-    #popover-input:focus {
+    #popover-input:focus,
+    #popover-image-input:focus { /* <-- ADD THIS SELECTOR */
         border-color: var(--text-accent);
     }
 
@@ -959,7 +1198,6 @@ a {
         background-color: var(--bg-tertiary);
     }
 
-/* 11.2.1. 颜色选择器 */
 #popover-color-picker {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -979,60 +1217,9 @@ a {
         border-color: var(--text-primary);
     }
 
-
-/* --- 12. Cook Settings Modal --- */
-.cook-settings-content {
-    background-color: var(--bg-secondary);
-    padding: var(--spacing-l);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px var(--shadow-color);
-    width: 500px;
-    max-width: 95vw;
-}
-
-    .cook-settings-content h3 {
-        text-align: center;
-        margin-bottom: var(--spacing-l);
-    }
-
-.cook-options-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-m);
-    margin-bottom: var(--spacing-l);
-}
-
-.cook-option {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-s);
-    font-size: 14px;
-}
-
-    .cook-option input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
-        accent-color: var(--text-accent);
-    }
-
-.cook-settings-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-s);
-    margin-top: var(--spacing-l);
-}
-
-    .cook-settings-footer button {
-        width: auto;
-    }
-
-
-
-
-
-/* --- 最终的、通用的 List Item 样式 --- */
-
-/* 1. 主容器 flex 布局 (通用) */
+/* ==========================================================================
+   11. 列表项样式
+   ========================================================================== */
 .block-content[data-type="bulletedListItem"],
 .block-content[data-type="todoListItem"],
 .block-content[data-type="numberedListItem"],
@@ -1042,7 +1229,6 @@ a {
     gap: var(--spacing-xs);
 }
 
-/* 2. 左侧符号 (bullet 或 checkbox) */
 .bullet-point {
     line-height: 1.6;
     user-select: none;
@@ -1052,25 +1238,21 @@ a {
     padding-top: 5px;
 }
 
-/* 3. 内容包装器 (通用) */
 .list-item-content-wrapper {
     flex-grow: 1;
 }
 
-/* 4. 可编辑文本区域 (通用) */
 .list-item-text-area {
     outline: none;
     min-height: 26px;
 }
 
-/* 5. 子块容器的默认样式 (通用) */
 .list-item-children-container {
     height: auto;
     overflow: hidden;
     transition: min-height 0.2s ease-out;
 }
 
-    /* 6. 当子块容器不为空时 (通用) */
     .list-item-children-container:not(:empty) {
         padding-left: 28px;
         padding-top: var(--spacing-xs);
@@ -1078,19 +1260,14 @@ a {
         min-height: 24px;
     }
 
-    /* 7. 空的子块容器默认高度为0 (通用) */
     .list-item-children-container:empty {
         min-height: 0;
     }
 
-/* 8. 激活时撑开空的子块容器 (通用) */
 .block-container.vn-active .list-item-children-container:empty {
     min-height: 24px;
 }
 
-/* --- To-do List 的专属样式 --- */
-
-/* 9. 美化 Checkbox */
 .todo-checkbox {
     -webkit-appearance: none;
     appearance: none;
@@ -1123,35 +1300,25 @@ a {
         transform: scale(1);
     }
 
-/* 10. 已勾选状态的文本样式 */
 .list-item-text-area.todo-checked {
     text-decoration: line-through;
     color: var(--text-secondary);
 }
 
-
-/* --- Numbered List Item Specific Styles --- */
-
-/* Wrapper for the number and the dot */
 .number-point-wrapper {
     display: flex;
-    align-items: baseline; /* Aligns number and dot nicely */
+    align-items: baseline;
     gap: 2px;
-    /* Match line-height of text for vertical alignment */
     line-height: 1.6;
     user-select: none;
     color: var(--text-secondary);
 }
 
-/* The editable number itself */
 .number-point {
     outline: none;
-    min-width: 1em; /* Prevents collapsing when empty */
-    text-align: right; /* Keeps numbers aligned for 1, 10, 100 etc. */
+    min-width: 1em;
+    text-align: right;
 }
-
-
-/* --- Toggle List Item Specific Styles --- */
 
 .toggle-triangle-wrapper {
     padding-top: 5px;
@@ -1176,7 +1343,6 @@ a {
         transition: transform 0.2s ease-in-out;
     }
 
-/* Collapsed State Styling */
 .block-content.is-collapsed .toggle-triangle::before {
     transform: rotate(0deg);
 }
@@ -1190,10 +1356,321 @@ a {
     margin-bottom: 0;
 }
 
-/* Add a transition to the children container for smooth animation */
 .list-item-children-container {
     transition: max-height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
     overflow: hidden;
-    /* Set a large max-height for the expanded state */
-    max-height: 2000px; /* Adjust if you have extremely long nested content */
+    max-height: 2000px;
+}
+
+
+/* ==========================================================================
+   12. SIDEBARS & PEEK LOGIC (FINAL & MIRRORED)
+   ========================================================================== */
+
+/* --- A. Right Sidebar Structure --- */
+#right-sidebar {
+    width: 280px;
+    min-width: 120px;
+    max-width: 650px;
+    flex-shrink: 0;
+    background-color: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, min-width 0.3s ease, transform 0.3s ease;
+    will-change: width, min-width, transform;
+    position: relative;
+    z-index: 40;
+}
+
+#right-sidebar-resizer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 45;
+}
+
+.right-sidebar-header, .right-sidebar-footer {
+    flex-shrink: 0;
+}
+
+.right-sidebar-header {
+    padding: var(--spacing-s);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+#right-sidebar-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    position: relative;
+}
+
+.right-sidebar-footer {
+    padding: var(--spacing-s);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+}
+
+/* --- B. Collapse Logic (Mirrors Left Sidebar) --- */
+/* The class is now on .app-container */
+.app-container.right-sidebar-collapsed #right-sidebar {
+    width: 0 !important;
+    min-width: 0 !important;
+    transform: translateX(100%);
+    border-left: none;
+}
+
+    .app-container.right-sidebar-collapsed #right-sidebar > * {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+/* --- C. Peek Trigger (Mirrors Left Sidebar) --- */
+#right-sidebar-peek-trigger {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 100vh;
+    z-index: 100;
+}
+/* Hide trigger when sidebar is open */
+.app-container:not(.right-sidebar-collapsed) #right-sidebar-peek-trigger {
+    display: none;
+}
+
+
+/* --- D. Peek Effect (Mirrors Left Sidebar) --- */
+/* The class is now on .app-container */
+.app-container.right-sidebar-peek #right-sidebar {
+    width: 280px !important;
+    min-width: 280px !important;
+    transform: translateX(0);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -5px 0 15px rgba(0,0,0,0.2);
+    z-index: 95;
+}
+
+    .app-container.right-sidebar-peek #right-sidebar > * {
+        opacity: 1;
+        pointer-events: auto;
+        transition: opacity 0.2s ease 0.1s;
+    }
+
+/* --- E. Reference View & Dragging Styles --- */
+#right-sidebar-content {
+    transition: background-color 0.2s ease-in-out;
+}
+
+body.is-dragging-block #right-sidebar-content {
+    background-color: rgba(86, 156, 214, 0.05);
+}
+
+    body.is-dragging-block #right-sidebar-content.drag-over {
+        background-color: rgba(86, 156, 214, 0.15) !important;
+    }
+
+.reference-item-drop-indicator {
+    height: 3px;
+    background-color: var(--text-accent);
+    margin-top: -2px;
+    margin-bottom: -1px;
+    pointer-events: none;
+}
+
+/* --- F. Remaining Styles --- */
+#right-sidebar-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--bg-primary);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.rs-view-option {
+    padding: 4px 10px;
+    z-index: 2;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    border-radius: 6px;
+}
+
+    .rs-view-option.active {
+        color: var(--text-primary);
+        background-color: var(--bg-tertiary);
+    }
+
+.rs-view {
+    display: none;
+    padding: var(--spacing-s);
+}
+
+    .rs-view.active {
+        display: block;
+    }
+
+.empty-references-placeholder {
+    color: var(--text-secondary);
+    padding: var(--spacing-m);
+    font-style: italic;
+    text-align: center;
+    font-size: 14px;
+}
+
+.reference-item {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: var(--spacing-s);
+    margin-bottom: var(--spacing-s);
+    cursor: grab;
+    position: relative;
+    user-select: none;
+}
+
+    .reference-item:active {
+        cursor: grabbing;
+    }
+
+    .reference-item.dragging {
+        opacity: 0.5;
+    }
+
+.reference-item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-s);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 20px;
+}
+
+.reference-item-preview {
+    max-height: 80px;
+    overflow: hidden;
+    pointer-events: none;
+    border: 1px dashed var(--bg-accent);
+    padding: var(--spacing-s);
+    border-radius: 4px;
+    transform: scale(0.9);
+    transform-origin: top left;
+    width: 111.11%;
+}
+
+    .reference-item-preview .block-controls {
+        display: none !important;
+    }
+
+.reference-item-delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.2s, background-color 0.2s;
+}
+
+.reference-item:hover .reference-item-delete-btn {
+    opacity: 1;
+}
+
+.reference-item-delete-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+
+/* ==========================================================================
+   14. POPOVER REVISIONS FOR BLOCK LINKING
+   ========================================================================== */
+#popover-link-mode-toggle {
+    display: flex;
+    padding: var(--spacing-xs);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.popover-mode-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: var(--spacing-s);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+    .popover-mode-btn:hover {
+        background-color: var(--bg-tertiary);
+    }
+
+    .popover-mode-btn.active {
+        background-color: var(--bg-accent);
+        color: var(--text-primary);
+    }
+
+.popover-instruction {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: var(--spacing-s);
+}
+
+/* --- Block Linking Active State --- */
+body.is-linking-block #right-sidebar {
+    background-color: var(--bg-accent);
+    box-shadow: 0 0 15px rgba(86, 156, 214, 0.3);
+}
+
+body.is-linking-block .reference-item {
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+    body.is-linking-block .reference-item:hover {
+        background-color: var(--bg-tertiary);
+        transform: scale(1.02);
+    }
+
+/* --- Block Highlight Style --- */
+.block-container.is-highlighted > .block-content,
+.block-container.is-highlighted { /* For blocks without separate content divs */
+    background-color: rgba(247, 209, 84, 0.15) !important;
+    box-shadow: inset 3px 0 0 0 #F7D154;
+    transition: background-color 0.3s ease;
+}
+
+.current-link-display {
+    margin-top: var(--spacing-s);
+    padding: var(--spacing-xs) var(--spacing-s);
+    font-size: 12px;
+    background-color: var(--bg-accent);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    word-break: break-all; /* Allow long paths to wrap */
 }

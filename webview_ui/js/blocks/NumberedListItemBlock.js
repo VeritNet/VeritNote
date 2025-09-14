@@ -138,7 +138,7 @@ class NumberedListItemBlock extends TextBlock {
                 if (!isNaN(newStartNum)) {
                     this.properties.number = newStartNum;
                     this.numberElement.textContent = this.properties.number;
-                    this.editor.emitChange(true, 'set-list-number');
+                    this.editor.emitChange(true, 'set-list-number', this);
                 }
             }
         }
@@ -170,7 +170,7 @@ class NumberedListItemBlock extends TextBlock {
                     // Re-render the editor and focus the new block
                     this.editor.render();
                     newBlockInstance.focus();
-                    this.editor.emitChange(true, 'insert-block');
+                    this.editor.emitChange(true, 'insert-block', this);
                 }
             }
             return;

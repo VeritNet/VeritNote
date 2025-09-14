@@ -69,13 +69,16 @@ header {
         font-size: 28px;
         font-weight: 700;
     }
+    header h1, .header-controls {
+    }
+
 
 .header-controls {
     display: flex;
     gap: var(--spacing-s);
 }
 
-.icon-btn {
+#about-btn.icon-btn {
     background: transparent;
     border: none;
     color: var(--text-secondary);
@@ -84,6 +87,11 @@ header {
     border-radius: 50%;
     transition: background-color 0.2s, color 0.2s;
 }
+
+    #about-btn.icon-btn:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
 
     .icon-btn:hover {
         background-color: var(--bg-tertiary);
@@ -310,4 +318,79 @@ footer {
 
     .link-container button:hover {
         background-color: var(--bg-accent);
+    }
+
+
+
+.window-control-btn {
+    width: 46px;
+    height: 100%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+    .window-control-btn:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .window-control-btn.danger:hover {
+        background-color: #e81123;
+        color: white;
+    }
+
+
+#title-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 40px; /* 设定一个明确的标题栏高度 */
+    display: flex;
+    justify-content: space-between; /* 让左右两部分分开 */
+    align-items: center;
+    z-index: 2000; /* 确保它在最顶层 */
+}
+
+/* 左侧拖动区域的样式 */
+#drag-region {
+    flex-grow: 1; /* 关键: 让它填满所有剩余空间 */
+    height: 100%;
+}
+
+/* 右侧窗口控件容器的样式 */
+#window-controls {
+    display: flex;
+    height: 100%;
+    flex-shrink: 0; /* 防止被压缩 */
+}
+
+
+
+::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--bg-accent, #3a3d41); /* 使用 var 并提供备用值 */
+    border-radius: 10px;
+    /* 关键: 这里的边框颜色需要匹配 dashboard 的主背景色 */
+    border: 4px solid var(--bg-primary, rgb(25, 25, 25));
+}
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: #555;
+        /* 这里的边框颜色需要匹配 dashboard 的次级背景色 */
+        border-color: var(--bg-secondary, #252526);
     }

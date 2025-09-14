@@ -13,6 +13,7 @@
 #include "nlohmann/json.hpp"
 
 #include <ShellScalingApi.h>
+#include <windowsx.h>
 #pragma comment(lib, "Shcore.lib")
 
 #include "Backend.h"
@@ -24,6 +25,8 @@ static wil::com_ptr<ICoreWebView2> webview;
 static Backend backend; // 我们的后端逻辑处理实例
 static HWND global_hWnd;
 extern std::wstring g_nextWorkspacePath;
+
+static RECT g_border_thickness;
 
 
 std::string wstring_to_string_main(const std::wstring& wstr) {
@@ -63,8 +66,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     RegisterClassExW(&wcex);
 
     // 创建窗口
-    HWND hWnd = CreateWindowW(
-        L"VeritNoteWindowClass", L"VeritNote", WS_OVERLAPPEDWINDOW,
+    HWND hWnd = CreateWindowExW(
+        0, L"VeritNoteWindowClass", L"VeritNote",
+        WS_OVERLAPPEDWINDOW, // 这个样式包含了启用动画所需的一切
         CW_USEDEFAULT, 0, 1280, 800,
         nullptr, nullptr, hInstance, nullptr);
 
@@ -199,22 +203,99 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 // 窗口过程函数，处理窗口消息
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    // 你的方案：根据全屏状态动态决定要使用的边框厚度
+    RECT current_border_thickness = { 0, 0, 0, 0 };
+    if (!backend.IsFullscreen()) {
+        current_border_thickness = g_border_thickness;
+    }
+
     switch (message) {
+    case WM_CREATE:
+    {
+        global_hWnd = hWnd;
+        backend.SetMainWindowHandle(hWnd);
+
+        // 计算并缓存初始的边框厚度
+        SetRectEmpty(&g_border_thickness);
+        AdjustWindowRectEx(&g_border_thickness, GetWindowLongPtr(hWnd, GWL_STYLE) & ~WS_CAPTION, FALSE, 0);
+        g_border_thickness.left *= -1;
+        g_border_thickness.top *= -1;
+
+        MARGINS margins = { -1 };
+        DwmExtendFrameIntoClientArea(hWnd, &margins);
+
+        SetWindowPos(hWnd, NULL, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+        break;
+    }
+
+    case WM_NCCALCSIZE:
+    {
+        if (wParam == TRUE && lParam) {
+            auto& params = *reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
+
+            // 使用动态计算的边框厚度
+            params.rgrc[0].left += current_border_thickness.left;
+            params.rgrc[0].right -= current_border_thickness.right;
+            params.rgrc[0].bottom -= current_border_thickness.bottom;
+
+            return 0;
+        }
+        break;
+    }
+
+    case WM_NCHITTEST:
+    {
+        // 我们不再需要在这里单独检查全屏，因为 current_border_thickness 已经是 0 了
+        // 这会让所有的命中测试都失败，最终返回 HTCLIENT，这正是全屏时想要的效果
+
+        LRESULT result;
+        if (DwmDefWindowProc(hWnd, message, wParam, lParam, &result)) {
+            return result;
+        }
+
+        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        ScreenToClient(hWnd, &pt);
+        RECT rc;
+        GetClientRect(hWnd, &rc);
+
+        // 只在非最大化时允许缩放
+        if (!IsZoomed(hWnd)) {
+            // 使用动态计算的边框厚度
+            bool on_left = pt.x < current_border_thickness.left;
+            bool on_right = pt.x >= rc.right - current_border_thickness.right;
+            bool on_top = pt.y < current_border_thickness.top;
+            bool on_bottom = pt.y >= rc.bottom - current_border_thickness.bottom;
+
+            if (on_top && on_left) return HTTOPLEFT;
+            if (on_top && on_right) return HTTOPRIGHT;
+            if (on_bottom && on_left) return HTBOTTOMLEFT;
+            if (on_bottom && on_right) return HTBOTTOMRIGHT;
+            if (on_left) return HTLEFT;
+            if (on_right) return HTRIGHT;
+            if (on_top) return HTTOP;
+            if (on_bottom) return HTBOTTOM;
+        }
+
+        return HTCLIENT;
+    }
+
     case WM_SIZE:
-        // 当窗口大小改变时，调整 WebView2 控件的大小
         if (webviewController != nullptr) {
             RECT bounds;
             GetClientRect(hWnd, &bounds);
             webviewController->put_Bounds(bounds);
         }
-        break;
+        if (wParam != SIZE_MINIMIZED) {
+            backend.CheckWindowState();
+        }
+        return 0;
+
     case WM_DESTROY:
         PostQuitMessage(0);
-        break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
+        return 0;
     }
-    return 0;
+
+    return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 // 弹出选择文件夹对话框

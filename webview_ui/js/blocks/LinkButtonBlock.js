@@ -1,5 +1,4 @@
-﻿// js/blocks/LinkButtonBlock.js
-class LinkButtonBlock extends Block {
+﻿class LinkButtonBlock extends Block {
     static type = 'linkButton';
     static icon = '🔘';
     static label = 'Button';
@@ -11,15 +10,15 @@ class LinkButtonBlock extends Block {
         super(data, editor);
         // Ensure properties exist for a new button
         if (!this.properties.url) {
-            this.properties.url = '#';
+            this.properties.url = '';
         }
     }
 
     _renderContent() {
         this.contentElement.contentEditable = 'true';
-        const textContent = this.content.replace(/<[^>]*>?/gm, '') || 'Edit Button Text';
-        this.content = `<a href="${this.properties.url}">${textContent}</a>`;
-        this.contentElement.innerHTML = this.content;
+        // When rendering, ensure content is just the text, not a nested <a> tag.
+        const textContent = this.content || 'Edit Button Text';
+        this.contentElement.innerHTML = `<a href="${this.properties.url || '#'}">${textContent}</a>`;
     }
 
     get toolbarButtons() {
@@ -28,27 +27,41 @@ class LinkButtonBlock extends Block {
         ];
     }
     
-    // Override sync to save only the text part, not the whole <a> tag
+    // Override sync to save only the text part from the contentEditable element
     syncContentFromDOM() {
         if (this.contentElement) {
-            this.content = this.contentElement.textContent || '';
+            // We get the textContent of the inner <a> tag, or the element itself if <a> is missing
+            const linkElement = this.contentElement.querySelector('a');
+            this.content = linkElement ? linkElement.textContent : this.contentElement.textContent;
+            this.content = this.content || ''; // Ensure it's not null
         }
     }
 
+    /**
+     * This method will be called by the editor when the toolbar button is clicked.
+     */
     handleToolbarAction(action, buttonElement) {
         if (action === 'editLinkButton') {
-            window.dispatchEvent(new CustomEvent('showLinkPopover', { detail: {
+            // We call the global showLinkPopover function
+            window.showLinkPopover({
                 targetElement: buttonElement,
                 existingValue: this.properties.url || '',
                 callback: (value) => {
                     this.properties.url = value || '#';
-                    // Re-render content with the new URL
-                    const textContent = this.contentElement.textContent || 'Edit Button Text';
-                    this.content = `<a href="${this.properties.url}">${textContent}</a>`;
-                    this.syncContentToDOM();
-                    this.editor.emitChange(true, 'edit-button-link');
+                    // Re-render content with the new URL after a delay
+                    // This ensures the popover has time to close and doesn't interfere
+                    setTimeout(() => {
+                        this.syncContentFromDOM(); // First, save any text changes the user made
+                        this._renderContent();   // Then, re-render the link with the new URL
+                        this.editor.emitChange(true, 'edit-button-link', this);
+                    }, 0);
                 }
-            }}));
+            });
         }
+    }
+
+    // Use default TextBlock-like onInput to trigger updates
+    onInput(e) {
+        this.editor.emitChange(true, 'typing', this);
     }
 }

@@ -62,7 +62,7 @@ class TodoListItemBlock extends TextBlock {
         this.checkbox.addEventListener('change', () => {
             this.properties.checked = this.checkbox.checked;
             this.updateCheckedStateStyle();
-            this.editor.emitChange(true, 'toggle-todo'); // 通知编辑器内容已更改
+            this.editor.emitChange(true, 'toggle-todo', this); // 通知编辑器内容已更改
         });
 
         // 为文本区手动绑定 onKeyDown

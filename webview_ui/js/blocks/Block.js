@@ -175,7 +175,7 @@ class Block {
             this.editor.hideCommandMenu();
         }
         // *** MODIFIED: Pass the 'typing' actionType ***
-        this.editor.emitChange(true, 'typing');
+        this.editor.emitChange(true, 'typing', this);
     }
     
     /**
