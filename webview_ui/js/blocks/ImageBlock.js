@@ -7,11 +7,37 @@ class ImageBlock extends Block {
     static keywords = ['image', 'img', 'picture', 'photo'];
     static canBeToggled = true;
 
-    _renderContent() {
-        if (!this.content) {
-            this.content = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
+    constructor(data, editor) {
+        super(data, editor);
+        // --- REFACTORED: Use properties for src and href ---
+        if (!this.properties.src) {
+            this.properties.src = '';
         }
-        this.contentElement.innerHTML = this.content;
+        if (!this.properties.href) {
+            this.properties.href = '';
+        }
+        // Content is no longer used for the image tag itself
+        this.content = '';
+    }
+
+    get data() {
+        // --- REFACTORED: Save properties, content is always empty ---
+        return {
+            id: this.id,
+            type: this.type,
+            content: '',
+            properties: this.properties,
+            children: [],
+        };
+    }
+
+    _renderContent() {
+        // --- REFACTORED: Only render the image, never the <a> tag in the editor ---
+        if (this.properties.src) {
+            this.contentElement.innerHTML = `<img src="${this.properties.src}" alt="image">`;
+        } else {
+            this.contentElement.innerHTML = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
+        }
     }
     
     // Images are not directly editable
@@ -27,36 +53,24 @@ class ImageBlock extends Block {
     
     handleToolbarAction(action, buttonElement) {
         if (action === 'editImage') {
-            // This button now correctly calls the dedicated image source popover
-            const existingValue = this.content.match(/src="([^"]+)"/)?.[1] || '';
+            // --- REFACTORED: Updates properties.src ---
             window.showImageSourcePopover({
                 targetElement: buttonElement,
-                existingValue: existingValue,
+                existingValue: this.properties.src,
                 callback: (value) => {
-                    let currentHref = this.content.match(/href="([^"]+)"/)?.[1] || '';
-                    let imgTag = value ? `<img src="${value}" alt="image">` : '';
-                    this.content = currentHref && imgTag ? `<a href="${currentHref}">${imgTag}</a>` : imgTag;
-                    if (!this.content) {
-                        this.content = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
-                    }
-                    this.syncContentToDOM();
+                    this.properties.src = value || '';
+                    this._renderContent(); // Re-render the block with the new image source
                     this.editor.emitChange(true, 'edit-image-src', this);
                 }
             });
         } else if (action === 'linkImage') {
-            // This button correctly calls the generic link popover
-            const existingValue = this.content.match(/<a[^>]*href="([^"]*)"/)?.[1] || '';
-             window.showLinkPopover({
+            // --- REFACTORED: Updates properties.href ---
+            window.showLinkPopover({
                 targetElement: buttonElement,
-                existingValue: existingValue,
+                existingValue: this.properties.href,
                 callback: (value) => {
-                    let currentSrc = this.content.match(/src="([^"]+)"/)?.[1] || '';
-                    let imgTag = currentSrc ? `<img src="${currentSrc}" alt="image">` : '';
-                    this.content = value && imgTag ? `<a href="${value}">${imgTag}</a>` : imgTag;
-                    if (!this.content) {
-                        this.content = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
-                    }
-                    this.syncContentToDOM();
+                    this.properties.href = value || '';
+                    // No visual change in the editor, just save the data
                     this.editor.emitChange(true, 'edit-image-link', this);
                 }
             });

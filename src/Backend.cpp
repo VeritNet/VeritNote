@@ -7,6 +7,8 @@
 #include <urlmon.h>
 #pragma comment(lib, "urlmon.lib")
 
+#include <shellapi.h>
+
 #include "Backend.h"
 #include <ShlObj.h>
 
@@ -134,6 +136,9 @@ void Backend::HandleWebMessage(const std::wstring& message) {
         }
         else if (action == "checkWindowState") {
             CheckWindowState();
+        }
+        else if (action == "fetchQuoteContent") {
+            FetchQuoteContent(payload);
         }
         else {
             std::cout << "Unknown Action: " + action << std::endl;
@@ -686,6 +691,98 @@ void Backend::CancelExport() {
 }
 
 
+void Backend::FetchQuoteContent(const json& payload) {
+    json response;
+    response["action"] = "quoteContentLoaded";
+
+    try {
+        // 1. Extract data from the frontend's request
+        std::string quoteBlockId = payload.at("quoteBlockId").get<std::string>();
+        std::string referenceLink = payload.at("referenceLink").get<std::string>();
+        response["payload"]["quoteBlockId"] = quoteBlockId;
+
+        // 2. Parse the reference link into file path and an optional block ID
+        std::string filePathStr;
+        std::string blockId;
+        size_t hashPos = referenceLink.find('#');
+
+        if (hashPos != std::string::npos) {
+            filePathStr = referenceLink.substr(0, hashPos);
+            blockId = referenceLink.substr(hashPos + 1);
+        }
+        else {
+            filePathStr = referenceLink;
+        }
+
+        std::filesystem::path filePath(filePathStr);
+
+        // 3. Read and parse the source .veritnote file
+        std::ifstream file(filePath);
+        if (!file.is_open()) {
+            throw std::runtime_error("Referenced file not found: " + filePathStr);
+        }
+
+        std::string contentStr((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        if (contentStr.empty()) {
+            // If the source file is empty, return an empty array
+            response["payload"]["content"] = json::array();
+            SendMessageToJS(response);
+            return;
+        }
+
+        json pageContent = json::parse(contentStr);
+
+        // 4. Find the specific content to send back
+        if (blockId.empty()) {
+            // Case A: No block ID, reference is to the whole page.
+            // The content is the entire JSON array from the file.
+            response["payload"]["content"] = pageContent;
+        }
+        else {
+            // Case B: A specific block ID is provided.
+            // We need to search for it recursively.
+            json foundBlock = nullptr;
+
+            std::function<void(const json&)> find_block =
+                [&](const json& current_blocks) {
+                if (!current_blocks.is_array()) return;
+
+                for (const auto& block : current_blocks) {
+                    if (foundBlock != nullptr) return; // Stop searching once found
+
+                    if (block.value("id", "") == blockId) {
+                        foundBlock = block;
+                        return;
+                    }
+                    if (block.contains("children")) {
+                        find_block(block["children"]);
+                    }
+                }
+                };
+
+            find_block(pageContent);
+
+            if (foundBlock != nullptr) {
+                // If found, send it back as an array containing just that one block
+                response["payload"]["content"] = json::array({ foundBlock });
+            }
+            else {
+                // If not found, send an empty array
+                response["payload"]["content"] = json::array();
+            }
+        }
+    }
+    catch (const std::exception& e) {
+        // If any error occurs (file not found, JSON parse error, etc.)
+        // send an error message back to the frontend.
+        response["payload"]["error"] = e.what();
+    }
+
+    // 5. Send the final response to the frontend
+    SendMessageToJS(response);
+}
+
+
 void Backend::SetMainWindowHandle(HWND hWnd) {
     m_hWnd = hWnd;
 }
@@ -864,4 +961,10 @@ void Backend::CheckWindowState() {
             SendMessageToJS({ {"action", "windowStateChanged"}, {"payload", {{"state", "restored"}}} });
         }
     }
+}
+
+void Backend::OpenExternalLink(const std::wstring& url) {
+    // ShellExecute is the standard Windows API to open files/URLs with their default handler.
+    // We pass the main window handle, the "open" verb, the URL, and default parameters.
+    ShellExecuteW(m_hWnd, L"open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
 }

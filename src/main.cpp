@@ -7,6 +7,8 @@
 #include <debugapi.h>
 #include <functional>
 #include <shlobj.h> // For SHGetFolderPath
+#include <shlwapi.h>
+#pragma comment(lib, "shlwapi.lib")
 
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
@@ -183,6 +185,45 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                         // 将 webview 实例传递给 backend，以便后端可以向前端发送消息
                         backend.SetWebView(webview.get());
                         backend.SetMainWindowHandle(hWnd);
+
+
+                        // --- Intercept navigation attempts ---
+                        EventRegistrationToken navigationStartingToken;
+                        webview->add_NavigationStarting(Callback<ICoreWebView2NavigationStartingEventHandler>(
+                            [](ICoreWebView2* sender, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
+                                LPWSTR uri_ptr;
+                                args->get_Uri(&uri_ptr);
+                                std::wstring uri(uri_ptr);
+                                CoTaskMemFree(uri_ptr);
+
+                                // Rule 1: Any protocol other than "file" is external.
+                                if (uri.rfind(L"file:///", 0) != 0) {
+                                    args->put_Cancel(TRUE);
+                                    backend.OpenExternalLink(uri);
+                                    return S_OK;
+                                }
+
+                                // Rule 2: It's a "file" protocol link. Check if it's inside our app's UI folder.
+                                std::wstring exePath = GetExePath();
+                                std::wstring localUiPath = exePath + L"\\webview_ui\\";
+
+                                // Convert the file URI (e.g., "file:///C:/path/to/file.html") to a local system path
+                                wchar_t navigatedPath[MAX_PATH];
+                                DWORD pathLen = MAX_PATH;
+                                if (SUCCEEDED(PathCreateFromUrlW(uri.c_str(), navigatedPath, &pathLen, 0))) {
+                                    // Use case-insensitive comparison to check if the navigated path starts with our app's UI path
+                                    if (_wcsnicmp(navigatedPath, localUiPath.c_str(), localUiPath.length()) == 0) {
+                                        // This is an internal navigation (to dashboard.html, index.html, etc.). Allow it.
+                                        return S_OK;
+                                    }
+                                }
+
+                                // If we reach here, it's a file link but OUTSIDE our app folder. Treat as external.
+                                args->put_Cancel(TRUE);
+                                backend.OpenExternalLink(uri);
+
+                                return S_OK;
+                            }).Get(), &navigationStartingToken);
 
 
                         return S_OK;

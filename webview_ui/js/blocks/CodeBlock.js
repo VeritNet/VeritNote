@@ -140,42 +140,12 @@ class CodeBlock extends Block {
     }
     
     showLanguagePicker(buttonElement) {
-        const popoverContent = `
-            <div id="popover-language-picker">
-                <input type="text" id="popover-language-search" placeholder="Search language...">
-                <div id="popover-language-list"></div>
-            </div>
-        `;
-
-        const renderList = (filter = '') => {
-            const listEl = document.getElementById('popover-language-list');
-            if (!listEl) return;
-            const filteredLangs = this.availableLanguages.filter(lang => lang.toLowerCase().includes(filter.toLowerCase()));
-            listEl.innerHTML = filteredLangs.map(lang => `<div class="language-item" data-lang="${lang}">${lang}</div>`).join('');
-        };
-        
-        // ** The key change: Call the editor's generic popover **
-        this.editor.showCustomPopover({
+        // --- MODIFIED: This now calls the new, dedicated popover function in main.js ---
+        window.showLanguagePickerPopover({
             targetElement: buttonElement,
-            content: popoverContent,
-            onOpen: (customWrapper, editor) => {
-                const searchInput = document.getElementById('popover-language-search');
-                const listEl = document.getElementById('popover-language-list');
-                
-                if(!searchInput || !listEl) return;
-
-                searchInput.addEventListener('input', () => renderList(searchInput.value));
-                listEl.addEventListener('mousedown', (event) => {
-                    event.preventDefault();
-                    const item = event.target.closest('.language-item');
-                    if (item) {
-                        this.setLanguage(item.dataset.lang);
-                        editor.hidePopover();
-                    }
-                });
-                
-                renderList('');
-                searchInput.focus();
+            availableLanguages: this.availableLanguages,
+            callback: (selectedLanguage) => {
+                this.setLanguage(selectedLanguage);
             }
         });
     }

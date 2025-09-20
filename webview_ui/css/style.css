@@ -5,8 +5,8 @@
 /* --- 1. 设计系统 & 全局样式 --- */
 :root {
     /* 颜色 */
-    --bg-primary: rgb(25,25,25); /* 主背景 (深灰) */
-    --bg-secondary: rgb(30, 30, 30); /* 侧边栏/弹出菜单背景 (调深) */
+    --bg-primary: rgb(24,24,24); /* 主背景 (深灰) */
+    --bg-secondary: rgb(27, 27, 28); /* 侧边栏/弹出菜单背景 (调深) */
     --bg-tertiary: #333333; /* 悬停/活动状态背景 */
     --bg-accent: #3a3d41; /* 突出背景，如输入框 */
     --bg-active-item: #3a3d41; /* 新增：侧边栏选中项背景 (亮灰) */
@@ -210,6 +210,8 @@ body {
     border-right: none;
     transform: translateX(-100%);
     padding: 0;
+    overflow: hidden;
+    pointer-events: none;
 }
 
     .sidebar-collapsed #sidebar .sidebar-header,
@@ -225,6 +227,7 @@ body {
     transform: translateX(0);
     border-right: 1px solid var(--border-color);
     box-shadow: 5px 0 15px rgba(0,0,0,0.2);
+    pointer-events: auto;
 }
 
     .sidebar-collapsed.sidebar-peek #sidebar .sidebar-header,
@@ -481,22 +484,31 @@ body {
 
 .block-container {
     position: relative;
-    padding-left: 36px;
+    padding-left: 28px;
     margin-bottom: var(--spacing-xs);
     display: flex;
     flex-direction: column;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
 }
+
+    .block-container.is-selected {
+        background-color: rgba(86, 156, 214, 0.12) !important;
+        box-shadow: inset 2px 0 0 0 var(--text-accent);
+    }
 
 .block-controls {
     position: absolute;
     top: 2px;
-    left: 32px;
+    left: 24px;
     transform: translateX(-100%);
     display: flex;
     align-items: center;
     opacity: 0;
     transition: opacity 0.2s ease;
     z-index: 10;
+    gap: 4px;
 }
 
 .block-container:hover > .block-controls {
@@ -532,11 +544,11 @@ body {
 }
 
 .drop-indicator {
-    position: absolute;
     height: 2px;
     background-color: var(--text-accent);
     pointer-events: none;
     z-index: 100;
+    /* No position: absolute needed anymore */
 }
 
 .drop-indicator-vertical {
@@ -547,6 +559,103 @@ body {
     pointer-events: none;
     z-index: 100;
 }
+
+/* --- NEW: Quadrant Overlay Styles --- */
+.quadrant-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 90; /* Below the drop indicators */
+    overflow: hidden; /* Ensure lines don't bleed out */
+}
+
+.quadrant-line-h, .quadrant-line-v {
+    position: absolute;
+    background-color: rgba(140, 140, 140, 0.3); /* Faint gray line */
+    pointer-events: none;
+}
+
+.quadrant-line-h {
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    transform: translateY(-50%);
+}
+
+.quadrant-line-v {
+    left: 50%;
+    top: 0;
+    height: 100%;
+    width: 1px;
+    transform: translateX(-50%);
+}
+
+.quadrant-bg {
+    position: absolute;
+    background-color: rgba(86, 156, 214, 0.1); /* Faint blue background */
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+    will-change: opacity;
+}
+
+    .quadrant-bg.active {
+        opacity: 1; /* Show only the active quadrant's background */
+    }
+
+    .quadrant-bg[data-quadrant="top"] {
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 50%;
+    }
+
+    .quadrant-bg[data-quadrant="bottom"] {
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50%;
+    }
+
+    .quadrant-bg[data-quadrant="left"] {
+        top: 0;
+        left: 0;
+        width: 15%; /* Corresponds to the JS xZone value */
+        height: 100%;
+    }
+
+    .quadrant-bg[data-quadrant="right"] {
+        top: 0;
+        right: 0;
+        width: 15%; /* Corresponds to the JS xZone value */
+        height: 100%;
+    }
+
+/* ** Hover effect for ALL block types ** */
+.block-container:hover > .block-content,
+.block-container:hover > .block-container > .block-content { /* For nested containers */
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+    /* Special case: Don't apply the generic hover effect to Columns containers,
+   as it can look strange. Their children columns will get the effect instead. */
+    .block-container:hover > .block-content[data-type="columns"] {
+        background-color: transparent;
+    }
+
+/* --- Style for multi-drag ghost elements --- */
+.block-container.is-dragging-ghost {
+    opacity: 0.5;
+    background-color: var(--bg-tertiary);
+}
+
+    /* Make the actually dragged element slightly more prominent than the other ghosts */
+    .block-container.is-dragging-ghost:hover {
+        opacity: 0.6;
+    }
 
 /* ==========================================================================
    6. 特定 Block 类型样式
@@ -653,6 +762,84 @@ a {
     .block-children-container:empty:hover {
         background-color: rgba(255, 255, 255, 0.05);
     }
+
+
+/* --- Quote Block Styles --- */
+.block-content[data-type="quote"] {
+    margin: var(--spacing-s) 0;
+    transition: all 0.2s ease;
+}
+
+    .block-content[data-type="quote"][data-style="default"] {
+        border-left: 3px solid var(--text-primary);
+        padding-left: var(--spacing-m);
+    }
+
+    .block-content[data-type="quote"][data-style="plain"] {
+        border-left: 3px solid transparent;
+        padding-left: 0;
+    }
+
+
+.quote-preview-container {
+    min-height: 26px;
+}
+
+    /* By default, nothing inside the preview is interactive */
+    .quote-preview-container * {
+        pointer-events: none !important;
+        user-select: none !important;
+    }
+
+/* The only exception is if the entire quote block is a single clickable link */
+.quote-click-wrapper {
+    pointer-events: auto !important;
+}
+
+    /* If the whole quote is a link, we need to re-enable pointer events on its direct children
+   so that text and other elements inside it are part of the clickable area. */
+    .quote-click-wrapper > * {
+        pointer-events: auto !important;
+    }
+
+    /* However, even if the whole block is a link, we STILL disable any nested links inside it.
+   A link within a link is bad practice and confusing. */
+    .quote-click-wrapper a {
+        pointer-events: none !important;
+    }
+
+
+.quote-empty-placeholder, .quote-loading-placeholder, .quote-error-placeholder {
+    width: 100%;
+    background: var(--bg-accent);
+    border: 2px dashed var(--border-color);
+    padding: var(--spacing-l);
+    text-align: center;
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.quote-error-placeholder {
+    border-color: #e81123;
+    color: #ff8a8a;
+}
+
+.quote-click-wrapper {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    pointer-events: auto;
+}
+
+    .quote-click-wrapper:hover {
+        background-color: var(--bg-tertiary);
+        text-decoration: none;
+    }
+
 
 .block-content[data-type="column"]:empty {
     min-height: 40px;
@@ -1092,12 +1279,21 @@ a {
     left: calc(50% + 2px);
 }
 
+#block-toolbar-grace-area {
+    position: absolute;
+    /* background-color: rgba(255, 0, 0, 0.2); */ /* For debugging visuals */
+    z-index: 999; /* Just below the toolbar itself */
+    pointer-events: auto; /* It must capture mouse events */
+}
+
 #block-toolbar {
     position: absolute;
     display: flex;
     align-items: center;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background: rgba(45, 45, 45, 0.75);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 6px;
     box-shadow: 0 4px 12px var(--shadow-color);
     padding: var(--spacing-xs);
@@ -1128,6 +1324,8 @@ a {
         color: var(--text-on-accent-bg);
     }
 
+/* --- Popover Styles for Dynamic Content --- */
+
 .popover {
     position: absolute;
     background-color: var(--bg-secondary);
@@ -1142,8 +1340,8 @@ a {
     padding: var(--spacing-s);
 }
 
-#popover-input,
-#popover-image-input { /* <-- ADD THIS SELECTOR */
+/* Generic input style for any popover */
+.popover input[type="text"] {
     width: 100%;
     background-color: var(--bg-accent);
     border: 1px solid var(--border-color);
@@ -1154,11 +1352,11 @@ a {
     box-sizing: border-box;
 }
 
-    #popover-input:focus,
-    #popover-image-input:focus { /* <-- ADD THIS SELECTOR */
+    .popover input[type="text"]:focus {
         border-color: var(--text-accent);
     }
 
+/* Generic button style for any popover */
 .popover-button {
     width: 100%;
     margin-top: var(--spacing-s);
@@ -1178,10 +1376,16 @@ a {
         background-color: var(--bg-tertiary);
     }
 
+/* Generic search results style for any popover */
 .popover-search-results {
     max-height: 150px;
     overflow-y: auto;
     margin-top: var(--spacing-s);
+}
+
+/* Specific adjustment for reference popover search results */
+#ref-popover-page-content .popover-search-results {
+    margin-top: 0;
 }
 
 .search-result-item {
@@ -1198,11 +1402,27 @@ a {
         background-color: var(--bg-tertiary);
     }
 
-#popover-color-picker {
+.language-item {
+    padding: var(--spacing-s) var(--spacing-m);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color 0.2s ease;
+}
+
+    .language-item:hover, .language-item.selected {
+        background-color: var(--bg-tertiary);
+    }
+
+
+/* Generic color picker style */
+.popover-color-picker {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: var(--spacing-s);
-    margin-top: var(--spacing-s);
 }
 
 .color-swatch {
@@ -1406,7 +1626,6 @@ a {
 
 #right-sidebar-content {
     flex-grow: 1;
-    overflow-y: auto;
     position: relative;
 }
 
@@ -1467,12 +1686,14 @@ a {
     transition: background-color 0.2s ease-in-out;
 }
 
-body.is-dragging-block #right-sidebar-content {
+body.is-dragging-block #references-view.active {
     background-color: rgba(86, 156, 214, 0.05);
+    transition: background-color 0.2s ease-in-out;
 }
 
-    body.is-dragging-block #right-sidebar-content.drag-over {
+    body.is-dragging-block #references-view.active.drag-over {
         background-color: rgba(86, 156, 214, 0.15) !important;
+        transition: background-color 0.2s ease-in-out;
     }
 
 .reference-item-drop-indicator {
@@ -1490,34 +1711,49 @@ body.is-dragging-block #right-sidebar-content {
     background-color: var(--bg-primary);
     border-radius: 8px;
     padding: 2px;
+    position: relative;
 }
 
 .rs-view-option {
-    padding: 4px 10px;
-    z-index: 2;
+    padding: 4px; /* Use padding for spacing, not gap */
+    z-index: 2; /* Ensure icons are above the slider */
     cursor: pointer;
     color: var(--text-secondary);
     transition: color 0.3s ease;
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
+    justify-content: center;
+    width: 32px; /* Give it a fixed width */
+    height: 32px; /* Give it a fixed height */
     border-radius: 6px;
 }
 
     .rs-view-option.active {
         color: var(--text-primary);
-        background-color: var(--bg-tertiary);
     }
 
 .rs-view {
     display: none;
     padding: var(--spacing-s);
+    height: 100%;
+    overflow-y: auto; /* Each view scrolls independently */
 }
 
     .rs-view.active {
         display: block;
     }
+
+.rs-view-slider {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px; /* Starts at the first item's position */
+    width: 32px; /* Matches the width of one option */
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 1; /* Sits below the icons */
+}
 
 .empty-references-placeholder {
     color: var(--text-secondary);
@@ -1561,12 +1797,8 @@ body.is-dragging-block #right-sidebar-content {
     max-height: 80px;
     overflow: hidden;
     pointer-events: none;
-    border: 1px dashed var(--bg-accent);
-    padding: var(--spacing-s);
+    padding: var(--spacing-xs);
     border-radius: 4px;
-    transform: scale(0.9);
-    transform-origin: top left;
-    width: 111.11%;
 }
 
     .reference-item-preview .block-controls {
@@ -1642,9 +1874,10 @@ body.is-dragging-block #right-sidebar-content {
 }
 
 /* --- Block Linking Active State --- */
-body.is-linking-block #right-sidebar {
+body.is-linking-block #references-view.active {
     background-color: var(--bg-accent);
-    box-shadow: 0 0 15px rgba(86, 156, 214, 0.3);
+    box-shadow: inset 0 0 10px rgba(86, 156, 214, 0.3);
+    transition: background-color 0.2s ease-in-out;
 }
 
 body.is-linking-block .reference-item {
@@ -1658,8 +1891,7 @@ body.is-linking-block .reference-item {
     }
 
 /* --- Block Highlight Style --- */
-.block-container.is-highlighted > .block-content,
-.block-container.is-highlighted { /* For blocks without separate content divs */
+.block-container.is-highlighted {
     background-color: rgba(247, 209, 84, 0.15) !important;
     box-shadow: inset 3px 0 0 0 #F7D154;
     transition: background-color 0.3s ease;
@@ -1674,3 +1906,80 @@ body.is-linking-block .reference-item {
     border-radius: 4px;
     word-break: break-all; /* Allow long paths to wrap */
 }
+
+#popover-page-content #popover-input[style*="display: none"] + #popover-local-file-btn {
+    display: none;
+}
+
+#popover-page-content #popover-input[style*="display: none"] ~ .popover-search-results {
+    margin-top: 0; /* Remove top margin when input is hidden */
+}
+
+
+/* ==========================================================================
+   15. Details Panel Styles
+   ========================================================================== */
+
+.empty-details-placeholder {
+    color: var(--text-secondary);
+    padding: var(--spacing-m);
+    font-style: italic;
+    text-align: center;
+    font-size: 14px;
+    user-select: none;
+}
+
+.details-panel-section {
+    /* REMOVED: background-color and border */
+    padding: var(--spacing-s);
+    margin-bottom: var(--spacing-s);
+}
+
+    /* ADDED: Add a divider between sections when multiple blocks are selected */
+    .details-panel-section + .details-panel-section {
+        border-top: 2px solid var(--border-color);
+        padding-top: var(--spacing-m);
+        margin-top: var(--spacing-m);
+    }
+
+.details-section-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-m); /* Increased margin */
+    text-transform: uppercase; /* As requested */
+    letter-spacing: 0.5px;
+}
+
+.details-property {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px; /* Slightly larger for readability */
+    padding: var(--spacing-xs) 0;
+    margin-bottom: var(--spacing-s); /* Space out properties */
+}
+
+.details-property-label {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    margin-right: var(--spacing-s);
+}
+
+.details-property-value {
+    color: var(--text-primary);
+    background-color: var(--bg-accent);
+    padding: 3px 7px; /* Fine-tuned padding */
+    border-radius: 4px;
+    max-width: 75%; /* Allow a bit more space */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: capitalize; /* "paragraph" -> "Paragraph" */
+}
+
+    /* ADDED: Specific style for monospaced values like IDs */
+    .details-property-value.is-monospace {
+        font-family: var(--font-family-monospace);
+        text-transform: none; /* Don't capitalize IDs */
+    }

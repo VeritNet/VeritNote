@@ -13,17 +13,22 @@ document.addEventListener('DOMContentLoaded', () => {
         BulletedListItemBlock,
         TodoListItemBlock,
         NumberedListItemBlock,
-        ToggleListItemBlock
+        ToggleListItemBlock,
+        QuoteBlock
     ];
 
     /**
      * Helper function to register all known block types on an editor instance.
      * @param {Editor} editorInstance The editor instance to register blocks on.
      */
-    function registerAllBlocks(editorInstance) {
+    window.registerAllBlocks = function(editorInstance) {
         ALL_BLOCK_CLASSES.forEach(blockClass => {
             editorInstance.registerBlock(blockClass);
         });
+    }
+    // Call it immediately for the old logic that expects it here
+    function registerAllBlocks(editorInstance) {
+        window.registerAllBlocks(editorInstance);
     }
 
 
@@ -38,10 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressBar = document.getElementById('progress-bar');
     const exportStatus = document.getElementById('export-status');
     const popover = document.getElementById('popover');
-    const popoverInput = document.getElementById('popover-input');
-    const searchResultsContainer = document.getElementById('popover-search-results');
-    const colorPickerContainer = document.getElementById('popover-color-picker');
-    const localFileBtn = document.getElementById('popover-local-file-btn');
     const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
     const appContainer = document.querySelector('.app-container');
     const sidebarContainer = document.getElementById('sidebar');
@@ -55,13 +56,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabBar = document.getElementById('tab-bar');
     const dynamicTabsContainer = document.getElementById('dynamic-tabs-container');
 
-    // --- START: NEW/MODIFIED ELEMENT SELECTORS ---
     const mainContent = document.getElementById('main-content'); // Crucial for adding collapse class
     const rightSidebar = document.getElementById('right-sidebar');
     const rightSidebarResizer = document.getElementById('right-sidebar-resizer');
     const rightSidebarToggleBtn = document.getElementById('right-sidebar-toggle-btn');
+
     const referencesView = document.getElementById('references-view');
-    // --- END: NEW/MODIFIED ELEMENT SELECTORS ---
+
+    const detailsView = document.getElementById('details-view');
+    const rightSidebarViewToggle = document.getElementById('right-sidebar-view-toggle');
 
     const windowControls = document.getElementById('window-controls');
     const minimizeBtn = document.getElementById('minimize-btn');
@@ -97,28 +100,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // ================= REBUILT POPOVER SYSTEM ======================
     // ======================================================================
     
-    // A flag to prevent the popover from closing immediately after opening
-    let isPopoverJustOpened = false;
+    let isPopoverJustOpened = false; // A flag to prevent the popover from closing immediately after opening
     let currentPopoverCallback = null;
     let wasSidebarForcedOpen = false;
+    let previousRightSidebarView = 'references';
 
     /**
      * Hides any open popover and cleans up associated states.
-     * This is now the single source of truth for closing popovers.
+     * @param {HTMLElement} [elementToClean] - An optional extra element to remove when hiding.
      */
-    function hidePopover() {
-        if (popover.style.display === 'block') {
-            popover.style.display = 'none';
+    function hidePopover(elementToClean = null) {
+        if (popover.style.display !== 'block') return; // Exit if not open
+    
+        popover.style.display = 'none';
+        popover.innerHTML = ''; 
+    
+        // --- REVISED AND SIMPLIFIED CLEANUP LOGIC ---
+        if (document.body.classList.contains('is-linking-block')) {
+            // This handles cases where the popover is closed directly
+            // without switching back to 'page' mode first.
             document.body.classList.remove('is-linking-block');
             referenceManager.enableLinkingMode(false);
-            if (wasSidebarForcedOpen) {
-                setRightSidebarCollapsed(true);
-            }
-            wasSidebarForcedOpen = false;
-            currentPopoverCallback = null;
-            popover.querySelectorAll('.custom-popover-content').forEach(el => el.remove());
-            window.dispatchEvent(new CustomEvent('popoverClosed'));
+            switchRightSidebarView(previousRightSidebarView); // Restore view
         }
+    
+        if (wasSidebarForcedOpen) {
+            setRightSidebarCollapsed(true);
+            wasSidebarForcedOpen = false; // Always reset the flag on close
+        }
+        // --- END OF REVISED LOGIC ---
+    
+        currentPopoverCallback = null;
+        
+        if (elementToClean && elementToClean.parentElement) {
+            elementToClean.parentElement.removeChild(elementToClean);
+        }
+    
+        window.dispatchEvent(new CustomEvent('popoverClosed'));
     }
 
     /**
@@ -148,21 +166,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Shows a popover for setting HREF links (pages or blocks).
+     * Shows a popover for setting HREF links (pages or URLs).
      * @param {object} options - { targetElement, existingValue, callback }
      */
     window.showLinkPopover = function(options) {
+        hidePopover(); 
         const { targetElement, existingValue, callback } = options;
         currentPopoverCallback = callback;
         
-        // --- UI Setup ---
-        popover.querySelectorAll('.popover-content > div').forEach(el => el.style.display = 'none');
-        document.getElementById('popover-link-mode-toggle').style.display = 'flex';
-        
-        const pageContent = document.getElementById('popover-page-content');
-        const blockContent = document.getElementById('popover-block-content');
+        popover.innerHTML = `
+            <div id="link-popover-mode-toggle" class="popover-link-mode-toggle">
+                <button class="popover-mode-btn active" data-mode="page">Link to Page/URL</button>
+                <button class="popover-mode-btn" data-mode="block">Link to Block</button>
+            </div>
+            <div class="popover-content">
+                <div id="link-popover-page-content">
+                    <input type="text" id="link-popover-input" placeholder="Enter a link or search...">
+                    <div id="link-popover-search-results" class="popover-search-results"></div>
+                </div>
+                <div id="link-popover-block-content" style="display: none;">
+                    <p class="popover-instruction">Select a reference from the panel on the right.</p>
+                </div>
+            </div>
+        `;
+
+        const pageContent = popover.querySelector('#link-popover-page-content');
+        const blockContent = popover.querySelector('#link-popover-block-content');
+        const popoverInput = popover.querySelector('#link-popover-input');
+        const searchResults = popover.querySelector('#link-popover-search-results');
         const instructionText = blockContent.querySelector('.popover-instruction');
-        instructionText.querySelector('.current-link-display')?.remove();
+
         if (existingValue) {
             const el = document.createElement('div');
             el.className = 'current-link-display';
@@ -171,37 +204,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const setActiveMode = (mode) => {
-            document.querySelectorAll('.popover-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+            popover.querySelectorAll('#link-popover-mode-toggle .popover-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+            
             if (mode === 'block') {
                 pageContent.style.display = 'none';
                 blockContent.style.display = 'block';
                 document.body.classList.add('is-linking-block');
+                
+                // --- START: REVISED LOGIC ---
+                // 1. Remember the current view
+                const currentActiveOption = rightSidebarViewToggle.querySelector('.rs-view-option.active');
+                previousRightSidebarView = currentActiveOption ? currentActiveOption.dataset.view : 'references';
+                
+                // 2. Force switch to references view
+                switchRightSidebarView('references');
+                // --- END: REVISED LOGIC ---
+        
                 wasSidebarForcedOpen = appContainer.classList.contains('right-sidebar-collapsed');
                 if (wasSidebarForcedOpen) setRightSidebarCollapsed(false);
+                
                 referenceManager.enableLinkingMode(true, (refData) => {
                     const link = `${refData.filePath}#${refData.blockData.id}`;
                     if (currentPopoverCallback) currentPopoverCallback(link);
-                    hidePopover();
+                    hidePopover(); // hidePopover will handle restoring the view
                 });
+        
             } else { // 'page'
                 blockContent.style.display = 'none';
                 pageContent.style.display = 'block';
                 popoverInput.value = existingValue || '';
-                popoverInput.placeholder = 'Enter a link or search...';
-                localFileBtn.style.display = 'none'; // Page links don't use this
-                searchResultsContainer.style.display = 'block';
                 popoverInput.focus();
-                if (allNotes.length === 0) ipc.requestNoteList();
-                else updateSearchResults(popoverInput.value);
-                document.body.classList.remove('is-linking-block');
-                referenceManager.enableLinkingMode(false);
-                if (wasSidebarForcedOpen) setRightSidebarCollapsed(true);
+                if (allNotes.length === 0) ipc.requestNoteList(); else updateSearchResults(popoverInput.value, searchResults);
+                
+                if (document.body.classList.contains('is-linking-block')) {
+                    document.body.classList.remove('is-linking-block');
+                    referenceManager.enableLinkingMode(false);
+                    switchRightSidebarView(previousRightSidebarView); // Restore view
+                    if (wasSidebarForcedOpen) {
+                        setRightSidebarCollapsed(true);
+                        wasSidebarForcedOpen = false; // Reset flag
+                    }
+                }
             }
         };
 
-        document.querySelectorAll('#popover-link-mode-toggle .popover-mode-btn').forEach(btn => {
+        popover.querySelectorAll('#link-popover-mode-toggle .popover-mode-btn').forEach(btn => {
             btn.onmousedown = (e) => { e.stopPropagation(); setActiveMode(btn.dataset.mode); };
         });
+
+        popoverInput.addEventListener('input', () => updateSearchResults(popoverInput.value, searchResults));
+        popoverInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (currentPopoverCallback) currentPopoverCallback(popoverInput.value); hidePopover(); } });
+        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && currentPopoverCallback) { currentPopoverCallback(item.dataset.path); hidePopover(); } });
 
         const initialMode = existingValue && existingValue.includes('#') ? 'block' : 'page';
         setActiveMode(initialMode);
@@ -213,37 +266,220 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {object} options - { targetElement, existingValue, callback }
      */
     window.showImageSourcePopover = function(options) {
+        hidePopover();
         const { targetElement, existingValue, callback } = options;
         currentPopoverCallback = callback;
 
-        // --- UI Setup ---
-        popover.querySelectorAll('.popover-content > div, #popover-link-mode-toggle').forEach(el => el.style.display = 'none');
-        const imageSourceContent = document.getElementById('popover-image-source-content');
-        imageSourceContent.style.display = 'block';
+        popover.innerHTML = `
+            <div class="popover-content">
+                <input type="text" id="image-popover-input" placeholder="Enter image URL...">
+                <button id="image-popover-local-btn" class="popover-button">Select Local File</button>
+            </div>
+        `;
+
+        const imageInput = popover.querySelector('#image-popover-input');
+        const localBtn = popover.querySelector('#image-popover-local-btn');
         
-        const imageInput = document.getElementById('popover-image-input');
         imageInput.value = existingValue || '';
         imageInput.focus();
+        
+        imageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (currentPopoverCallback) currentPopoverCallback(e.target.value); hidePopover(); } });
+        localBtn.addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog(); });
 
         positionAndShowPopover(targetElement);
     }
-    
+
     /**
      * Shows the color picker popover.
      * @param {object} options - { targetElement, callback }
      */
     window.showColorPicker = function(options) {
+        hidePopover();
         const { targetElement, callback } = options;
         currentPopoverCallback = callback;
         
-        // --- UI Setup ---
-        document.getElementById('popover-link-mode-toggle').style.display = 'none';
-        document.getElementById('popover-page-content').style.display = 'none';
-        document.getElementById('popover-block-content').style.display = 'none';
-        const colorPicker = document.getElementById('popover-color-picker');
-        colorPicker.style.display = 'grid';
-        colorPicker.innerHTML = PRESET_COLORS.map(c => `<div class="color-swatch" style="background-color: ${c}" data-color="${c}"></div>`).join('');
+        popover.innerHTML = `<div class="popover-content"><div id="popover-color-picker-grid" class="popover-color-picker"></div></div>`;
+        const colorPickerGrid = popover.querySelector('#popover-color-picker-grid');
+        colorPickerGrid.innerHTML = PRESET_COLORS.map(c => `<div class="color-swatch" style="background-color: ${c}" data-color="${c}"></div>`).join('');
         
+        colorPickerGrid.addEventListener('mousedown', (e) => { 
+            e.preventDefault(); 
+            const swatch = e.target.closest('.color-swatch'); 
+            if (swatch && currentPopoverCallback) { 
+                currentPopoverCallback(swatch.dataset.color); 
+                hidePopover(); 
+            } 
+        });
+
+        positionAndShowPopover(targetElement);
+    }
+
+    /**
+     * Shows a popover for setting a Quote block's reference.
+     * @param {object} options - { targetElement, existingValue, callback }
+     */
+    window.showReferencePopover = function(options) {
+        hidePopover();
+        const { targetElement, existingValue, callback } = options;
+        currentPopoverCallback = callback;
+        
+        popover.innerHTML = `
+            <div id="ref-popover-mode-toggle" class="popover-link-mode-toggle">
+                <button class="popover-mode-btn active" data-mode="page">Reference Page</button>
+                <button class="popover-mode-btn" data-mode="block">Reference Block</button>
+            </div>
+            <div class="popover-content">
+                <div id="ref-popover-page-content">
+                    <div id="ref-popover-search-results" class="popover-search-results"></div>
+                </div>
+                <div id="ref-popover-block-content" style="display: none;">
+                    <p class="popover-instruction">Select a reference from the panel on the right.</p>
+                </div>
+            </div>
+        `;
+
+        const pageContent = popover.querySelector('#ref-popover-page-content');
+        const blockContent = popover.querySelector('#ref-popover-block-content');
+        const searchResults = popover.querySelector('#ref-popover-search-results');
+        const instructionText = blockContent.querySelector('.popover-instruction');
+
+        if (existingValue) {
+            const el = document.createElement('div');
+            el.className = 'current-link-display';
+            el.textContent = `Current: ${existingValue}`;
+            instructionText.appendChild(el);
+        }
+
+        const setActiveMode = (mode) => {
+            popover.querySelectorAll('#ref-popover-mode-toggle .popover-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+            
+            if (mode === 'block') {
+                pageContent.style.display = 'none';
+                blockContent.style.display = 'block';
+                document.body.classList.add('is-linking-block');
+        
+                // --- START: REVISED LOGIC (Identical to showLinkPopover) ---
+                // 1. Remember the current view state.
+                const currentActiveOption = rightSidebarViewToggle.querySelector('.rs-view-option.active');
+                previousRightSidebarView = currentActiveOption ? currentActiveOption.dataset.view : 'references';
+                
+                // 2. Force switch to the references view.
+                switchRightSidebarView('references');
+                // --- END: REVISED LOGIC ---
+        
+                wasSidebarForcedOpen = appContainer.classList.contains('right-sidebar-collapsed');
+                if (wasSidebarForcedOpen) setRightSidebarCollapsed(false);
+                
+                referenceManager.enableLinkingMode(true, (refData) => {
+                    const link = `${refData.filePath}#${refData.blockData.id}`;
+                    if (currentPopoverCallback) currentPopoverCallback(link);
+                    hidePopover(); // hidePopover will handle restoring the view.
+                });
+        
+            } else { // 'page'
+                blockContent.style.display = 'none';
+                pageContent.style.display = 'block';
+                if (allNotes.length === 0) ipc.requestNoteList(); else updateSearchResults('', searchResults);
+        
+                // --- REVISED: Let hidePopover handle all cleanup ---
+                document.body.classList.remove('is-linking-block');
+                referenceManager.enableLinkingMode(false);
+                if (wasSidebarForcedOpen) {
+                    setRightSidebarCollapsed(true);
+                    wasSidebarForcedOpen = false; // Reset the flag.
+                }
+            }
+        };
+
+        popover.querySelectorAll('#ref-popover-mode-toggle .popover-mode-btn').forEach(btn => {
+            btn.onmousedown = (e) => { e.stopPropagation(); setActiveMode(btn.dataset.mode); };
+        });
+        
+        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && currentPopoverCallback) { currentPopoverCallback(item.dataset.path); hidePopover(); } });
+
+        const initialMode = existingValue && existingValue.includes('#') ? 'block' : 'page';
+        setActiveMode(initialMode);
+        positionAndShowPopover(targetElement);
+    }
+
+    /**
+     * Shows a popover for selecting a code block language.
+     * @param {object} options - { targetElement, availableLanguages, callback }
+     */
+    window.showLanguagePickerPopover = function(options) {
+        hidePopover(); // Ensure a clean slate
+        const { targetElement, availableLanguages, callback } = options;
+        currentPopoverCallback = callback; // The callback will receive the selected language string
+
+        // --- 1. Build unique HTML for this popover ---
+        popover.innerHTML = `
+            <div class="popover-content">
+                <div id="language-picker-container">
+                    <input type="text" id="language-picker-search" placeholder="Search language...">
+                    <div id="language-picker-list" class="popover-search-results"></div>
+                </div>
+            </div>
+        `;
+
+        // --- 2. Get references and add listeners ---
+        const searchInput = popover.querySelector('#language-picker-search');
+        const listContainer = popover.querySelector('#language-picker-list');
+
+        const renderList = (filter = '') => {
+            const lowerCaseFilter = filter.toLowerCase();
+            const filteredLangs = availableLanguages.filter(lang => lang.toLowerCase().includes(lowerCaseFilter));
+            listContainer.innerHTML = filteredLangs.map(lang => `<div class="language-item" data-lang="${lang}">${lang}</div>`).join('');
+        };
+        
+        searchInput.addEventListener('input', () => renderList(searchInput.value));
+        
+        listContainer.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            const item = event.target.closest('.language-item');
+            if (item && currentPopoverCallback) {
+                currentPopoverCallback(item.dataset.lang);
+                hidePopover();
+            }
+        });
+
+        // --- 3. Initial state and display ---
+        renderList('');
+        searchInput.focus();
+        positionAndShowPopover(targetElement);
+    }
+
+    /**
+     * Shows a popover with options for dropping a reference item.
+     * @param {object} options - { targetElement, callback }
+     */
+    window.showReferenceDropPopover = function(options) {
+        hidePopover(); // Ensure a clean slate
+        const { targetElement, callback } = options;
+        currentPopoverCallback = callback;
+
+        // 1. Build unique HTML for this popover
+        popover.innerHTML = `
+            <div class="context-menu" style="display: block; position: static; width: 100%; box-shadow: none; border: none;">
+                <div class="context-menu-item" data-action="createQuote">Create Quote</div>
+                <div class="context-menu-item" data-action="createCopy">Create Copy</div>
+                <div class="context-menu-item" data-action="createLink">Create Link</div>
+            </div>
+        `;
+        // We are reusing the context-menu styling for simplicity.
+
+        // 2. Add event listeners
+        popover.querySelectorAll('.context-menu-item').forEach(item => {
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const action = e.target.dataset.action;
+                if (currentPopoverCallback) {
+                    currentPopoverCallback(action);
+                }
+                hidePopover();
+            });
+        });
+
+        // 3. Position and show
         positionAndShowPopover(targetElement);
     }
 
@@ -271,31 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // --- Event Listeners for Popover Content ---
-    // These now use the single `currentPopoverCallback`
-    document.getElementById('popover-image-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (currentPopoverCallback) currentPopoverCallback(e.target.value); hidePopover(); } });
-    document.getElementById('popover-image-local-btn').addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog(); });
     // This listener now serves both image source and link popovers
     window.addEventListener('fileDialogClosed', (e) => { if (e.detail.payload.path && currentPopoverCallback) { currentPopoverCallback(e.detail.payload.path); hidePopover(); } });
-    
-    // Listeners for page/URL link popover
-    popoverInput.addEventListener('input', () => updateSearchResults(popoverInput.value));
-    popoverInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (currentPopoverCallback) currentPopoverCallback(popoverInput.value); hidePopover(); } });
-    searchResultsContainer.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && currentPopoverCallback) { currentPopoverCallback(item.dataset.path); hidePopover(); } });
-    
-    // Listener for color picker
-    document.getElementById('popover-color-picker').addEventListener('mousedown', (e) => { e.preventDefault(); const swatch = e.target.closest('.color-swatch'); if (swatch && currentPopoverCallback) { currentPopoverCallback(swatch.dataset.color); hidePopover(); } });
-    
-    // Global listener to close popovers
-    document.addEventListener('mousedown', (e) => {
-        if (!e.target.closest('#context-menu')) { contextMenu.style.display = 'none'; }
-        if (popover.style.display === 'block' && !isPopoverJustOpened) {
-            if (!popover.contains(e.target)) {
-                 if (document.body.classList.contains('is-linking-block') && e.target.closest('.reference-item')) { return; }
-                 hidePopover();
-            }
-        }
-        isPopoverJustOpened = false;
-    });
 
 
 
@@ -362,6 +575,77 @@ document.addEventListener('DOMContentLoaded', () => {
             console.groupEnd(); // End of highlightBlockInActiveTab group
         }, 200); // Using a slightly longer delay for safety
     }
+
+
+    class SelectionManager {
+        constructor() {
+            this.selectedBlockIds = new Set();
+            this.activeEditor = null;
+        }
+
+        _getEditor() {
+            const activeTab = tabManager.getActiveTab();
+            return activeTab ? activeTab.editor : null;
+        }
+
+        _updateVisuals() {
+            const editor = this._getEditor();
+            if (!editor || !editor.container) return;
+
+            editor.container.querySelectorAll('.is-selected').forEach(el => el.classList.remove('is-selected'));
+
+            this.selectedBlockIds.forEach(id => {
+                const blockEl = editor.container.querySelector(`.block-container[data-id="${id}"]`);
+                if (blockEl) {
+                    blockEl.classList.add('is-selected');
+                }
+            });
+
+            // Update the details panel whenever the selection visuals change.
+            updateDetailsPanel(); 
+        }
+
+        toggle(blockId) {
+            if (this.selectedBlockIds.has(blockId)) {
+                this.selectedBlockIds.delete(blockId);
+            } else {
+                this.selectedBlockIds.add(blockId);
+            }
+            this._updateVisuals();
+        }
+
+        set(blockId) {
+            // If this block is already the only one selected, do nothing.
+            // This allows clicking inside an already selected block to edit text.
+            if (this.selectedBlockIds.size === 1 && this.selectedBlockIds.has(blockId)) {
+                return;
+            }
+            this.selectedBlockIds.clear();
+            this.selectedBlockIds.add(blockId);
+            this._updateVisuals();
+        }
+
+        clear() {
+            if (this.selectedBlockIds.size === 0) return;
+            this.selectedBlockIds.clear();
+            this._updateVisuals();
+        }
+
+        get() {
+            return Array.from(this.selectedBlockIds);
+        }
+
+        has(blockId) {
+            return this.selectedBlockIds.has(blockId);
+        }
+
+        size() {
+            return this.selectedBlockIds.size;
+        }
+    }
+    
+    const selectionManager = new SelectionManager();
+    window.selectionManager = selectionManager;
 
 
     class TabManager {
@@ -436,17 +720,41 @@ document.addEventListener('DOMContentLoaded', () => {
         closeTab(path) {
             const tabToClose = this.tabs.get(path);
             if (!tabToClose) return;
-            if (tabToClose.isUnsaved) { if (!confirm(`"${tabToClose.name}" has unsaved changes. Are you sure you want to close it?`)) { return; } }
+
+            // ** NEW LOGIC STARTS HERE **
+            let isUnsavedAndClosing = false;
+
+            if (tabToClose.isUnsaved) {
+                if (!confirm(`"${tabToClose.name}" has unsaved changes. Are you sure you want to close it?`)) {
+                    return; // User cancelled
+                }
+                // Mark that we are closing an unsaved tab
+                isUnsavedAndClosing = true;
+            }
+            // ** NEW LOGIC ENDS HERE **
+
+            // Clean up DOM and memory
             tabToClose.dom.wrapper.remove();
             this.tabs.delete(path);
             this.tabOrder = this.tabOrder.filter(p => p !== path);
+
+            // If we closed the active tab, switch to another one
             if (this.activeTabPath === path) {
                 const newActivePath = this.tabOrder[this.tabOrder.length - 1] || null;
-                this.activeTabPath = null;
+                this.activeTabPath = null; // Force switch
                 this.switchTab(newActivePath);
             }
+            
             this.render();
+
+            // ** NEW: Dispatch event to revert references if needed **
+            if (isUnsavedAndClosing) {
+                window.dispatchEvent(new CustomEvent('tab:revert-references', {
+                    detail: { filePath: path }
+                }));
+            }
         }
+
         switchTab(path) {
             if (this.activeTabPath === path && path !== null) return;
             const oldTab = this.getActiveTab();
@@ -462,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateToolbarState(null);
             }
             this.render();
-            updateSidebarActiveState();
+            onTabSwitched();
         }
         setUnsavedStatus(path, isUnsaved) {
             const tab = this.tabs.get(path);
@@ -531,23 +839,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Reference Management ---
     class ReferenceManager {
         constructor() {
-            this.dropZone = document.getElementById('right-sidebar-content');
-            this.container = referencesView;
+            this.container = document.getElementById('references-view');
             this.placeholder = this.container.querySelector('.empty-references-placeholder');
             this.references = [];
             this.draggedItem = null;
             this._initListeners();
         }
         _initListeners() {
-            this.dropZone.addEventListener('dragover', this._handleDragOver.bind(this));
-            this.dropZone.addEventListener('dragleave', this._handleDragLeave.bind(this));
-            this.dropZone.addEventListener('drop', this._handleDrop.bind(this));
+            this.container.addEventListener('dragover', this._handleDragOver.bind(this));
+            this.container.addEventListener('dragleave', this._handleDragLeave.bind(this));
+            this.container.addEventListener('drop', this._handleDrop.bind(this));
             this.container.addEventListener('dragstart', this._handleItemDragStart.bind(this));
             this.container.addEventListener('dragend', this._handleItemDragEnd.bind(this));
             this.container.addEventListener('click', this._handleClick.bind(this));
             window.addEventListener('block:updated', this.handleBlockUpdate.bind(this));
             window.addEventListener('block:deleted', this.handleBlockDeletion.bind(this));
             window.addEventListener('history:applied', this.handleHistoryChange.bind(this));
+            window.addEventListener('tab:revert-references', this.handleRevertReferences.bind(this));
         }
         cleanupDropIndicator() { this.container.querySelector('.reference-item-drop-indicator')?.remove(); }
         _handleDragOver(e) {
@@ -570,19 +878,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 e.dataTransfer.dropEffect = 'copy';
-                this.dropZone.classList.add('drag-over');
+                this.container.classList.add('drag-over');
             }
         }
         _handleDragLeave(e) {
-            if (!this.dropZone.contains(e.relatedTarget)) {
-                this.dropZone.classList.remove('drag-over');
+            if (!this.container.contains(e.relatedTarget)) {
+                this.container.classList.remove('drag-over');
                 this.cleanupDropIndicator();
             }
         }
         _handleDrop(e) {
             e.preventDefault();
-            this.dropZone.classList.remove('drag-over');
+            this.container.classList.remove('drag-over'); 
             document.body.classList.remove('is-dragging-block');
+
+            const referencesView = document.getElementById('references-view');
+            if (!referencesView || !referencesView.classList.contains('active')) {
+                // If for any reason a drop event happens while not in references view, ignore it.
+                return;
+            }
+
+            // --- Reorder logic ---
             const isReorder = e.dataTransfer.types.includes('application/veritnote-reference-reorder');
             if (isReorder && this.draggedItem) {
                 const indicator = this.container.querySelector('.reference-item-drop-indicator');
@@ -599,22 +915,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.render();
                 return;
             }
-            const blockIdFromEditor = e.dataTransfer.getData('text/plain');
-            if (blockIdFromEditor) {
+
+
+            // --- START: NEW Multi-block drop logic ---
+            const multiDragData = e.dataTransfer.getData('application/veritnote-block-ids');
+            const singleDragId = e.dataTransfer.getData('text/plain');
+            
+            let blockIdsToAdd = [];
+
+            if (multiDragData) {
+                try {
+                    blockIdsToAdd = JSON.parse(multiDragData);
+                } catch (err) {
+                    console.error("Failed to parse multi-drag data for references:", err);
+                    return;
+                }
+            } else if (singleDragId) {
+                blockIdsToAdd = [singleDragId];
+            }
+
+            if (blockIdsToAdd.length > 0) {
                 const activeTab = tabManager.getActiveTab();
                 if (activeTab) {
-                    if (this.references.some(ref => ref.blockData.id === blockIdFromEditor)) { return; }
-                    const blockInstance = activeTab.editor._findBlockInstanceById(activeTab.editor.blocks, blockIdFromEditor)?.block;
-                    if (blockInstance) { this.addReference(activeTab.path, blockInstance.data); }
+                    blockIdsToAdd.forEach(blockId => {
+                        // Check if a reference for this block already exists.
+                        if (this.references.some(ref => ref.blockData.id === blockId)) {
+                            console.log(`Reference for block ${blockId} already exists, skipping.`);
+                            return; // 'continue' for forEach loop
+                        }
+
+                        // Find the block instance from the editor's current state.
+                        // This correctly handles parent/child relationships as each is found independently.
+                        const blockInstance = activeTab.editor._findBlockInstanceById(activeTab.editor.blocks, blockId)?.block;
+                        
+                        if (blockInstance) {
+                            // Add the reference using its most up-to-date data.
+                            this.addReference(activeTab.path, blockInstance.data);
+                        } else {
+                            console.warn(`Could not find block instance for ID ${blockId} to create reference.`);
+                        }
+                    });
                 }
             }
+            // --- END: NEW Multi-block drop logic ---
         }
         _handleItemDragStart(e) {
             const item = e.target.closest('.reference-item');
             if (item) {
                 this.draggedItem = item;
-                e.dataTransfer.setData('application/veritnote-reference-reorder', item.dataset.blockId);
-                e.dataTransfer.effectAllowed = 'move';
+                const blockId = item.dataset.blockId;
+                const refData = this.references.find(r => r.blockData.id === blockId);
+
+                if (refData) {
+                    e.dataTransfer.setData('application/veritnote-reference-item', JSON.stringify(refData));
+                }
+                
+                // This is for reordering within the reference panel itself
+                e.dataTransfer.setData('application/veritnote-reference-reorder', blockId);
+                e.dataTransfer.effectAllowed = 'copyMove'; // Allow both copy (to editor) and move (in panel)
                 setTimeout(() => { item.style.display = 'none'; }, 0);
             }
         }
@@ -643,7 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addReference(filePath, blockData) { this.references.push({ filePath, blockData }); this.render(); }
         removeReference(blockId) { this.references = this.references.filter(ref => ref.blockData.id !== blockId); this.render(); }
         render() {
-            const scrollPos = this.dropZone.scrollTop;
+            const scrollPos = this.container.scrollTop;
             this.container.innerHTML = '';
             this.container.appendChild(this.placeholder);
             this.placeholder.style.display = this.references.length === 0 ? 'block' : 'none';
@@ -663,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 itemEl.querySelector('.reference-item-preview').appendChild(renderedBlockEl);
                 this.container.appendChild(itemEl);
             });
-            this.dropZone.scrollTop = scrollPos;
+            this.container.scrollTop = scrollPos;
         }
         handleBlockUpdate(e) {
             const { filePath, blockData } = e.detail;
@@ -705,6 +1063,68 @@ document.addEventListener('DOMContentLoaded', () => {
             this.references = this.references.filter(ref => !ref.markedForDeletion);
             if (this.references.length < oldRefCount) { this.render(); }
         }
+        handleRevertReferences(e) {
+            const { filePath } = e.detail;
+        
+            // Find all references that belong to the closed, unsaved page
+            const refsToRevert = this.references.filter(ref => ref.filePath === filePath);
+        
+            if (refsToRevert.length === 0) {
+                return; // No references from this page, nothing to do
+            }
+        
+            // We need to fetch the SAVED content of the page from the backend.
+            // We'll create a temporary event listener to catch the response.
+            const onPageRevertedListener = (loadEvent) => {
+                // Check if the loaded data is for the page we requested
+                if (loadEvent.detail.payload?.path === filePath) {
+                    window.removeEventListener('pageLoaded', onPageRevertedListener); // Clean up listener
+        
+                    const savedContent = loadEvent.detail.payload.content;
+                    if (!savedContent) return;
+        
+                    // Create a map of the SAVED block data for easy lookup
+                    const savedBlocksMap = new Map();
+                    const flattenBlocks = (blocks) => {
+                        if (!blocks) return;
+                        for (const block of blocks) {
+                            savedBlocksMap.set(block.id, block);
+                            if (block.children) {
+                                flattenBlocks(block.children);
+                            }
+                        }
+                    };
+                    flattenBlocks(savedContent);
+        
+                    // Now, update our local reference data with the saved version
+                    refsToRevert.forEach(refToRevert => {
+                        const savedBlockData = savedBlocksMap.get(refToRevert.blockData.id);
+                        if (savedBlockData) {
+                            // Find the reference in the main array and update it
+                            const mainRefIndex = this.references.findIndex(r => r.blockData.id === refToRevert.blockData.id);
+                            if (mainRefIndex !== -1) {
+                                this.references[mainRefIndex].blockData = savedBlockData;
+                                
+                                // Visually update the specific item in the DOM
+                                const itemEl = this.container.querySelector(`.reference-item[data-block-id="${savedBlockData.id}"]`);
+                                if (itemEl) {
+                                    this.updateReferenceItemDOM(itemEl, this.references[mainRefIndex]);
+                                }
+                            }
+                        }
+                        // If the block doesn't exist in the saved version (e.g., it was a new, unsaved block),
+                        // it will just be left as is. A more advanced implementation might remove it.
+                        // For now, reverting to the last known saved state is sufficient.
+                    });
+                }
+            };
+            
+            window.addEventListener('pageLoaded', onPageRevertedListener);
+            
+            // Request the saved content from the backend.
+            // The blockIdToFocus can be null as we only need the content.
+            ipc.loadPage(filePath, null);
+        }
         updateReferenceItemDOM(itemEl, refData) {
             const tempEditor = new Editor(document.createElement('div'));
             registerAllBlocks(tempEditor);
@@ -721,6 +1141,85 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const tabManager = new TabManager();
     const referenceManager = new ReferenceManager();
+
+
+
+    /**
+    * Updates the right sidebar's "Details" panel based on the currently selected blocks.
+    */
+    function updateDetailsPanel() {
+        const editor = selectionManager._getEditor();
+        if (!editor || !detailsView) return;
+
+        const selectedIds = selectionManager.get();
+    
+        // Clear previous content
+        detailsView.innerHTML = '';
+
+        if (selectedIds.length === 0) {
+            detailsView.innerHTML = `<div class="empty-details-placeholder">Select a block to see its details.</div>`;
+            return;
+        }
+
+        let contentHtml = '';
+        selectedIds.forEach(id => {
+            const blockInfo = editor._findBlockInstanceById(editor.blocks, id);
+            if (blockInfo && blockInfo.block) {
+                // Call the new method on the block instance to get its details HTML
+                contentHtml += blockInfo.block.renderDetailsPanel();
+            }
+        });
+        detailsView.innerHTML = contentHtml;
+    }
+
+
+    /**
+     * Finds the ID of the first block element that is visible at the top of a given scrollable container.
+     * @param {HTMLElement} container The scrollable container (e.g., editor-view).
+     * @returns {string|null} The ID of the top-most visible block, or null if none are found.
+     */
+    function getTopVisibleBlockId(container) {
+        const containerRect = container.getBoundingClientRect();
+        const blockElements = container.querySelectorAll('.block-container');
+    
+        for (const blockEl of blockElements) {
+            const blockRect = blockEl.getBoundingClientRect();
+            // Check if the block's top edge is at or below the container's top edge,
+            // and if it's at least partially visible within the container's vertical space.
+            if (blockRect.top >= containerRect.top && blockRect.top < containerRect.bottom) {
+                return blockEl.dataset.id;
+            }
+        }
+        // Fallback: If no block is perfectly at the top, find the first one that is at all visible.
+        for (const blockEl of blockElements) {
+            const blockRect = blockEl.getBoundingClientRect();
+            if (blockRect.bottom > containerRect.top && blockRect.top < containerRect.bottom) {
+                return blockEl.dataset.id;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Scrolls a container so that a block with a specific ID is at the top of the viewport.
+     * @param {HTMLElement} container The scrollable container.
+     * @param {string} blockId The ID of the block to scroll to.
+     */
+    function scrollToBlock(container, blockId) {
+        if (!blockId) return;
+        const targetElement = container.querySelector(`.block-container[data-id="${blockId}"]`);
+        if (targetElement) {
+            // 'start' aligns the top of the element with the top of the scrollable area.
+            targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }
+    }
+
+
+    // --- Update selection visuals when tab is switched ---
+    function onTabSwitched() {
+        selectionManager.clear(); // Clear selection when switching tabs for simplicity
+        updateSidebarActiveState();
+    }
 
     // --- UI Update Functions ---
     function updateToolbarState(activeTab) {
@@ -745,33 +1244,73 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function switchMode(mode, tab = null, forceRefresh = false) {
+    async function switchMode(mode, tab = null, forceRefresh = false) {
         const activeTab = tab || tabManager.getActiveTab();
         if (!activeTab) {
             return;
         }
     
-        // The check now considers the forceRefresh flag
+        const wasInPreviewMode = activeTab.mode === 'preview';
+    
         if (activeTab.mode === mode && !forceRefresh) {
             return;
         }
     
-        activeTab.mode = mode;
-    
+        // --- START: SCROLL SYNC LOGIC ---
+        let topBlockId = null;
         const editorContainer = activeTab.dom.editorContainer;
         const previewContainer = activeTab.dom.previewContainer;
+    
+        // 1. Before switching, record the current scroll position.
+        if (activeTab.mode === 'edit') {
+            topBlockId = getTopVisibleBlockId(editorContainer);
+        } else { // mode === 'preview'
+            topBlockId = getTopVisibleBlockId(previewContainer);
+        }
+        // --- END: SCROLL SYNC LOGIC ---
+    
+        activeTab.mode = mode;
     
         if (mode === 'edit') {
             editorContainer.style.display = 'block';
             previewContainer.style.display = 'none';
+    
+            // Restore scroll position IN THE NEXT FRAME to ensure DOM is visible.
+            requestAnimationFrame(() => {
+                scrollToBlock(editorContainer, topBlockId);
+            });
+    
+            if (wasInPreviewMode) {
+                // This logic to re-fetch quote content remains the same.
+                const triggerQuoteFetchRecursive = (blocks) => {
+                    if (!blocks) return;
+                    blocks.forEach(block => {
+                        if (block.type === 'quote' && block.properties.referenceLink) {
+                            ipc.fetchQuoteContent(block.id, block.properties.referenceLink);
+                        }
+                        if (block.children) {
+                            triggerQuoteFetchRecursive(block.children);
+                        }
+                    });
+                };
+                triggerQuoteFetchRecursive(activeTab.editor.blocks);
+            }
+    
         } else { // mode === 'preview'
-            // This part will now be executed correctly on new tabs
-            previewContainer.innerHTML = activeTab.editor.getSanitizedHtml(false);
+            // Generate the new HTML (this part is async).
+            previewContainer.innerHTML = await activeTab.editor.getSanitizedHtml(false);
+            
             editorContainer.style.display = 'none';
             previewContainer.style.display = 'block';
+    
+            // Restore scroll position. No need for requestAnimationFrame here because
+            // we awaited the HTML generation, so the DOM is ready.
+            scrollToBlock(previewContainer, topBlockId);
         }
+        
         updateToolbarState(activeTab);
     }
+
 
     function saveCurrentPage() {
         const activeTab = tabManager.getActiveTab();
@@ -780,8 +1319,64 @@ document.addEventListener('DOMContentLoaded', () => {
             ipc.savePage(activeTab.path, content);
             tabManager.setUnsavedStatus(activeTab.path, false);
             console.log('Page saved!', activeTab.path);
+
+            // Dispatch a global event indicating a page has been saved.
+            // This is the signal for QuoteBlocks to update themselves.
+            window.dispatchEvent(new CustomEvent('page:saved', {
+                detail: {
+                    path: activeTab.path
+                }
+            }));
         }
     }
+
+    window.addEventListener('page:saved', (e) => {
+        const savedPath = e.detail.path;
+        if (!savedPath) return;
+
+        console.log(`A page was saved: ${savedPath}. Checking all open tabs for relevant quote blocks to update.`);
+
+        // 1. 创建一个临时的、不可见的编辑器实例用于渲染
+        const tempRenderContainer = document.createElement('div');
+        tempRenderContainer.style.display = 'none';
+        document.body.appendChild(tempRenderContainer);
+        const tempEditor = new Editor(tempRenderContainer);
+        window.registerAllBlocks(tempEditor);
+
+        // 2. 遍历所有打开的标签页
+        tabManager.tabs.forEach(tab => {
+            // 我们需要操作的是标签页的 DOM 容器，而不是 editor 实例
+            const editorContainer = tab.dom.editorContainer;
+            if (!editorContainer) return;
+
+            // 3. 找到当前标签页中所有引用了被保存文件的 QuoteBlock DOM 元素
+            const quoteElements = editorContainer.querySelectorAll(`.block-content[data-type="quote"]`);
+            
+            quoteElements.forEach(quoteEl => {
+                const blockId = quoteEl.dataset.id;
+                // 从 DOM 中找到对应的 block 实例来获取其属性
+                const blockInstance = tab.editor._findBlockInstanceById(tab.editor.blocks, blockId)?.block;
+                
+                if (blockInstance && blockInstance.properties.referenceLink) {
+                    const referenceLink = blockInstance.properties.referenceLink;
+                    const referencedPagePath = referenceLink.split('#')[0];
+
+                    // 4. 如果这个引用块确实引用了刚刚被保存的文件
+                    if (savedPath === referencedPagePath) {
+                        console.log(`Found a quote block (${blockId}) in tab "${tab.path}" that needs updating.`);
+                        
+                        // 5. 向后端请求这个引用链接最新的内容
+                        // 我们需要一种方式来接收这个内容并将其与正确的 DOM 元素关联起来
+                        // 我们可以在请求时附带 tab ID 和 block ID
+                        ipc.fetchQuoteContent(`${tab.id}::${blockId}`, referenceLink);
+                    }
+                }
+            });
+        });
+
+        // 清理临时编辑器
+        document.body.removeChild(tempRenderContainer);
+    });
 
     // --- C++ message listeners ---
     window.addEventListener('workspaceListed', (e) => {
@@ -795,40 +1390,97 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSidebarActiveState();
     });
 
-window.addEventListener('pageLoaded', (e) => {
-    console.group(`--- DEBUG: pageLoaded event for path: ${e.detail.payload?.path} ---`);
-    
-    if (e.detail.error) {
-        console.error('Error in pageLoaded:', e.detail.error);
-        alert(`Error loading page: ${e.detail.error}`);
-        tabManager.closeTab(e.detail.payload.path);
-        console.groupEnd();
-        return;
-    }
-    
-    const pageData = e.detail.payload;
-    console.log('Payload received:', pageData);
-    
-    tabManager.handlePageLoaded(pageData); 
+    // Add a listener for when quote content is loaded from the backend
+    window.addEventListener('quoteContentLoaded', (e) => {
+        const { quoteBlockId, content, error } = e.detail.payload;
 
-    const { path, blockIdToFocus } = pageData;
-    const loadedTab = tabManager.tabs.get(path);
+        const parts = quoteBlockId.split('::');
+        const isUpdateRequest = parts.length === 2;
+        let targetTab, targetBlockId;
 
-    if (loadedTab) {
-        console.log(`State: Found loaded tab object. Its desired mode is "${loadedTab.mode}".`);
-        switchMode(loadedTab.mode, loadedTab, true); 
-
-        if (blockIdToFocus) {
-            console.log(`Action: Calling highlightBlockInActiveTab for blockId: "${blockIdToFocus}"`);
-            highlightBlockInActiveTab(blockIdToFocus);
+        if (isUpdateRequest) {
+            const [tabId, blockId] = parts;
+            targetTab = Array.from(tabManager.tabs.values()).find(t => t.id === tabId);
+            targetBlockId = blockId;
         } else {
-            console.log('Info: No blockIdToFocus in payload.');
+            targetTab = tabManager.getActiveTab();
+            targetBlockId = quoteBlockId;
         }
-    } else {
-        console.error('Error: Could not find tab object for path:', path);
-    }
-    console.groupEnd();
-});
+
+        if (!targetTab) { return; }
+
+        if (error) {
+            console.error(`Error loading quote content for block ${targetBlockId} in tab ${targetTab.path}:`, error);
+        }
+
+        // --- THE CORE FIX: Handle both Edit and Preview modes ---
+        if (targetTab.mode === 'preview') {
+            // --- Case 1: Tab is in Preview Mode ---
+            const targetPreviewDOM = targetTab.dom.previewContainer;
+            const quoteElement = targetPreviewDOM.querySelector(`.block-container[data-id="${targetBlockId}"]`);
+            if (quoteElement) {
+                const previewContainer = quoteElement.querySelector('.quote-preview-container');
+                if (previewContainer) {
+                    previewContainer.innerHTML = ''; // Clear "Loading..."
+                    if (!content || content.length === 0) {
+                        previewContainer.innerHTML = '<div class="quote-error-placeholder">Referenced content could not be found.</div>';
+                    } else {
+                        // We need to render the raw block data into HTML
+                        const tempRenderDiv = document.createElement('div');
+                        const tempEditor = new Editor(tempRenderDiv);
+                        window.registerAllBlocks(tempEditor);
+                        const blockInstances = content.map(data => tempEditor.createBlockInstance(data)).filter(Boolean);
+                        blockInstances.forEach(block => {
+                            previewContainer.appendChild(block.render());
+                        });
+                    }
+                }
+            }
+        } else {
+            // --- Case 2: Tab is in Edit Mode (Original Logic, slightly improved) ---
+            // It's better to find the block instance and call its method.
+            const blockInstance = targetTab.editor._findBlockInstanceById(targetTab.editor.blocks, targetBlockId)?.block;
+            if (blockInstance && typeof blockInstance.renderQuotedContent === 'function') {
+                blockInstance.renderQuotedContent(content);
+            }
+        }
+    });
+
+    window.addEventListener('pageLoaded', async (e) => {
+        console.group(`--- DEBUG: pageLoaded event for path: ${e.detail.payload?.path} ---`);
+        
+        if (e.detail.error) {
+            console.error('Error in pageLoaded:', e.detail.error);
+            alert(`Error loading page: ${e.detail.error}`);
+            tabManager.closeTab(e.detail.payload.path);
+            console.groupEnd();
+            return;
+        }
+        
+        const pageData = e.detail.payload;
+        console.log('Payload received:', pageData);
+        
+        tabManager.handlePageLoaded(pageData); 
+    
+        const { path, blockIdToFocus } = pageData;
+        const loadedTab = tabManager.tabs.get(path);
+    
+        if (loadedTab) {
+            console.log(`State: Found loaded tab object. Its desired mode is "${loadedTab.mode}".`);
+            // MODIFIED: await the switchMode call
+            await switchMode(loadedTab.mode, loadedTab, true); 
+    
+            if (blockIdToFocus) {
+                console.log(`Action: Calling highlightBlockInActiveTab for blockId: "${blockIdToFocus}"`);
+                highlightBlockInActiveTab(blockIdToFocus);
+            } else {
+                console.log('Info: No blockIdToFocus in payload.');
+            }
+        } else {
+            console.error('Error: Could not find tab object for path:', path);
+        }
+        console.groupEnd();
+    });
 
     window.addEventListener('workspaceUpdated', (e) => {
         const payload = e.detail.payload || e.detail;
@@ -857,25 +1509,61 @@ window.addEventListener('pageLoaded', (e) => {
             tabManager.openTab(path);
         }
     });
-    modeToggle.addEventListener('click', (e) => {
+
+    modeToggle.addEventListener('click', async (e) => {
         const option = e.target.closest('.mode-toggle-option');
-        if (option) { switchMode(option.dataset.mode); }
+        if (option) { 
+            // await the switchMode call
+            await switchMode(option.dataset.mode); 
+        }
     });
+
     saveBtn.addEventListener('click', saveCurrentPage);
+
     window.addEventListener('editor:change', () => {
         const activeTab = tabManager.getActiveTab();
         if (activeTab) { tabManager.setUnsavedStatus(activeTab.path, true); }
     });
+
     document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveCurrentPage(); return; }
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') { e.preventDefault(); const activeTab = tabManager.getActiveTab(); if (activeTab) { tabManager.closeTab(activeTab.path); } return; }
         const activeTab = tabManager.getActiveTab();
-        if (activeTab && (e.ctrlKey || e.metaKey)) {
+        if (!activeTab) return;
+        const activeEditor = activeTab.editor;
+    
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selectionManager.size() > 0) {
+            
+            // First, check if the user is actively editing text.
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+                // If the focus is inside any editable field, DO NOTHING here.
+                // Let the browser's default behavior (deleting a character) or the
+                // block's own keydown handler (like deleting an empty block) take over.
+                return;
+            }
+    
+            // If we reach this point, it means the user is not focused on an input field.
+            // It's now safe to assume they intend to delete the selected block(s).
+            
+            e.preventDefault(); // Prevent default browser actions (like navigating back).
+            
+            const idsToDelete = selectionManager.get();
+            activeEditor.deleteMultipleBlocks(idsToDelete);
+            selectionManager.clear();
+            return; // We've handled the event, so we're done.
+        }
+    
+    
+        // The rest of the shortcuts (Ctrl+S, Ctrl+W, undo/redo) remain unchanged.
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveCurrentPage(); return; }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') { e.preventDefault(); if (activeTab) { tabManager.closeTab(activeTab.path); } return; }
+    
+        if ((e.ctrlKey || e.metaKey)) {
             const key = e.key.toLowerCase();
-            if (key === 'z') { e.preventDefault(); if (e.shiftKey) { activeTab.editor.history.redo(); } else { activeTab.editor.history.undo(); } return; }
-            if (key === 'y' && !e.shiftKey) { e.preventDefault(); activeTab.editor.history.redo(); return; }
+            if (key === 'z') { e.preventDefault(); if (e.shiftKey) { activeEditor.history.redo(); } else { activeEditor.history.undo(); } return; }
+            if (key === 'y' && !e.shiftKey) { e.preventDefault(); activeEditor.history.redo(); return; }
         }
     });
+
     backToDashboardBtn.addEventListener('click', () => {
         let unsavedFiles = [];
         tabManager.tabs.forEach(tab => { if (tab.isUnsaved) { unsavedFiles.push(tab.name); } });
@@ -903,23 +1591,53 @@ window.addEventListener('pageLoaded', (e) => {
     
 
     document.addEventListener('mousedown', (e) => {
-        // Hide context menu on any mousedown
+        // --- 1. SELECTION LOGIC ---
+        const clickedBlockEl = e.target.closest('.block-container');
+        const isMultiSelectKey = e.ctrlKey || e.metaKey || e.shiftKey;
+        const clickedUiChrome = e.target.closest(
+            '#sidebar, #right-sidebar, #tab-bar, #floating-toolbar, #popover, #context-menu, #block-toolbar, .block-controls'
+        );
+
+        if (clickedBlockEl) {
+            if (e.target.closest('.block-controls')) {
+                // Do nothing. The selection is preserved for the next event.
+            } else if (isMultiSelectKey) {
+                // This is for multi-selecting by clicking the block's body
+                e.preventDefault();
+                selectionManager.toggle(clickedBlockEl.dataset.id);
+            } else {
+                // This is for single-selecting by clicking the block's body
+                selectionManager.set(clickedBlockEl.dataset.id);
+            }
+        } else {
+            // This part handles clicking on the editor background, etc.
+            const clickedUiChrome = e.target.closest(
+                '#sidebar, #right-sidebar, #tab-bar, #floating-toolbar, #popover, #context-menu, #block-toolbar, .block-controls'
+            );
+            if (!clickedUiChrome) {
+                selectionManager.clear();
+            }
+        }
+
+        // --- 2. CONTEXT MENU & POPOVER CLOSING LOGIC (MERGED) ---
         if (!e.target.closest('#context-menu')) {
             contextMenu.style.display = 'none';
         }
 
-        // --- THE CORE FIX for the "closes immediately" bug ---
-        if (popover.style.display === 'block') {
-            // If the popover is open, and we click outside of it...
-            if (!popover.contains(e.target) && !isPopoverJustOpened) {
-                 // ...and also not on a reference item while in linking mode...
+        if (popover.style.display === 'block' && !isPopoverJustOpened) {
+            // This condition correctly prevents the popover from closing on the same click that opened it.
+            if (!popover.contains(e.target)) {
+                // Special case: don't close popover if clicking a reference item in linking mode
                 if (document.body.classList.contains('is-linking-block') && e.target.closest('.reference-item')) {
                     return;
                 }
-                hidePopoverAndCleanup();
+                hidePopover(); // Close the popover if the click is outside.
             }
         }
-        // Reset the flag after the mousedown event has been processed
+
+        // --- 3. FLAG RESET ---
+        // This MUST be the last thing to run in this handler. It ensures that for the *next*
+        // mousedown event, the flag is correctly set to false.
         isPopoverJustOpened = false;
     });
 
@@ -977,13 +1695,18 @@ window.addEventListener('pageLoaded', (e) => {
     // --- Popover Logic ---
     window.addEventListener('noteListReceived', (e) => {
         allNotes = e.detail.payload;
-        if (popover.style.display === 'block') {
-            updateSearchResults(popoverInput.value);
+        // This is now more generic as we can't assume which search results container is visible
+        const anySearchResults = popover.querySelector('.popover-search-results');
+        const anySearchInput = popover.querySelector('#link-popover-input'); // only one type has an input
+        if (popover.style.display === 'block' && anySearchResults) {
+            const query = anySearchInput ? anySearchInput.value : '';
+            updateSearchResults(query, anySearchResults);
         }
     });
 
-    function updateSearchResults(query) {
-        searchResultsContainer.innerHTML = allNotes
+    function updateSearchResults(query, container) {
+        if (!container) return; // Safety check
+        container.innerHTML = allNotes
             .filter(note => note.name.toLowerCase().includes(query.toLowerCase()))
             .map(note => `<div class="search-result-item" data-path="${note.path}" title="${note.path}">📄 ${note.name}</div>`)
             .join('');
@@ -1068,6 +1791,57 @@ window.addEventListener('pageLoaded', (e) => {
             });
             allPagesContent.push(pageData);
         }
+
+
+        // NEW: Step 1.5: Pre-load and cache content for all quote blocks
+        exportStatus.textContent = 'Resolving references...';
+        progressBar.style.width = '12%';
+        const quoteContentCache = new Map();
+
+        for (const pageData of allPagesContent) {
+            if (isExportCancelled) return;
+            const quoteLinksToFetch = new Set();
+            const findQuotesRecursive = (blocks) => {
+                if (!blocks) return;
+                blocks.forEach(block => {
+                    if (block.type === 'quote' && block.properties?.referenceLink) {
+                        const link = block.properties.referenceLink;
+                        if (!quoteContentCache.has(link)) {
+                            quoteLinksToFetch.add(link);
+                        }
+                    }
+                    if (block.children) findQuotesRecursive(block.children);
+                });
+            };
+            findQuotesRecursive(pageData.content);
+
+            for (const link of quoteLinksToFetch) {
+                // This simulates the C++ backend logic on the frontend for export
+                const [filePath, blockId] = link.split('#');
+                // Find the already-loaded content for the referenced page
+                const sourcePageData = allPagesContent.find(p => p.path === filePath);
+                if (sourcePageData) {
+                    let contentToCache = sourcePageData.content;
+                    if (blockId) {
+                        // If referencing a specific block, find it
+                        const findBlockById = (blocks, id) => {
+                            for (const block of blocks) {
+                                if (block.id === id) return block;
+                                if (block.children) {
+                                    const found = findBlockById(block.children, id);
+                                    if (found) return found;
+                                }
+                            }
+                            return null;
+                        };
+                        const foundBlock = findBlockById(sourcePageData.content, blockId);
+                        contentToCache = foundBlock ? [foundBlock] : null;
+                    }
+                    quoteContentCache.set(link, contentToCache);
+                }
+            }
+        }
+
         
         if (isExportCancelled) return;
     
@@ -1155,10 +1929,10 @@ window.addEventListener('pageLoaded', (e) => {
             
             const tempEditorContainer = document.createElement('div');
             const tempEditor = new Editor(tempEditorContainer);
-            tempEditorForRegistry.blockRegistry.forEach(BlockClass => tempEditor.registerBlock(BlockClass));
+            window.registerAllBlocks(tempEditor);
             
             tempEditor.load(pageData);
-            const mainContentHtml = tempEditor.getSanitizedHtml(true, workspaceData.path, options, imageSrcMap);
+            const mainContentHtml = await tempEditor.getSanitizedHtml(true, workspaceData.path, options, imageSrcMap, quoteContentCache);
     
             const sourcePath = path;
             const workspacePath = workspaceData.path;
@@ -1200,12 +1974,22 @@ window.addEventListener('pageLoaded', (e) => {
             function generateSidebarHtml(node, currentPath) {
                 let html = '';
                 if (node.type === 'folder') {
-                    html += `<div class="tree-node folder" data-path="${node.path}">
+                    const containsActivePage = (folderNode) => {
+                        if (!folderNode.children) return false;
+                        return folderNode.children.some(child => {
+                            if (child.path === currentPath) return true;
+                            if (child.type === 'folder') return containsActivePage(child);
+                            return false;
+                        });
+                    };
+                    const isOpen = containsActivePage(node);
+                    
+                    html += `<div class="tree-node folder ${isOpen ? 'open' : ''}" data-path="${node.path}">
                                 <span class="icon"></span>
-                    <span class="name">${node.name}</span>
+                                <span class="name">${node.name}</span>
                              </div>`;
                     if (node.children && node.children.length > 0) {
-                        html += '<div class="tree-node-children">';
+                        html += `<div class="tree-node-children" style="${isOpen ? 'display: block;' : 'display: none;'}">`;
                         node.children.forEach(child => {
                             html += generateSidebarHtml(child, currentPath);
                         });
@@ -1214,59 +1998,47 @@ window.addEventListener('pageLoaded', (e) => {
                 } else if (node.type === 'page') {
                     const relativePath = node.path.substring(JSON.parse(sidebar.dataset.workspaceData).path.length + 1).replace(/\\/g, '/').replace('.veritnote', '.html');
                     const isActive = (node.path === currentPath);
-                    html += `<div class="tree-node page ${isActive ? 'active' : ''}" data-path="${node.path}">
+                    // --- FINAL STRUCTURE: A simple div with a data-href attribute. No <a> tag! ---
+                    html += `<div class="tree-node page ${isActive ? 'active' : ''}" data-path="${node.path}" data-href="${relativePath}">
                                 <span class="icon"></span>
-                                <span class="name"><a href="${relativePath}">${node.name}</a></span>
+                                <span class="name">${node.name}</span>
                              </div>`;
                 }
                 return html;
             }
 
+            const sidebarHtml = `
+                <aside id="sidebar">
+                    <div class="workspace-tree">
+                        ${generateSidebarHtml(filteredWorkspaceData, path)}
+                    </div>
+                    <div class="sidebar-footer">
+                        <button id="sidebar-toggle-btn" class="sidebar-footer-btn" title="Collapse sidebar">
+                            <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                            <span>Collapse</span>
+                        </button>
+                    </div>
+                </aside>
+            `;
     
-            const sidebarHtml = `<nav id="exported-sidebar" class="exported-sidebar">${generateSidebarHtml(filteredWorkspaceData, path)}<button id="sidebar-toggle-btn">Collapse</button></nav>`;
-    
+            // --- FINAL REVISION: The script now handles navigation via JS, no inline styles needed. ---
             const finalHtml = `<!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <title>${path.substring(path.lastIndexOf('\\') + 1).replace('.veritnote', '')}</title>
         <link rel="stylesheet" href="${cssRelativePath}">
-    ${libIncludes}
-        <style>
-            body { margin: 0; font-family: ${getComputedStyle(document.body).fontFamily}; }
-            /* Core App Layout */
-            .app-container { display: flex; height: 100vh; transition: grid-template-columns 0.3s ease; }
-            .exported-main { flex-grow: 1; height: 100vh; overflow-y: auto; box-sizing: border-box; background-color: #191919; color: #ccc; }
-            .exported-main .editor-view { padding: 40px; max-width: 900px; margin: 0 auto; } 
-            /* Sidebar Styles */
-            .exported-sidebar { width: 260px; flex-shrink: 0; padding: 8px; border-right: 1px solid #444; height: 100vh; overflow-y: auto; box-sizing: border-box; background-color: #252526; color: #ccc; user-select: none; transition: width 0.3s ease, transform 0.3s ease, min-width 0.3s ease; position: relative; z-index: 50; }
-            /* Sidebar Tree Styles (mirrors editor) */
-            .tree-node { padding: 4px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; }
-            .tree-node:hover { background-color: #333; }
-            .tree-node.page a { color: #ccc; text-decoration: none; display: block; width: 100%; }
-            .tree-node.page.active { background-color: #569cd6; }
-            .tree-node.page.active a { color: #fff; }
-            .tree-node .icon { margin-right: 8px; width: 16px; height: 16px; text-align: center; }
-            .tree-node.folder > .icon::before { content: '▶'; font-size: 10px; display: inline-block; transition: transform 0.2s ease; }
-            .tree-node.folder.open > .icon::before { transform: rotate(90deg); }
-            .tree-node.page > .icon::before { content: '📄'; font-size: 12px; }
-            .tree-node-children { padding-left: 16px; display: none; }
-            /* Sidebar Collapse/Peek Logic */
-            .sidebar-collapsed .exported-sidebar { width: 0; min-width: 0; border-right: none; transform: translateX(-100%); padding: 0; }
-            .sidebar-collapsed.sidebar-peek .exported-sidebar { width: 260px; min-width: 260px; transform: translateX(0); border-right: 1px solid #444; box-shadow: 5px 0 15px rgba(0,0,0,0.2); }
-            #sidebar-peek-trigger { position: fixed; top: 0; left: 0; width: 10px; height: 100vh; z-index: 100; }
-            .app-container:not(.sidebar-collapsed) #sidebar-peek-trigger { display: none; }
-            #sidebar-toggle-btn { position: absolute; bottom: 8px; left: 8px; right: 8px; width: calc(100% - 16px); background: none; border: 1px solid #444; color: #8c8c8c; padding: 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
-            #sidebar-toggle-btn:hover { background-color: #333; color: #ccc; }
-        </style>
+        ${libIncludes}
     </head>
     <body>
         <div class="app-container">
             <div id="sidebar-peek-trigger"></div>
             ${sidebarHtml}
-            <main class="exported-main">
-                <div class="editor-view">
-                    <div id="editor-content-wrapper">${mainContentHtml}</div>
+            <main id="main-content">
+                <div id="main-content-body">
+                    <div id="editor-area-container">
+                         <div class="editor-view">${mainContentHtml}</div>
+                    </div>
                 </div>
             </main>
         </div>
@@ -1274,14 +2046,34 @@ window.addEventListener('pageLoaded', (e) => {
             document.addEventListener('DOMContentLoaded', () => {
                 const SIDEBAR_COLLAPSED_KEY = 'veritnote_exported_sidebar_collapsed';
                 const appContainer = document.querySelector('.app-container');
-                const sidebar = document.getElementById('exported-sidebar');
+                const sidebar = document.getElementById('sidebar');
                 const peekTrigger = document.getElementById('sidebar-peek-trigger');
                 const toggleBtn = document.getElementById('sidebar-toggle-btn');
+                const toggleBtnSpan = toggleBtn.querySelector('span');
+                const toggleBtnSvg = toggleBtn.querySelector('svg');
+    
+                // --- No-flicker initial state setup ---
+                const urlParams = new URLSearchParams(window.location.search);
+                const isPeekFromUrl = urlParams.get('peek') === 'true';
+                let isCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+
+                if (isPeekFromUrl) {
+                    isCollapsed = true;
+                }
+                
+                if (isCollapsed) {
+                    appContainer.classList.add('sidebar-collapsed');
+                    if (toggleBtnSpan) toggleBtnSpan.textContent = 'Expand';
+                    if (toggleBtnSvg) toggleBtnSvg.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><polyline points="10 8 15 12 10 16"></polyline>';
+                }
+                if (isPeekFromUrl) {
+                    appContainer.classList.add('sidebar-peek');
+                }
     
                 // Folder expand/collapse logic
-                sidebar.querySelectorAll('.folder').forEach(folder => {
+                sidebar.querySelectorAll('.tree-node.folder').forEach(folder => {
                     folder.addEventListener('click', (e) => {
-                        if (e.target.tagName === 'A') return;
+                        if (e.target.closest('.tree-node.page')) return; // Ignore clicks on page items within folders
                         e.stopPropagation();
                         folder.classList.toggle('open');
                         const children = folder.nextElementSibling;
@@ -1296,15 +2088,20 @@ window.addEventListener('pageLoaded', (e) => {
                     if (collapsed) {
                         appContainer.classList.add('sidebar-collapsed');
                         localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'true');
-                        toggleBtn.textContent = 'Expand';
+                        sidebar.style.width = '';
+                        if (toggleBtnSpan) toggleBtnSpan.textContent = 'Expand';
+                        if (toggleBtnSvg) toggleBtnSvg.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><polyline points="10 8 15 12 10 16"></polyline>';
+
                     } else {
                         appContainer.classList.remove('sidebar-collapsed');
                         localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'false');
-                        toggleBtn.textContent = 'Collapse';
+                        if (toggleBtnSpan) toggleBtnSpan.textContent = 'Collapse';
+                        if (toggleBtnSvg) toggleBtnSvg.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line>';
                     }
                 }
     
                 toggleBtn.addEventListener('click', () => {
+                    appContainer.classList.remove('sidebar-peek');
                     setSidebarCollapsed(!appContainer.classList.contains('sidebar-collapsed'));
                 });
     
@@ -1319,14 +2116,26 @@ window.addEventListener('pageLoaded', (e) => {
                         appContainer.classList.remove('sidebar-peek');
                     }
                 });
-    
-                // Initial state
-                const wasCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
-                setSidebarCollapsed(wasCollapsed);
+
+                // --- FINAL NAVIGATION LOGIC: Replicates editor behavior ---
+                sidebar.addEventListener('click', function(e) {
+                    const pageNode = e.target.closest('.tree-node.page');
+                    if (!pageNode) return;
+
+                    const href = pageNode.dataset.href;
+                    if (!href) return;
+                    
+                    let finalUrl = href;
+                    if (appContainer.classList.contains('sidebar-peek')) {
+                        finalUrl += (href.includes('?') ? '&' : '?') + 'peek=true';
+                    }
+                    window.location.href = finalUrl;
+                });
             });
         <\/script>
     </body>
     </html>`;
+
             
             ipc.exportPageAsHtml(path, finalHtml);
             progressBar.style.width = `${progress}%`;
@@ -1438,4 +2247,59 @@ window.addEventListener('pageLoaded', (e) => {
             ipc.send('goToDashboard');
         }
     };
+
+
+    /**
+     * Centralized function to switch the view of the right sidebar.
+     * @param {string} viewName - The name of the view to switch to ('references' or 'details').
+     */
+    function switchRightSidebarView(viewName) {
+        const views = { references: referencesView, details: detailsView };
+        const slider = rightSidebarViewToggle.querySelector('.rs-view-slider');
+        const optionToActivate = rightSidebarViewToggle.querySelector(`.rs-view-option[data-view="${viewName}"]`);
+    
+        if (!optionToActivate) return;
+    
+        // Move slider
+        if (slider) {
+            slider.style.left = `${optionToActivate.offsetLeft}px`;
+        }
+    
+        // Toggle active state on buttons
+        rightSidebarViewToggle.querySelectorAll('.rs-view-option').forEach(opt => {
+            opt.classList.toggle('active', opt.dataset.view === viewName);
+        });
+    
+        // Toggle active state on view panels
+        Object.values(views).forEach(view => {
+            if (view) view.classList.remove('active');
+        });
+        if (views[viewName]) {
+            views[viewName].classList.add('active');
+        }
+    }
+    
+    /**
+     * Initializes the tab switching logic for the right sidebar.
+     */
+    function initRightSidebarTabs() {
+        rightSidebarViewToggle.addEventListener('click', (e) => {
+            const option = e.target.closest('.rs-view-option');
+            if (option) {
+                switchRightSidebarView(option.dataset.view);
+            }
+        });
+
+        const referencesOption = rightSidebarViewToggle.querySelector('.rs-view-option[data-view="references"]');
+        if (referencesOption) {
+            referencesOption.addEventListener('dragenter', (e) => {
+                // Only switch if a block is being dragged from the editor
+                if (document.body.classList.contains('is-dragging-block')) {
+                    switchRightSidebarView('references');
+                }
+            });
+        }
+    }
+
+    initRightSidebarTabs();
 });

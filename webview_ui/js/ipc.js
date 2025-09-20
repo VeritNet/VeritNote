@@ -84,6 +84,10 @@ const ipc = {
         ipc.send('processExportImages', { tasks });
     },
 
+    fetchQuoteContent: (requestIdentifier, referenceLink) => {
+        ipc.send('fetchQuoteContent', { quoteBlockId: requestIdentifier, referenceLink });
+    },
+
     openWorkspaceDialog: () => ipc.send('openWorkspaceDialog'),
     openWorkspace: (path) => ipc.send('openWorkspace', path),
     goToDashboard: () => ipc.send('goToDashboard'),

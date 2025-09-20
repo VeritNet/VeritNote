@@ -84,11 +84,10 @@ class Block {
         element.className = 'block-container';
         element.dataset.id = this.id;
         element.draggable = true;
-        // Inject controls
         element.innerHTML = `
             <div class="block-controls">
-                <span class="drag-handle" title="Drag to move">⠿</span>
                 <span class="delete-btn" title="Delete">🗑️</span>
+                <span class="drag-handle" title="Drag to move">⠿</span>
             </div>
         `;
         return element;
@@ -195,6 +194,28 @@ class Block {
             setTimeout(() => this.editor.showCommandMenuForBlock(this), 0);
         }
     }
+
+    /**
+     * Renders the HTML content for this block to be displayed in the details panel.
+     * @returns {string} The HTML string to be inserted into the details panel.
+     */
+    renderDetailsPanel() {
+        // REVISED: Cleaner layout with Type as a key-value pair.
+        return `
+            <div class="details-panel-section" data-block-id="${this.id}">
+                <div class="details-section-header">Block Details</div>
+                <div class="details-property">
+                    <span class="details-property-label">Type</span>
+                    <span class="details-property-value">${this.type}</span>
+                </div>
+                <div class="details-property">
+                    <span class="details-property-label">ID</span>
+                    <span class="details-property-value is-monospace" title="${this.id}">${this.id}</span>
+                </div>
+            </div>
+        `;
+    }
+
 
     _generateUUID() {
         return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>

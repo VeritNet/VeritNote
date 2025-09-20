@@ -66,6 +66,7 @@ public:
     void HandleWebMessage(const std::wstring& message);
     bool IsFullscreen() const;
     void CheckWindowState();
+    void OpenExternalLink(const std::wstring& url);
 
 private:
     void SendMessageToJS(const json& message);
@@ -82,6 +83,7 @@ private:
     void OpenFileDialog();
     void PrepareExportLibs(const json& payload);
     void ProcessExportImages(const json& payload);
+    void FetchQuoteContent(const json& payload);
     void OpenWorkspaceDialog();
     void OpenWorkspace(const json& payload);
     void GoToDashboard();
