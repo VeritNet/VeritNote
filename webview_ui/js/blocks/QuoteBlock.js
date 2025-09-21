@@ -44,7 +44,14 @@ class QuoteBlock extends Block {
 
         if (this.properties.referenceLink) {
             this.previewContainer.innerHTML = '<div class="quote-loading-placeholder">Loading reference...</div>';
-            ipc.fetchQuoteContent(this.id, this.properties.referenceLink);
+            
+            // --- 解析路径 ---
+            const [pathPart, blockId] = this.properties.referenceLink.split('#');
+            const absolutePath = window.resolveWorkspacePath(pathPart);
+            const absoluteReferenceLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
+            // --- 结束解析 ---
+            
+            ipc.fetchQuoteContent(this.id, absoluteReferenceLink); // 使用解析后的绝对路径
         } else {
             this.previewContainer.innerHTML = `<div class="quote-empty-placeholder">Click “ to set a reference</div>`;
         }
@@ -55,7 +62,7 @@ class QuoteBlock extends Block {
         this.previewContainer.innerHTML = '';
 
         if (!blockDataArray || blockDataArray.length === 0) {
-            this.previewContainer.innerHTML = '<div class="quote-error-placeholder">Referenced content could not be found.</div>';
+            this.previewContainer.innerHTML = '<div class="quote-error-placeholder">Referenced content is empty or could not be found.</div>';
             return;
         }
 

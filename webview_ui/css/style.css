@@ -1627,6 +1627,8 @@ a {
 #right-sidebar-content {
     flex-grow: 1;
     position: relative;
+    overflow: hidden; /* Prevents children from overflowing this container */
+    min-height: 0; /* A crucial flexbox hack for scrollable children */
 }
 
 .right-sidebar-footer {
@@ -1737,6 +1739,10 @@ body.is-dragging-block #references-view.active {
     padding: var(--spacing-s);
     height: 100%;
     overflow-y: auto; /* Each view scrolls independently */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
 }
 
     .rs-view.active {

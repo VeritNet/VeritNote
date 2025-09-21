@@ -4,6 +4,7 @@
 #include <vector>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <urlmon.h>
 #pragma comment(lib, "urlmon.lib")
 
@@ -11,13 +12,84 @@
 
 #include "Backend.h"
 #include <ShlObj.h>
+#include <Shlwapi.h>
+#include <resources.h>
+
+
+// 根据文件扩展名获取MIME类型
+std::wstring GetMimeType_Backend(const std::wstring& path) {
+    const wchar_t* ext = PathFindExtensionW(path.c_str());
+    if (ext == nullptr) return L"application/octet-stream";
+
+    if (_wcsicmp(ext, L".html") == 0) return L"text/html; charset=utf-8";
+    if (_wcsicmp(ext, L".css") == 0) return L"text/css; charset=utf-8";
+    if (_wcsicmp(ext, L".js") == 0) return L"application/javascript; charset=utf-8";
+    if (_wcsicmp(ext, L".json") == 0) return L"application/json; charset=utf-8";
+    if (_wcsicmp(ext, L".png") == 0) return L"image/png";
+    if (_wcsicmp(ext, L".jpg") == 0 || _wcsicmp(ext, L".jpeg") == 0) return L"image/jpeg";
+    if (_wcsicmp(ext, L".gif") == 0) return L"image/gif";
+    if (_wcsicmp(ext, L".svg") == 0) return L"image/svg+xml";
+    if (_wcsicmp(ext, L".woff2") == 0) return L"font/woff2";
+
+    return L"application/octet-stream";
+}
+
+// 从资源中加载数据 (返回数据指针和大小)
+bool LoadResourceData(int resource_id, void*& pData, DWORD& dwSize) {
+    HRSRC hRes = FindResource(nullptr, MAKEINTRESOURCE(resource_id), RT_RCDATA);
+    if (!hRes) return false;
+
+    HGLOBAL hGlob = LoadResource(nullptr, hRes);
+    if (!hGlob) return false;
+
+    pData = LockResource(hGlob);
+    if (!pData) return false;
+
+    dwSize = SizeofResource(nullptr, hRes);
+    return dwSize > 0;
+}
+
+// --- 新增：将嵌入式资源提取到文件的核心函数 ---
+bool ExtractResourceToFile(const std::wstring& resourceUrlPath, const std::filesystem::path& destinationPath) {
+    // 1. 在我们的资源map中查找路径
+    auto it = g_resource_map.find(resourceUrlPath);
+    if (it == g_resource_map.end()) {
+        return false; // 资源未在map中找到
+    }
+
+    // 2. 从EXE加载资源数据
+    void* pData = nullptr;
+    DWORD dwSize = 0;
+    if (!LoadResourceData(it->second, pData, dwSize)) {
+        return false; // 加载资源失败
+    }
+
+    // 3. 将数据写入目标文件
+    try {
+        // 确保目标目录存在
+        if (destinationPath.has_parent_path()) {
+            std::filesystem::create_directories(destinationPath.parent_path());
+        }
+        std::ofstream file(destinationPath, std::ios::binary);
+        if (!file.is_open()) {
+            return false;
+        }
+        file.write(static_cast<const char*>(pData), dwSize);
+        file.close();
+    }
+    catch (const std::exception&) {
+        return false; // 写入文件时发生异常
+    }
+
+    return true;
+}
 
 
 // We need to store the next workspace path temporarily
 std::wstring g_nextWorkspacePath = L"";
 
 // Helper to convert wstring to string
-std::string wstring_to_string(const std::wstring& wstr) {
+inline std::string wstring_to_string(const std::wstring& wstr) {
     if (wstr.empty()) return std::string();
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
     std::string strTo(size_needed, 0);
@@ -26,7 +98,7 @@ std::string wstring_to_string(const std::wstring& wstr) {
 }
 
 // Helper to convert string to wstring
-std::wstring string_to_wstring(const std::string& str) {
+inline std::wstring string_to_wstring(const std::string& str) {
     if (str.empty()) return std::wstring();
     int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
     std::wstring wstrTo(size_needed, 0);
@@ -192,19 +264,16 @@ void Backend::ListWorkspace(const json& payload) {
 
             // 【核心修改】检查工作区是否为空
             if (response["payload"]["children"].empty()) {
-                // 如果为空，复制示例文件
-                std::filesystem::path exeDir = GetExePath();
-                std::filesystem::path exampleFilePath = exeDir / "webview_ui" / "welcome.veritnote";
-
-                // 设置目标文件名
+                // 如果为空，从资源中提取示例文件
                 std::filesystem::path destFilePath = std::filesystem::path(m_workspaceRoot) / "welcome.veritnote";
 
-                if (std::filesystem::exists(exampleFilePath)) {
-                    std::filesystem::copy_file(exampleFilePath, destFilePath);
-
-                    // 【关键】复制完成后，重新扫描工作区
+                // v--- 使用新的正确方法 ---v
+                // 我们调用 ExtractResourceToFile，它会从EXE内部找到资源并写入到目标路径
+                if (ExtractResourceToFile(L"/welcome.veritnote", destFilePath)) {
+                    // 【关键】提取成功后，重新扫描工作区以包含新文件
                     response["payload"] = scan_dir(m_workspaceRoot);
                 }
+                // 如果提取失败，我们就不再重新扫描，前端会看到一个空的工作区，这也是合理的行为
             }
         }
         else {
@@ -215,7 +284,8 @@ void Backend::ListWorkspace(const json& payload) {
         response["error"] = e.what();
     }
 
-    std::string debug_json_string = response.dump(2); // dump(2) for pretty print
+    // ... 后续的 Debug 输出和 SendMessageToJS 保持不变 ...
+    std::string debug_json_string = response.dump(2);
     OutputDebugStringA("--- C++ Backend --- \n");
     OutputDebugStringA("Sending to JS: \n");
     OutputDebugStringA(debug_json_string.c_str());
@@ -471,16 +541,34 @@ void Backend::OpenFileDialog() {
     std::string finalPathStr;
 
     // 检查图片是否在工作区内
-    if (imagePath.string().find(workspacePath.string()) == 0) {
-        // 是，则使用相对路径
+    if (!m_workspaceRoot.empty() && imagePath.wstring().find(workspacePath.wstring()) == 0) {
+        // 是，则使用相对路径 (这部分逻辑是好的，保持)
         finalPathStr = std::filesystem::relative(imagePath, workspacePath).string();
+        std::replace(finalPathStr.begin(), finalPathStr.end(), '\\', '/');
     }
     else {
-        // 否，则使用绝对路径，并转换为 file:/// 协议
-        finalPathStr = "file:///" + wstring_to_string(selectedPath);
+        // 否，则构造一个特殊的虚拟路径
+        // finalPathStr = "file:///" + wstring_to_string(selectedPath); // <--- 旧的错误做法
+
+        // v--- 新的正确做法 ---v
+        // 我们需要对路径进行URL编码，以防路径中包含特殊字符（如 #, ?, &）
+        std::string path_utf8 = wstring_to_string(selectedPath);
+
+        // 手动进行一个简化版的URL编码（只编码关键字符，更完整的库会更好，但这对路径足够了）
+        std::ostringstream encoded;
+        encoded << std::hex;
+        for (char c : path_utf8) {
+            if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/' || c == ':') {
+                encoded << c;
+            }
+            else {
+                encoded << '%' << std::setw(2) << std::setfill('0') << (int)(unsigned char)c;
+            }
+        }
+
+        // 最终格式: https://veritnote.app/local-file/ENCODED_ABSOLUTE_PATH
+        finalPathStr = "https://veritnote.app/local-file/" + encoded.str();
     }
-    // 替换反斜杠
-    std::replace(finalPathStr.begin(), finalPathStr.end(), '\\', '/');
 
     SendMessageToJS({ {"action", "fileDialogClosed"}, {"payload", {{"path", finalPathStr}}} });
 }
@@ -489,64 +577,40 @@ void Backend::OpenFileDialog() {
 
 void Backend::PrepareExportLibs(const json& payload) {
     try {
-        // --- START OF MOVED LOGIC ---
-        // This logic was moved from the old StartExport function.
-        // It's the first step of any export process.
         std::filesystem::path buildPath = std::filesystem::path(m_workspaceRoot).append(L"build");
 
-        // Clear and create the build folder
+        // 清空并创建 build 文件夹
         if (std::filesystem::exists(buildPath)) {
             std::filesystem::remove_all(buildPath);
         }
         std::filesystem::create_directory(buildPath);
 
-        // Export the main style.css
-        std::filesystem::path exeDir = GetExePath();
-        std::filesystem::path sourceCssPath = exeDir / "webview_ui" / "css" / "style.css";
+        // --- 核心修改：从资源中提取 style.css ---
         std::filesystem::path destCssPath = buildPath / "style.css";
-
-        if (std::filesystem::exists(sourceCssPath)) {
-            std::filesystem::copy_file(sourceCssPath, destCssPath);
-        }
-        // --- END OF MOVED LOGIC ---
-
-
-        // The original logic for preparing libraries continues here...
-        std::filesystem::path vendorBuildPath = buildPath / "vendor";
-
-        // Get the source directory of our UI files
-        // std::filesystem::path exeDir = GetExePath(); // Already got this above
-        std::filesystem::path sourceUiPath = exeDir / "webview_ui";
-
-        // Ensure the build/vendor directory exists
-        if (!std::filesystem::exists(vendorBuildPath)) {
-            std::filesystem::create_directories(vendorBuildPath);
+        if (!ExtractResourceToFile(L"/css/style.css", destCssPath)) {
+            // 如果提取失败，可以发送一个错误
+            throw std::runtime_error("Failed to extract style.css from resources.");
         }
 
-        // The payload contains an array of relative paths
+        // --- 核心修改：从资源中提取其他 JS 库 ---
         if (payload.contains("paths") && payload["paths"].is_array()) {
             for (const auto& item : payload["paths"]) {
                 if (item.is_string()) {
                     std::string libPathStr = item.get<std::string>();
+                    // 将 webview_ui 相对路径转换为我们的资源 URL 路径 (e.g., "js/vendor/..." -> "/js/vendor/...")
+                    std::replace(libPathStr.begin(), libPathStr.end(), '\\', '/');
+                    std::wstring resourceUrlPath = string_to_wstring("/" + libPathStr);
 
-                    // Construct source and destination paths
-                    std::filesystem::path sourceLibPath = sourceUiPath / libPathStr;
                     std::filesystem::path destLibPath = buildPath / libPathStr;
 
-                    // Create parent directories for the destination if they don't exist
-                    if (destLibPath.has_parent_path() && !std::filesystem::exists(destLibPath.parent_path())) {
-                        std::filesystem::create_directories(destLibPath.parent_path());
-                    }
-
-                    // Copy the file if it exists
-                    if (std::filesystem::exists(sourceLibPath)) {
-                        std::filesystem::copy_file(sourceLibPath, destLibPath, std::filesystem::copy_options::overwrite_existing);
+                    if (!ExtractResourceToFile(resourceUrlPath, destLibPath)) {
+                        throw std::runtime_error("Failed to extract library: " + libPathStr);
                     }
                 }
             }
         }
 
-        // After copying all files, notify the frontend that it can proceed
+        // 成功后，通知前端继续
         SendMessageToJS({ {"action", "exportLibsReady"} });
     }
     catch (const std::exception& e) {
@@ -836,13 +900,13 @@ void Backend::OpenWorkspace(const json& payload) {
 
     // --- Step 3: Navigate to index.html WITHOUT any query parameters ---
     std::wstring exePath = GetExePath();
-    std::wstring editorPath = exePath + L"\\webview_ui\\index.html";
+    std::wstring editorPath = L"https://veritnote.app/index.html";
     m_webview->Navigate(editorPath.c_str());
 }
 
 void Backend::GoToDashboard() {
     std::wstring exePath = GetExePath();
-    std::wstring dashboardPath = exePath + L"\\webview_ui\\dashboard.html";
+    std::wstring dashboardPath = L"https://veritnote.app/dashboard.html";
     m_webview->Navigate(dashboardPath.c_str());
 }
 

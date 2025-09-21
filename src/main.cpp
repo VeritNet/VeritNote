@@ -6,6 +6,7 @@
 #include <functional>
 #include <debugapi.h>
 #include <functional>
+#include "resources.h" // 由CMake生成
 #include <shlobj.h> // For SHGetFolderPath
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -15,6 +16,7 @@
 #include "nlohmann/json.hpp"
 
 #include <ShellScalingApi.h>
+#include <WebView2EnvironmentOptions.h>
 #include <windowsx.h>
 #pragma comment(lib, "Shcore.lib")
 
@@ -29,6 +31,52 @@ static HWND global_hWnd;
 extern std::wstring g_nextWorkspacePath;
 
 static RECT g_border_thickness;
+
+
+// Helper to convert string to wstring
+inline std::wstring string_to_wstring(const std::string& str) {
+    if (str.empty()) return std::wstring();
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
+
+// 根据文件扩展名获取MIME类型
+std::wstring GetMimeType(const std::wstring& path) {
+    const wchar_t* ext = PathFindExtensionW(path.c_str());
+    if (ext == nullptr) return L"application/octet-stream";
+
+    if (_wcsicmp(ext, L".html") == 0) return L"text/html; charset=utf-8";
+    if (_wcsicmp(ext, L".css") == 0) return L"text/css; charset=utf-8";
+    if (_wcsicmp(ext, L".js") == 0) return L"application/javascript; charset=utf-8";
+    if (_wcsicmp(ext, L".json") == 0) return L"application/json; charset=utf-8";
+    if (_wcsicmp(ext, L".png") == 0) return L"image/png";
+    if (_wcsicmp(ext, L".jpg") == 0 || _wcsicmp(ext, L".jpeg") == 0) return L"image/jpeg";
+    if (_wcsicmp(ext, L".gif") == 0) return L"image/gif";
+    if (_wcsicmp(ext, L".svg") == 0) return L"image/svg+xml";
+    if (_wcsicmp(ext, L".woff2") == 0) return L"font/woff2";
+
+    return L"application/octet-stream";
+}
+
+// 从资源中加载数据并创建IStream
+wil::com_ptr<IStream> StreamFromResource(int resource_id) {
+    HRSRC hRes = FindResource(nullptr, MAKEINTRESOURCE(resource_id), RT_RCDATA);
+    if (!hRes) return nullptr;
+
+    HGLOBAL hGlob = LoadResource(nullptr, hRes);
+    if (!hGlob) return nullptr;
+
+    void* pData = LockResource(hGlob);
+    if (!pData) return nullptr;
+
+    DWORD dwSize = SizeofResource(nullptr, hRes);
+    if (dwSize == 0) return nullptr;
+
+    return wil::com_ptr<IStream>(SHCreateMemStream(static_cast<const BYTE*>(pData), dwSize));
+}
 
 
 std::string wstring_to_string_main(const std::wstring& wstr) {
@@ -91,43 +139,112 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UpdateWindow(hWnd);
 
     // --- WebView2 初始化 ---
-    // 设置 WebView2 环境，完成后创建 WebView2 控件
+
     CreateCoreWebView2EnvironmentWithOptions(nullptr, nullptr, nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
             [hWnd](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
 
-                // 从环境创建 WebView2 Controller
                 env->CreateCoreWebView2Controller(hWnd, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                    [hWnd](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
+                    [hWnd, env](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
                         if (controller != nullptr) {
                             webviewController = controller;
                             webviewController->get_CoreWebView2(&webview);
                         }
 
-                        // 设置 WebView2 的默认设置
                         ICoreWebView2Settings* settings;
                         webview->get_Settings(&settings);
                         settings->put_IsScriptEnabled(TRUE);
-                        settings->put_AreDefaultContextMenusEnabled(FALSE); // 可选：禁用默认右键菜单
-                        settings->put_IsZoomControlEnabled(FALSE); // 可选：禁用缩放
+                        settings->put_AreDefaultContextMenusEnabled(FALSE);
+                        settings->put_IsZoomControlEnabled(FALSE);
 #ifdef _DEBUG
-                        settings->put_AreDevToolsEnabled(TRUE); // 调试模式下开启 F12 开发者工具
+                        settings->put_AreDevToolsEnabled(TRUE);
 #else
                         settings->put_AreDevToolsEnabled(FALSE);
 #endif
 
-                        // 将 WebView2 控件的大小设置为与父窗口相同
                         RECT bounds;
                         GetClientRect(hWnd, &bounds);
                         webviewController->put_Bounds(bounds);
 
-                        // 获取可执行文件所在目录，并构建前端 html 的路径
-                        std::wstring exePath = GetExePath();
-                        std::wstring htmlPath = exePath + L"\\webview_ui\\dashboard.html";
+                        // +++ 设置Web资源请求过滤器 +++
+                        webview->AddWebResourceRequestedFilter(L"https://veritnote.app/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
 
-                        // WebView2 导航到我们的本地 HTML 文件
+                        EventRegistrationToken webResourceToken;
+                        webview->add_WebResourceRequested(Callback<ICoreWebView2WebResourceRequestedEventHandler>(
+                            [env](ICoreWebView2* sender, ICoreWebView2WebResourceRequestedEventArgs* args) -> HRESULT {
+                                wil::com_ptr<ICoreWebView2WebResourceRequest> request;
+                                args->get_Request(&request);
+
+                                LPWSTR uri_ptr;
+                                request->get_Uri(&uri_ptr);
+                                std::wstring uri(uri_ptr);
+                                CoTaskMemFree(uri_ptr);
+
+                                std::wstring VIRTUAL_DOMAIN = L"https://veritnote.app";
+
+                                if (uri.rfind(VIRTUAL_DOMAIN, 0) == 0) {
+                                    std::wstring path = uri.substr(VIRTUAL_DOMAIN.length());
+
+                                    // --- 核心修改：检查是否是我们的特殊本地文件路径 ---
+                                    std::wstring local_file_prefix = L"/local-file/";
+                                    if (path.rfind(local_file_prefix, 0) == 0) {
+                                        // 是本地文件请求！
+                                        std::wstring encoded_path = path.substr(local_file_prefix.length());
+
+                                        // URL解码
+                                        std::string encoded_path_str = wstring_to_string_main(encoded_path);
+                                        char decoded_path_cstr[MAX_PATH];
+                                        DWORD decoded_len = MAX_PATH;
+
+                                        if (UrlUnescapeA((char*)encoded_path_str.c_str(), decoded_path_cstr, &decoded_len, 0) == S_OK) {
+                                            std::wstring localPath = string_to_wstring(std::string(decoded_path_cstr, decoded_len));
+
+                                            // 现在我们有了真正的本地路径，从文件创建流
+                                            if (PathFileExistsW(localPath.c_str())) {
+                                                wil::com_ptr<IStream> stream;
+                                                if (SUCCEEDED(SHCreateStreamOnFileEx(localPath.c_str(), STGM_READ | STGM_SHARE_DENY_WRITE, 0, FALSE, nullptr, &stream))) {
+                                                    wil::com_ptr<ICoreWebView2WebResourceResponse> response;
+                                                    env->CreateWebResourceResponse(
+                                                        stream.get(), 200, L"OK",
+                                                        (L"Content-Type: " + GetMimeType(localPath)).c_str(),
+                                                        &response);
+                                                    args->put_Response(response.get());
+                                                    return S_OK;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        // --- 不是本地文件请求，是我们自己的内部资源 ---
+                                        auto it = g_resource_map.find(path);
+                                        if (it != g_resource_map.end()) {
+                                            auto stream = StreamFromResource(it->second);
+                                            if (stream) {
+                                                wil::com_ptr<ICoreWebView2WebResourceResponse> response;
+                                                env->CreateWebResourceResponse(
+                                                    stream.get(), 200, L"OK",
+                                                    (L"Content-Type: " + GetMimeType(path)).c_str(),
+                                                    &response);
+                                                args->put_Response(response.get());
+                                                return S_OK;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // 所有处理都失败了，返回 404
+                                wil::com_ptr<ICoreWebView2WebResourceResponse> response;
+                                env->CreateWebResourceResponse(nullptr, 404, L"Not Found", L"", &response);
+                                args->put_Response(response.get());
+                                return S_OK;
+                            }).Get(), &webResourceToken);
+
+                        // --- 初始导航 ---
+                        std::wstring htmlPath = L"https://veritnote.app/dashboard.html";
                         webview->Navigate(htmlPath.c_str());
 
+                        // ... 后续的 NavigationCompleted, WebMessageReceived, NavigationStarting 逻辑保持原样 ...
+                        // (这些部分的代码不需要修改)
 
                         EventRegistrationToken navigationToken;
                         webview->add_NavigationCompleted(Callback<ICoreWebView2NavigationCompletedEventHandler>(
@@ -136,58 +253,35 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                                 args->get_IsSuccess(&success);
 
                                 if (success && !g_nextWorkspacePath.empty()) {
-                                    // Navigation to a new page (likely index.html) is complete.
-                                    // Now, inject the workspace path.
-
-                                    // Escape the path for JavaScript string
                                     std::wstring escapedPath;
                                     for (wchar_t c : g_nextWorkspacePath) {
-                                        if (c == L'\\') {
-                                            escapedPath += L"\\\\";
-                                        }
-                                        else if (c == L'"') {
-                                            escapedPath += L"\\\"";
-                                        }
-                                        else {
-                                            escapedPath += c;
-                                        }
+                                        if (c == L'\\') escapedPath += L"\\\\";
+                                        else if (c == L'"') escapedPath += L"\\\"";
+                                        else escapedPath += c;
                                     }
-
-                                    // Call a global JS function to initialize the workspace
                                     std::wstring script = L"window.initializeWorkspace(\"" + escapedPath + L"\");";
                                     sender->ExecuteScript(script.c_str(), nullptr);
-
-                                    // Clear the path so it's not reused on next navigation
                                     g_nextWorkspacePath.clear();
                                 }
                                 return S_OK;
                             }).Get(), &navigationToken);
 
-
-                        // --- 关键：设置 WebMessageReceived 事件处理器 ---
-                        // 这是前端 JS 向后端 C++ 发送消息的通道
                         EventRegistrationToken token;
                         webview->add_WebMessageReceived(Callback<ICoreWebView2WebMessageReceivedEventHandler>(
                             [](ICoreWebView2* webview, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
-                                LPWSTR message_ptr = nullptr; // 使用标准的 LPWSTR 并初始化为 nullptr
+                                LPWSTR message_ptr = nullptr;
                                 args->get_WebMessageAsJson(&message_ptr);
-                                if (message_ptr) { // 增加一个空指针检查，更安全
+                                if (message_ptr) {
                                     std::wstring message(message_ptr);
-                                    CoTaskMemFree(message_ptr); // 释放内存
-
-                                    // 将消息交给我们的 Backend 类处理
+                                    CoTaskMemFree(message_ptr);
                                     backend.HandleWebMessage(message);
                                 }
-
                                 return S_OK;
                             }).Get(), &token);
 
-                        // 将 webview 实例传递给 backend，以便后端可以向前端发送消息
                         backend.SetWebView(webview.get());
                         backend.SetMainWindowHandle(hWnd);
 
-
-                        // --- Intercept navigation attempts ---
                         EventRegistrationToken navigationStartingToken;
                         webview->add_NavigationStarting(Callback<ICoreWebView2NavigationStartingEventHandler>(
                             [](ICoreWebView2* sender, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
@@ -196,29 +290,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                                 std::wstring uri(uri_ptr);
                                 CoTaskMemFree(uri_ptr);
 
-                                // Rule 1: Any protocol other than "file" is external.
-                                if (uri.rfind(L"file:///", 0) != 0) {
-                                    args->put_Cancel(TRUE);
-                                    backend.OpenExternalLink(uri);
+                                if (uri.rfind(L"https://veritnote.app", 0) == 0) {
                                     return S_OK;
                                 }
 
-                                // Rule 2: It's a "file" protocol link. Check if it's inside our app's UI folder.
-                                std::wstring exePath = GetExePath();
-                                std::wstring localUiPath = exePath + L"\\webview_ui\\";
-
-                                // Convert the file URI (e.g., "file:///C:/path/to/file.html") to a local system path
-                                wchar_t navigatedPath[MAX_PATH];
-                                DWORD pathLen = MAX_PATH;
-                                if (SUCCEEDED(PathCreateFromUrlW(uri.c_str(), navigatedPath, &pathLen, 0))) {
-                                    // Use case-insensitive comparison to check if the navigated path starts with our app's UI path
-                                    if (_wcsnicmp(navigatedPath, localUiPath.c_str(), localUiPath.length()) == 0) {
-                                        // This is an internal navigation (to dashboard.html, index.html, etc.). Allow it.
-                                        return S_OK;
-                                    }
-                                }
-
-                                // If we reach here, it's a file link but OUTSIDE our app folder. Treat as external.
                                 args->put_Cancel(TRUE);
                                 backend.OpenExternalLink(uri);
 

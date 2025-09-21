@@ -896,13 +896,14 @@ class Editor {
 
     _executeReferenceDropAction(action, refData, targetBlockInfo, position) {
         let newBlockInstance;
+        const relativeFilePath = window.makePathRelativeToWorkspace(refData.filePath);
 
         switch (action) {
             case 'createQuote':
                 newBlockInstance = this.createBlockInstance({
                     type: 'quote',
                     properties: {
-                        referenceLink: `${refData.filePath}#${refData.blockData.id}`
+                        referenceLink: `${relativeFilePath}#${refData.blockData.id}`
                     }
                 });
                 break;
@@ -924,7 +925,7 @@ class Editor {
             case 'createLink':
                 newBlockInstance = this.createBlockInstance({
                     type: 'paragraph',
-                    content: `<a href="${refData.filePath}#${refData.blockData.id}">Link To Block</a>`
+                    content: `<a href="${relativeFilePath}#${refData.blockData.id}">Link To Block</a>`
                 });
                 break;
             
@@ -1492,7 +1493,7 @@ class Editor {
     }
 
     
-    async getSanitizedHtml(isForExport = false, workspaceRoot = '', options = {}, imageSrcMap = {}, quoteContentCache = new Map()) {
+    async getSanitizedHtml(isForExport = false, workspaceRoot = '', options = {}, imageSrcMap = {}, quoteContentCache = new Map(), pathPrefix = './') {
         
         // --- THE CORE FIX: Instead of cloning the live DOM, we generate a fresh, clean DOM from the source data. ---
         const cleanContainer = document.createElement('div');
@@ -1604,8 +1605,10 @@ class Editor {
             }
             if (pathPart.endsWith('.veritnote')) {
                 if (isForExport) {
-                    const relativePath = pathPart.substring(workspaceRoot.length + 1).replace('.veritnote', '.html');
-                    el.setAttribute('href', relativePath + hashPart);
+                    // The pathPart is already relative to the workspace root.
+                    // We just need to change the extension and prepend the pathPrefix.
+                    const relativeHtmlPath = pathPart.replace('.veritnote', '.html');
+                    el.setAttribute('href', pathPrefix + relativeHtmlPath + hashPart);
                 } else {
                     el.setAttribute('href', '#');
                     el.setAttribute('data-internal-link', href);
@@ -1642,7 +1645,7 @@ class Editor {
                             const tempRenderEditor = new Editor(tempRenderDiv); // Use a different name to avoid confusion
                             registerAllBlocks(tempRenderEditor);
                             tempRenderEditor.load({ path: 'temp', content: cachedContent });
-                            const quotedHtml = tempRenderEditor.getSanitizedHtml(isForExport, workspaceRoot, options, imageSrcMap, quoteContentCache); 
+                            const quotedHtml = tempRenderEditor.getSanitizedHtml(isForExport, workspaceRoot, options, imageSrcMap, quoteContentCache, pathPrefix);
                             previewContainer.innerHTML = await quotedHtml;
                         } else {
                             previewContainer.innerHTML = '<div class="quote-error-placeholder">Referenced content could not be found.</div>';

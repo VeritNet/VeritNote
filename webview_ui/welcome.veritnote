@@ -15,13 +15,6 @@
   },
   {
     "children": [],
-    "content": "You can&nbsp;<b>bold text</b>,&nbsp;<i>italic text</i>,&nbsp;<u>underlined text</u>&nbsp;or&nbsp;<span style=\"color: rgb(255, 107, 107);\">add color to text</span>&nbsp;like this.",
-    "id": "191a25bc-3329-4a49-82dd-a3708dc67c69",
-    "properties": {},
-    "type": "paragraph"
-  },
-  {
-    "children": [],
     "content": "How to get started ?",
     "id": "12bf45d2-60ba-40da-8225-0f60d6047310",
     "properties": {},
@@ -38,6 +31,13 @@
     "children": [],
     "content": "In the editor, typing \"/\" will bring up the command menu, allowing you to quickly create different types of Blocks, as annotated below:",
     "id": "b568684d-ef8e-4ec7-9293-ec9959f85055",
+    "properties": {},
+    "type": "paragraph"
+  },
+  {
+    "children": [],
+    "content": "You can&nbsp;<b>bold text</b>,&nbsp;<i>italic text</i>,&nbsp;<u>underlined text</u>&nbsp;or&nbsp;<span style=\"color: rgb(255, 107, 107);\">add color to text</span>&nbsp;like this.",
+    "id": "191a25bc-3329-4a49-82dd-a3708dc67c69",
     "properties": {},
     "type": "paragraph"
   },
@@ -99,9 +99,12 @@
         "children": [
           {
             "children": [],
-            "content": "<a href=\"https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg\"><img src=\"https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg\" alt=\"image\"></a>",
+            "content": "",
             "id": "d8196c6f-730a-4ef5-8913-8ac82a126913",
-            "properties": {},
+            "properties": {
+              "href": "https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg",
+              "src": "https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg"
+            },
             "type": "image"
           }
         ],
@@ -123,7 +126,7 @@
           },
           {
             "children": [],
-            "content": "For example, click the image to view the original creator's webpage for this image.",
+            "content": "For example, click the image to view the original webpage for this image.",
             "id": "2213aa68-c375-4956-a56a-865f0a89d174",
             "properties": {},
             "type": "paragraph"
@@ -158,7 +161,7 @@
   },
   {
     "children": [],
-    "content": "PS:&nbsp;Click the&nbsp;<span style=\"color: rgb(255, 107, 107);\">Cook</span>&nbsp;button in the bottom-left corner to export the entire workspace as&nbsp;<span style=\"color: rgb(69, 183, 209);\">native static HTML</span>, including&nbsp;<span style=\"color: rgb(69, 183, 209);\">all CSS styles and animations</span>!&nbsp;Add<a href=\"C:\\Users\\Lenovo\\Documents\\mynote\\MyPage.veritnote#0a51e4d0-26f0-4f39-aa34-7a65995b3891\" style=\"color: rgb(86, 156, 214);\">itionally,</a>&nbsp;your file will be&nbsp;<span style=\"color: rgb(78, 205, 196);\">saved automatically</span>&nbsp;as you edit!",
+    "content": "PS:&nbsp;Click the&nbsp;<span style=\"color: rgb(255, 107, 107);\">Cook</span>&nbsp;button in the bottom-left corner to export the entire workspace as&nbsp;<span style=\"color: rgb(69, 183, 209);\">native static HTML</span>, including&nbsp;<span style=\"color: rgb(69, 183, 209);\">all CSS styles and animations&nbsp;</span>!",
     "id": "bd3fcc96-5680-4c82-a8d3-b742b5ce5763",
     "properties": {},
     "type": "paragraph"
@@ -176,10 +179,10 @@
         "children": [
           {
             "children": [],
-            "content": "Edit Button Text",
+            "content": "Link Button",
             "id": "b23ba775-c867-4001-ba92-b4bc8104cde3",
             "properties": {
-              "url": ""
+              "url": "#"
             },
             "type": "linkButton"
           },
@@ -263,6 +266,59 @@
     ],
     "content": "",
     "id": "2b3576e8-c749-498a-bf49-e2592ec1346b",
+    "properties": {},
+    "type": "columns"
+  },
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "content": "",
+            "id": "5204c3b0-0036-4787-b99c-536dd76ffe2e",
+            "properties": {
+              "clickLink": "welcome.veritnote#2c944318-8c0f-4a80-862e-0d2aa0e619b9",
+              "referenceLink": "welcome.veritnote#2c944318-8c0f-4a80-862e-0d2aa0e619b9",
+              "style": "default"
+            },
+            "type": "quote"
+          }
+        ],
+        "content": "",
+        "id": "695ea10d-5461-4269-b98c-b8a45511c04f",
+        "properties": {
+          "width": 0.441527446300716
+        },
+        "type": "column"
+      },
+      {
+        "children": [
+          {
+            "children": [],
+            "content": "You can <b>quote</b>, copy, and link to blocks by dragging them in and out of the reference board on the right.",
+            "id": "bc719e82-7ff5-4a0f-9879-c5e33f54a0aa",
+            "properties": {},
+            "type": "paragraph"
+          },
+          {
+            "children": [],
+            "content": "Also check the details board for more info about the selected blocks.",
+            "id": "ecc1d771-23a2-4834-9dd1-607350f0bd35",
+            "properties": {},
+            "type": "paragraph"
+          }
+        ],
+        "content": "",
+        "id": "dee0008d-3133-48b1-8fef-259f618d71c6",
+        "properties": {
+          "width": 0.5584725536992841
+        },
+        "type": "column"
+      }
+    ],
+    "content": "",
+    "id": "f289bc6e-6dc8-47c0-99b9-be9960eed591",
     "properties": {},
     "type": "columns"
   }

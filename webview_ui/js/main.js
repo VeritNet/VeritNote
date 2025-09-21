@@ -1,5 +1,8 @@
 ﻿// js/main.js
 document.addEventListener('DOMContentLoaded', () => {
+    window.workspaceRootPath = '';
+
+
     const ALL_BLOCK_CLASSES = [
         ParagraphBlock,
         Heading1Block,
@@ -86,12 +89,18 @@ document.addEventListener('DOMContentLoaded', () => {
         * @param {string} fullPath - The full link path, e.g., "C:\\...\\Page.veritnote#block-id"
     */
     function handleLinkClick(fullPath) {
-        let path = fullPath;
+        let pathPart = fullPath;
         let blockId = null;
+
         if (fullPath && fullPath.includes('#')) {
-            [path, blockId] = fullPath.split('#');
+            [pathPart, blockId] = fullPath.split('#');
         }
-        tabManager.openTab(path, blockId);
+
+        // 解析相对路径为绝对路径
+        const absolutePath = window.resolveWorkspacePath(pathPart);
+        
+        // 使用绝对路径打开标签页
+        tabManager.openTab(absolutePath, blockId);
     }
 
 
@@ -224,7 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (wasSidebarForcedOpen) setRightSidebarCollapsed(false);
                 
                 referenceManager.enableLinkingMode(true, (refData) => {
-                    const link = `${refData.filePath}#${refData.blockData.id}`;
+                    const relativeFilePath = makePathRelativeToWorkspace(refData.filePath);
+                    const link = `${relativeFilePath}#${refData.blockData.id}`;
                     if (currentPopoverCallback) currentPopoverCallback(link);
                     hidePopover(); // hidePopover will handle restoring the view
                 });
@@ -254,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         popoverInput.addEventListener('input', () => updateSearchResults(popoverInput.value, searchResults));
         popoverInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (currentPopoverCallback) currentPopoverCallback(popoverInput.value); hidePopover(); } });
-        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && currentPopoverCallback) { currentPopoverCallback(item.dataset.path); hidePopover(); } });
+        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && currentPopoverCallback) { const relativePath = makePathRelativeToWorkspace(item.dataset.path); currentPopoverCallback(relativePath); hidePopover(); } });
 
         const initialMode = existingValue && existingValue.includes('#') ? 'block' : 'page';
         setActiveMode(initialMode);
@@ -371,7 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (wasSidebarForcedOpen) setRightSidebarCollapsed(false);
                 
                 referenceManager.enableLinkingMode(true, (refData) => {
-                    const link = `${refData.filePath}#${refData.blockData.id}`;
+                    const relativeFilePath = makePathRelativeToWorkspace(refData.filePath);
+                    const link = `${relativeFilePath}#${refData.blockData.id}`;
                     if (currentPopoverCallback) currentPopoverCallback(link);
                     hidePopover(); // hidePopover will handle restoring the view.
                 });
@@ -1286,7 +1297,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!blocks) return;
                     blocks.forEach(block => {
                         if (block.type === 'quote' && block.properties.referenceLink) {
-                            ipc.fetchQuoteContent(block.id, block.properties.referenceLink);
+                            // --- START FIX: Resolve the relative path before sending to IPC ---
+                            const referenceLink = block.properties.referenceLink;
+                            const [pathPart, blockId] = referenceLink.split('#');
+                            const absolutePath = window.resolveWorkspacePath(pathPart);
+                            const absoluteReferenceLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
+                            
+                            ipc.fetchQuoteContent(block.id, absoluteReferenceLink);
+                            // --- END FIX ---
                         }
                         if (block.children) {
                             triggerQuoteFetchRecursive(block.children);
@@ -1359,16 +1377,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (blockInstance && blockInstance.properties.referenceLink) {
                     const referenceLink = blockInstance.properties.referenceLink;
-                    const referencedPagePath = referenceLink.split('#')[0];
+                    const referencedPagePath = window.resolveWorkspacePath(referenceLink.split('#')[0]);
 
                     // 4. 如果这个引用块确实引用了刚刚被保存的文件
                     if (savedPath === referencedPagePath) {
                         console.log(`Found a quote block (${blockId}) in tab "${tab.path}" that needs updating.`);
-                        
-                        // 5. 向后端请求这个引用链接最新的内容
-                        // 我们需要一种方式来接收这个内容并将其与正确的 DOM 元素关联起来
-                        // 我们可以在请求时附带 tab ID 和 block ID
-                        ipc.fetchQuoteContent(`${tab.id}::${blockId}`, referenceLink);
+    
+                        // --- 解析路径 (与 QuoteBlock.js 中相同的逻辑) ---
+                        const [pathPart, blockIdPart] = referenceLink.split('#');
+                        const absolutePath = window.resolveWorkspacePath(pathPart);
+                        const absoluteReferenceLink = blockIdPart ? `${absolutePath}#${blockIdPart}` : absolutePath;
+                        // --- 结束解析 ---
+    
+                        ipc.fetchQuoteContent(`${tab.id}::${blockId}`, absoluteReferenceLink); // 使用解析后的绝对路径
                     }
                 }
             });
@@ -1381,6 +1402,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- C++ message listeners ---
     window.addEventListener('workspaceListed', (e) => {
         const workspaceData = e.detail.payload;
+        if (workspaceData && workspaceData.path) {
+            window.workspaceRootPath = workspaceData.path;
+        }
         sidebar.dataset.workspaceData = JSON.stringify(workspaceData);
         if (workspaceData && workspaceData.children && workspaceData.children.length > 0) {
             sidebar.innerHTML = renderWorkspaceTree(workspaceData);
@@ -1492,6 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tabManager.closeTab(path);
         }
         ipc.listWorkspace();
+        ipc.requestNoteList();
     });
 
     // --- Event Listeners ---
@@ -1712,6 +1737,40 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('');
     }
 
+
+    window.makePathRelativeToWorkspace = function(absolutePath) {
+        if (!workspaceRootPath || !absolutePath || !absolutePath.startsWith(workspaceRootPath)) {
+            // 如果不是工作区内部路径 (例如 http:// 链接)，则原样返回
+            return absolutePath;
+        }
+        // 移除根路径和开头的斜杠
+        let relative = absolutePath.substring(workspaceRootPath.length);
+        if (relative.startsWith('\\') || relative.startsWith('/')) {
+            relative = relative.substring(1);
+        }
+        return relative;
+    }
+    /**
+     * Converts a workspace-relative path back to an absolute path.
+     * If the path is already absolute (e.g., http link), it returns it as is.
+     * @param {string} path - The relative or absolute path.
+     * @returns {string} The resolved absolute path.
+     */
+    window.resolveWorkspacePath = function(path) {
+        if (!path || !window.workspaceRootPath) {
+            return path; // Return as is if data is missing
+        }
+
+        // Check if it's already an absolute path (e.g., C:\, http, file:///)
+        if (/^([a-zA-Z]:\\|\\\\|\/|https?:\/\/|file:\/\/\/)/.test(path)) {
+            return path;
+        }
+
+        // It's a relative path, so combine it with the workspace root.
+        // C++ backend on Windows expects backslashes.
+        return [window.workspaceRootPath, path.replace(/\//g, '\\')].join('\\');
+    };
+
     
     
     // --- Export Logic ---
@@ -1816,10 +1875,10 @@ document.addEventListener('DOMContentLoaded', () => {
             findQuotesRecursive(pageData.content);
 
             for (const link of quoteLinksToFetch) {
-                // This simulates the C++ backend logic on the frontend for export
                 const [filePath, blockId] = link.split('#');
+                const absoluteFilePath = window.resolveWorkspacePath(filePath);
                 // Find the already-loaded content for the referenced page
-                const sourcePageData = allPagesContent.find(p => p.path === filePath);
+                const sourcePageData = allPagesContent.find(p => p.path === absoluteFilePath);
                 if (sourcePageData) {
                     let contentToCache = sourcePageData.content;
                     if (blockId) {
@@ -1886,15 +1945,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const findImagesRecursive = (blocks, pagePath) => {
                 if (!blocks) return;
                 blocks.forEach(block => {
-                    if (block.type === 'image' && block.content) {
-                        const match = block.content.match(/src="([^"]+)"/);
-                        if (match) {
-                            const src = match[1];
-                            const isLocal = /^[a-zA-Z]:\\/.test(src) || src.startsWith('file:///');
-                            const isOnline = src.startsWith('http');
-                            if ((options.copyLocal && isLocal) || (options.downloadOnline && isOnline)) {
-                                imageTasks.push({ originalSrc: src, pagePath: pagePath });
-                            }
+                    if (block.type === 'image') {
+                        const src = block.properties.src;
+                        const isLocal = /^[a-zA-Z]:\\/.test(src) || src.startsWith('file:///');
+                        const isOnline = src.startsWith('http');
+                        if ((options.copyLocal && isLocal) || (options.downloadOnline && isOnline)) {
+                            imageTasks.push({ originalSrc: src, pagePath: pagePath });
                         }
                     }
                     if (block.children) {
@@ -1932,13 +1988,14 @@ document.addEventListener('DOMContentLoaded', () => {
             window.registerAllBlocks(tempEditor);
             
             tempEditor.load(pageData);
-            const mainContentHtml = await tempEditor.getSanitizedHtml(true, workspaceData.path, options, imageSrcMap, quoteContentCache);
     
             const sourcePath = path;
             const workspacePath = workspaceData.path;
             const relativePathStr = sourcePath.substring(workspacePath.length + 1);
             const depth = (relativePathStr.match(/\\/g) || []).length;
             const pathPrefix = depth > 0 ? '../'.repeat(depth) : './';
+
+            const mainContentHtml = await tempEditor.getSanitizedHtml(true, workspaceData.path, options, imageSrcMap, quoteContentCache, pathPrefix);
     
             const cssRelativePath = `${pathPrefix}style.css`;
             
@@ -1999,7 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const relativePath = node.path.substring(JSON.parse(sidebar.dataset.workspaceData).path.length + 1).replace(/\\/g, '/').replace('.veritnote', '.html');
                     const isActive = (node.path === currentPath);
                     // --- FINAL STRUCTURE: A simple div with a data-href attribute. No <a> tag! ---
-                    html += `<div class="tree-node page ${isActive ? 'active' : ''}" data-path="${node.path}" data-href="${relativePath}">
+                    html += `<div class="tree-node page ${isActive ? 'active' : ''}" data-path="${node.path}" data-href="${pathPrefix}${relativePath}">
                                 <span class="icon"></span>
                                 <span class="name">${node.name}</span>
                              </div>`;
@@ -2118,19 +2175,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 // --- FINAL NAVIGATION LOGIC: Replicates editor behavior ---
-                sidebar.addEventListener('click', function(e) {
-                    const pageNode = e.target.closest('.tree-node.page');
-                    if (!pageNode) return;
+                function handleLinkClick(event) {
+                    const linkElement = event.target.closest('[data-href]');
+                    if (!linkElement) return;
 
-                    const href = pageNode.dataset.href;
+                    const href = linkElement.dataset.href;
                     if (!href) return;
-                    
-                    let finalUrl = href;
-                    if (appContainer.classList.contains('sidebar-peek')) {
-                        finalUrl += (href.includes('?') ? '&' : '?') + 'peek=true';
+
+                    const currentPath = window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
+                    const targetPath = href.split('#')[0].split('?')[0];
+                    const targetHash = href.includes('#') ? '#' + href.split('#')[1] : null;
+
+                    // Check if the target is the current page
+                    if (targetPath === currentPath && targetHash) {
+                        event.preventDefault();
+                        
+                        // It's a link to a block on the same page
+                        const blockId = decodeURIComponent(targetHash.substring(1));
+                        const targetBlock = document.querySelector('.block-container[data-id="\${blockId}"]');
+                        
+                        if (targetBlock) {
+                            // Use the existing highlight logic
+                            window.location.hash = targetHash;
+                        }
+                    } else {
+                        // It's a link to a different page, perform standard navigation
+                        let finalUrl = href;
+                        if (appContainer.classList.contains('sidebar-peek')) {
+                            finalUrl += (href.includes('?') ? '&' : '?') + 'peek=true';
+                        }
+                        window.location.href = finalUrl;
                     }
-                    window.location.href = finalUrl;
-                });
+                }
+
+                sidebar.addEventListener('click', handleLinkClick);
+                
+                // Also apply this logic to links within the main content area
+                const mainContent = document.getElementById('main-content');
+                if (mainContent) {
+                    mainContent.addEventListener('click', function(e) {
+                         const anchor = e.target.closest('a');
+                         if (!anchor || !anchor.hasAttribute('href')) return;
+                         
+                         // Create a temporary element to simulate the sidebar click logic
+                         const tempNode = document.createElement('div');
+                         tempNode.dataset.href = anchor.getAttribute('href');
+
+                         // We wrap the event target to be compatible with handleLinkClick
+                         const simulatedEvent = { target: tempNode, preventDefault: () => e.preventDefault() };
+                         handleLinkClick(simulatedEvent);
+                    });
+                }
+
             });
         <\/script>
     </body>
