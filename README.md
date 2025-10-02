@@ -6,6 +6,23 @@
 
 ![](./cover.png)
 
+## How to use
+
+Download VeritNote.exe from [Release Assets](https://github.com/VeritNet/VeritNote/releases) . It's usually above 1MB and no installation required.
+
+## Dev
+
+1. Download this repo
+2. unzip 'vendor.7z'
+You will get:
+| - src/
+| - vendor/
+| - webview_ui/
+| - CMakeLists.txt
+3. Use CMake + MSVC to build, no more steps required (Visual Studio is recommended & Haven't tested MinGW)
+
+In the future, it will provide support for other platforms, but currently the backend still relies on Webview2
+
 ## Dependencies
 
 This project uses the following third-party libraries:
