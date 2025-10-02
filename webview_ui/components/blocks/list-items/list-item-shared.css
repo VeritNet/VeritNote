@@ -1,0 +1,173 @@
+﻿/* components/blocks/list-items/list-item-shared.css */
+
+/* --- 1. Shared Layout for ALL List Items --- */
+.block-content[data-type="bulletedListItem"],
+.block-content[data-type="todoListItem"],
+.block-content[data-type="numberedListItem"],
+.block-content[data-type="toggleListItem"] {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+.list-item-content-wrapper {
+    flex-grow: 1;
+}
+
+.list-item-text-area {
+    outline: none;
+    min-height: 26px;
+}
+
+.list-item-children-container {
+    /* 默认的过渡效果，应用于所有状态变化 */
+    transition: min-height 0.2s ease-out, padding 0.2s ease-out, margin 0.2s ease-out;
+}
+
+/* 
+  1. 默认状态 (空的容器)
+  - 完全折叠，不占任何空间。
+*/
+    .list-item-children-container:empty {
+        min-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        margin-top: 0; /* 确保与主文本区域紧密贴合 */
+    }
+
+/* 
+  2. 交互状态 (鼠标悬浮在整个列表项上时，空的容器出现)
+  - .vn-active 类由JS在鼠标悬浮时添加/移除。
+  - 这会平滑地撑开一个可交互的区域。
+*/
+.block-container.vn-active .list-item-children-container:empty {
+    min-height: 24px;
+    margin-top: var(--spacing-xs);
+}
+
+/* 
+  3. 拖拽状态 (当块被拖拽到空的容器上时，容器出现并高亮)
+  - 这个样式会覆盖上面的悬浮样式，提供更强的视觉反馈。
+  - 它会从 page-editor.css 继承高亮背景和边框。
+*/
+.list-item-children-container:empty.is-drop-target {
+    min-height: 28px; /* 匹配 page-editor.css 中的高度 */
+    margin-top: 4px;
+}
+
+/* 
+  4. 有内容状态 (容器内有块时)
+  - 容器自然展开，并添加内边距。
+*/
+.list-item-children-container:not(:empty) {
+    padding-left: 28px; /* 缩进 */
+    padding-top: var(--spacing-xs);
+    padding-bottom: 12px;
+}
+
+/* --- 2. Bulleted List Item Specific --- */
+.bullet-point {
+    line-height: 1.6;
+    user-select: none;
+}
+
+/* --- 3. Todo List Item Specific --- */
+.todo-checkbox-wrapper {
+    padding-top: 5px;
+}
+
+.todo-checkbox {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    margin: 0;
+    font: inherit;
+    color: var(--text-secondary);
+    width: 1.15em;
+    height: 1.15em;
+    border: 0.15em solid currentColor;
+    border-radius: 0.15em;
+    transform: translateY(-0.075em);
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+}
+
+    .todo-checkbox::before {
+        content: "";
+        width: 0.65em;
+        height: 0.65em;
+        transform: scale(0);
+        transition: 120ms transform ease-in-out;
+        box-shadow: inset 1em 1em var(--text-accent);
+        transform-origin: bottom left;
+        clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    }
+
+    .todo-checkbox:checked::before {
+        transform: scale(1);
+    }
+
+.list-item-text-area.todo-checked {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+}
+
+/* --- 4. Numbered List Item Specific --- */
+.number-point-wrapper {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    line-height: 1.6;
+    user-select: none;
+    color: var(--text-secondary);
+}
+
+.number-point {
+    outline: none;
+    min-width: 1em;
+    text-align: right;
+}
+
+/* --- 5. Toggle List Item Specific --- */
+.toggle-triangle-wrapper {
+    padding-top: 5px;
+    flex-shrink: 0;
+}
+
+.toggle-triangle {
+    width: 1.15em;
+    height: 1.15em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .toggle-triangle::before {
+        content: '';
+        border-style: solid;
+        border-width: 4px 0 4px 6px;
+        border-color: transparent transparent transparent var(--text-secondary);
+        transform: rotate(90deg);
+        transition: transform 0.2s ease-in-out;
+    }
+
+.block-content[data-type="toggleListItem"].is-collapsed .toggle-triangle::before {
+    transform: rotate(0deg);
+}
+
+.block-content[data-type="toggleListItem"].is-collapsed .list-item-children-container {
+    max-height: 0;
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.block-content[data-type="toggleListItem"] .list-item-children-container {
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
+    overflow: hidden;
+    max-height: 2000px; /* A large enough value for expanded state */
+}

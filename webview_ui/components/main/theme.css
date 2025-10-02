@@ -1,0 +1,122 @@
+﻿/* components/main/theme.css */
+
+/* --- 1. Design System: Colors --- */
+:root {
+    /* Base Palette */
+    --color-black-primary: rgb(24, 24, 24);
+    --color-black-secondary: rgb(27, 27, 28);
+    --color-grey-dark: #333333;
+    --color-grey-medium: #3a3d41;
+    --color-grey-light: #444444;
+    --color-white-primary: #cccccc;
+    --color-white-secondary: #8c8c8c;
+    --color-blue-accent: #569cd6;
+    --color-red-danger: #e81123;
+    --color-red-danger-hover: #5c2323;
+    --color-red-danger-text: #ff8a8a;
+    --color-yellow-highlight: #F7D154;
+    --color-white-pure: #ffffff;
+    /* Semantic Colors: Backgrounds */
+    --bg-primary: var(--color-black-primary); /* Main content area background */
+    --bg-secondary: var(--color-black-secondary); /* Sidebars, popovers */
+    --bg-tertiary: var(--color-grey-dark); /* Hover states */
+    --bg-accent: var(--color-grey-medium); /* Input fields, selected items */
+    --bg-interactive-overlay: rgba(45, 45, 45, 0.75); /* Toolbars, command menu */
+    --bg-backdrop: rgba(0, 0, 0, 0.6);
+    --bg-highlight: rgba(247, 209, 84, 0.15); /* Block selection highlight */
+    --bg-selected: rgba(86, 156, 214, 0.12);
+    --bg-danger-hover: var(--color-red-danger-hover);
+    /* Semantic Colors: Text */
+    --text-primary: var(--color-white-primary);
+    --text-secondary: var(--color-white-secondary);
+    --text-accent: var(--color-blue-accent);
+    --text-on-accent-bg: var(--color-white-pure);
+    --text-danger: var(--color-red-danger-text);
+    /* Semantic Colors: Borders & Shadows */
+    --border-primary: var(--color-grey-light);
+    --border-highlight: var(--color-blue-accent);
+    --shadow-primary: rgba(0, 0, 0, 0.5);
+    /* --- 2. Design System: Typography --- */
+    --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-family-monospace: "Courier New", Courier, monospace;
+    /* --- 3. Design System: Spacing --- */
+    --spacing-xs: 4px;
+    --spacing-s: 8px;
+    --spacing-m: 16px;
+    --spacing-l: 24px;
+    /* --- 4. Design System: Transitions & Animations --- */
+    --transition-fast: 0.2s ease;
+    --transition-medium: 0.3s ease;
+    --transition-cubic: 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* --- 5. Global Styles & Resets --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    -webkit-app-region: no-drag;
+}
+
+body {
+    font-family: var(--font-family-sans);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 16px;
+    line-height: 1.6;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+    color: var(--text-accent);
+    text-decoration: none;
+}
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+/* --- 6. Custom Scrollbar --- */
+::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--bg-accent);
+    border-radius: 10px;
+    border: 4px solid var(--bg-primary); /* Default for main content area */
+}
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: #555;
+    }
+
+/* --- 7. Reusable Utility Classes --- */
+.primary-btn {
+    background-color: var(--text-accent);
+    color: var(--text-on-accent-bg);
+    border: none;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-s);
+    transition: background-color var(--transition-fast);
+}
+
+    .primary-btn:hover {
+        background-color: #4A90E2;
+    }

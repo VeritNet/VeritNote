@@ -1,0 +1,195 @@
+﻿/* components/blocks/_shared/block-core.css */
+
+.block-container {
+    position: relative;
+    padding-left: 28px;
+    margin-bottom: var(--spacing-xs);
+    display: flex;
+    flex-direction: column;
+    transition: background-color var(--transition-medium), box-shadow var(--transition-medium);
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+    .block-container.is-selected {
+        background-color: var(--bg-selected) !important;
+        box-shadow: inset 2px 0 0 0 var(--text-accent);
+    }
+
+.block-controls {
+    position: absolute;
+    top: 2px;
+    left: 24px;
+    transform: translateX(-100%);
+    display: flex;
+    align-items: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    z-index: 10;
+    gap: 4px;
+}
+
+.block-container:hover > .block-controls {
+    opacity: 1;
+}
+
+.drag-handle, .delete-btn {
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    z-index: 2;
+}
+
+.drag-handle {
+    cursor: grab;
+}
+
+    .drag-handle:active {
+        cursor: grabbing;
+    }
+
+.delete-btn:hover {
+    color: var(--color-red-danger);
+}
+
+.block-content {
+    outline: none;
+    min-height: 26px;
+    width: 100%;
+    padding: 2px 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+    .block-content[data-placeholder]:empty::before {
+        content: attr(data-placeholder);
+        color: var(--text-secondary);
+        cursor: text;
+        pointer-events: none;
+        display: none;
+    }
+
+    .block-content[data-placeholder]:empty:focus::before {
+        display: inline;
+    }
+
+/* Drag & Drop, Highlighting, etc. - These are core to the block system */
+.drop-indicator {
+    height: 2px;
+    background-color: var(--text-accent);
+    pointer-events: none;
+    z-index: 100;
+    width: 100%;
+    position: relative;
+}
+
+.drop-indicator-vertical {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    background-color: var(--text-accent);
+    pointer-events: none;
+    z-index: 100;
+}
+
+.quadrant-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 90;
+    overflow: hidden;
+}
+
+.quadrant-line-h, .quadrant-line-v {
+    position: absolute;
+    background-color: rgba(140, 140, 140, 0.3);
+    pointer-events: none;
+}
+
+.quadrant-line-h {
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    transform: translateY(-50%);
+}
+
+.quadrant-line-v {
+    left: 50%;
+    top: 0;
+    height: 100%;
+    width: 1px;
+    transform: translateX(-50%);
+}
+
+.quadrant-bg {
+    position: absolute;
+    background-color: rgba(86, 156, 214, 0.1);
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+    will-change: opacity;
+}
+
+    .quadrant-bg.active {
+        opacity: 1;
+    }
+
+    .quadrant-bg[data-quadrant="top"] {
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 50%;
+    }
+
+    .quadrant-bg[data-quadrant="bottom"] {
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50%;
+    }
+
+    .quadrant-bg[data-quadrant="left"] {
+        top: 0;
+        left: 0;
+        width: 15%;
+        height: 100%;
+    }
+
+    .quadrant-bg[data-quadrant="right"] {
+        top: 0;
+        right: 0;
+        width: 15%;
+        height: 100%;
+    }
+
+.block-container:hover > .block-content, .block-container:hover > .block-container > .block-content {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.block-container.is-dragging-ghost {
+    opacity: 0.5;
+    background-color: var(--bg-tertiary);
+}
+
+    .block-container.is-dragging-ghost:hover {
+        opacity: 0.6;
+    }
+
+.block-container.is-highlighted {
+    background-color: var(--bg-highlight) !important;
+    box-shadow: inset 3px 0 0 0 var(--color-yellow-highlight);
+    transition: background-color var(--transition-medium);
+}
+
+.block-children-container:empty {
+    min-height: 24px;
+    border-radius: 4px;
+    transition: background-color var(--transition-fast);
+}
+
+    .block-children-container:empty:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }

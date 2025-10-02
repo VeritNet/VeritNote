@@ -224,9 +224,34 @@ class Block {
     }
 
 
+    // --- NEW: Export API ---
+
     /**
-     * @returns {Array<string>} A list of vendor library paths required for this block when exported.
-     * Example: ['vendor/highlight/highlight.min.js', 'vendor/highlight/theme.css']
+     * Generates the final, sanitized HTML for this block for export.
+     * Subclasses can override this to add special behaviors.
+     * @param {HTMLElement} blockElement - The pre-rendered, clean DOM element of the block.
+     * @param {object} options - The export options from the main process.
+     * @param {object} imageSrcMap - A map of original image sources to their new local paths.
+     * @param {string} pathPrefix - The relative path prefix (e.g., './' or '../') for assets.
+     */
+    async getExportHtml(blockElement, options, imageSrcMap, pathPrefix) {
+        // Default implementation does nothing special, just returns the element.
+        return blockElement;
+    }
+
+    /**
+     * Returns any JavaScript code that needs to be injected into the final exported HTML file
+     * to make this block interactive.
+     * @returns {string|null} A string containing the script (without <script> tags), or null.
+     */
+    static getExportScripts() {
+        // Default is no scripts.
+        return null;
+    }
+
+    /**
+     * Returns a list of vendor library paths required for this block when exported.
+     * @returns {Array<string>} Example: ['vendor/highlight/highlight.min.js']
      */
     static get requiredExportLibs() {
         return [];

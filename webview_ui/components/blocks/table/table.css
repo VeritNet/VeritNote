@@ -1,0 +1,177 @@
+/* components/blocks/table/table.css */
+
+/* Main container */
+.block-content[data-type="table"] {
+    padding: 32px 0 0 32px; /* Space for top and left controls */
+    position: relative;
+    margin: var(--spacing-s) 0;
+}
+
+/* Scroll wrapper */
+.table-scroll-wrapper {
+    overflow: auto;
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+}
+
+/* The actual grid */
+.table-grid-wrapper {
+    display: grid;
+    min-width: fit-content;
+}
+
+/* Row style */
+.table-row-content {
+    display: contents; /* Key: allows cells to be direct grid items */
+}
+
+/* Cell style */
+.table-cell-content {
+    border-right: 1px solid var(--border-primary);
+    border-bottom: 1px solid var(--border-primary);
+    padding: var(--spacing-s);
+    position: relative;
+}
+
+.table-grid-wrapper .table-row-content:last-child .table-cell-content {
+    border-bottom: none;
+}
+
+.table-grid-wrapper .table-cell-content:last-child {
+    border-right: none;
+}
+
+/* Placeholder for empty cells */
+.table-cell-content > .block-children-container:empty {
+    min-height: 24px;
+}
+
+/* --- Controls --- */
+.table-add-col-btn, .table-add-row-btn {
+    position: absolute;
+    background-color: #333333;
+    border: 1px solid var(--border-primary);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background-color var(--transition-fast);
+    z-index: 15;
+}
+
+.table-add-col-btn {
+    top: 0;
+    right: -23px;
+    bottom: 26px;
+    width: 20px;
+}
+
+.table-add-row-btn {
+    bottom: -23px;
+    left: 0;
+    right: 26px;
+    height: 20px;
+}
+
+.block-content[data-type="table"]:hover .table-add-col-btn,
+.block-content[data-type="table"]:hover .table-add-row-btn {
+    opacity: 1;
+}
+
+.table-add-col-btn:hover, .table-add-row-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Top controls container (for delete/resize) */
+.table-controls-top {
+    position: absolute;
+    top: 0;
+    left: 32px;
+    right: 0;
+    height: 32px;
+    display: grid;
+}
+
+/* Left controls container (for delete) */
+.table-controls-left {
+    position: absolute;
+    top: 32px;
+    left: 0;
+    bottom: 0;
+    width: 32px;
+    display: flex;
+    flex-direction: column;
+}
+
+.table-delete-row-btn-wrapper {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.table-col-control {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.table-delete-col-btn, .table-delete-row-btn {
+    width: 18px;
+    height: 18px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-secondary);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.table-delete-col-btn {
+    transform: translateY(-50%);
+}
+
+.table-delete-row-btn {
+    transform: translateX(-50%);
+}
+
+.block-content[data-type="table"]:hover .table-delete-col-btn {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.block-content[data-type="table"]:hover .table-delete-row-btn {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.table-delete-col-btn:hover, .table-delete-row-btn:hover {
+    background-color: var(--bg-danger-hover);
+    color: var(--text-danger);
+    border-color: #913a3a;
+}
+
+.table-col-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 20;
+}
+
+    .table-col-resizer:hover {
+        background-color: var(--text-accent);
+    }

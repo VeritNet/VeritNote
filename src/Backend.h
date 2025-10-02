@@ -75,7 +75,6 @@ private:
     void ListWorkspace(const json& payload);
     void LoadPage(const json& payload);
     void SavePage(const json& payload);
-    void StartExport(const json& payload);
     void ExportPageAsHtml(const json& payload);
     void CreateItem(const json& payload);
     void DeleteItem(const json& payload);
@@ -94,6 +93,16 @@ private:
     void MaximizeWindow();
     void CloseWindow();
     void StartWindowDrag();
+
+    // --- Configuration System ---
+    void EnsureWorkspaceConfigs(const json& payload);
+    void ReadConfigFile(const json& payload);
+    void WriteConfigFile(const json& payload);
+    void ResolveFileConfiguration(const json& payload);
+
+    // Helper
+    json ReadJsonFile(const std::filesystem::path& path);
+    void WriteJsonFile(const std::filesystem::path& path, const json& data);
 
 
     // --- Private Members ---

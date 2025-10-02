@@ -1,0 +1,113 @@
+﻿/* ==========================================================================
+   Page Theme Styles (page-theme.css)
+   ==========================================================================
+   This file defines all style variables and rules for the CONTENT of a page.
+   It is completely separate from the main application UI theme.
+   The variables defined here are the defaults, which are then dynamically 
+   overridden by the configuration system via inline styles.
+*/
+
+
+/* --- 1. Default Page Theme Variables --- */
+/* 
+   These variables are applied to a container with the class .page-theme-container,
+   which is the direct wrapper for our background/view structure. 
+   This ensures these variables are scoped and don't leak into the main UI.
+*/
+.page-theme-container {
+    /* --- Font & Typography --- */
+    --page-font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --page-font-family-monospace: "Courier New", Courier, monospace;
+    --page-line-height: 1.6;
+    /* --- Color Palette --- */
+    --page-bg-primary: rgb(24, 24, 24); /* Default solid background color */
+    --page-bg-image: none; /* Default background image */
+    --page-text-primary: #cccccc;
+    --page-text-secondary: #8c8c8c; /* For placeholders, etc. */
+    --page-text-accent: #569cd6; /* For links */
+    --page-bg-highlight: rgba(86, 156, 214, 0.12); /* For selected blocks */
+    /* --- Layout --- */
+    --page-max-width: 900px;
+}
+
+
+/* --- 2. Core Layout Structure --- */
+/*
+   This is the key to the "full-width background, centered content" layout.
+   The background container takes up all available space and handles scrolling.
+   It uses Flexbox to perfectly center its single child, the .editor-view.
+*/
+.page-background-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+}
+
+/*
+   The .editor-view is the direct child of the background container.
+   It is responsible ONLY for the content's typography and width constraints.
+*/
+.editor-view {
+    /* Typography (inherited from parent or set directly) */
+    font-family: var(--page-font-family-sans);
+    color: var(--page-text-primary);
+    line-height: var(--page-line-height);
+    /* Sizing & Spacing */
+    max-width: var(--page-max-width);
+    width: 100%; /* Grow to fill parent up to max-width */
+    padding: var(--spacing-m) var(--spacing-l) 15vh;
+}
+
+
+    /* --- 3. Applying Theme to Content Elements --- */
+    /*
+   These rules ensure that various UI elements within the content area
+   (like links, placeholders, selected blocks) use the page-specific theme variables.
+*/
+
+    .editor-view a {
+        color: var(--page-text-accent);
+    }
+
+    .editor-view [data-placeholder]:empty::before {
+        color: var(--page-text-secondary);
+    }
+
+    .editor-view .block-container.is-selected {
+        background-color: var(--page-bg-highlight);
+    }
+
+    /* Ensure the monospace font is applied correctly where needed (e.g., CodeBlock) */
+    .editor-view .is-monospace,
+    .editor-view code,
+    .editor-view pre {
+        font-family: var(--page-font-family-monospace);
+    }
+
+    /* You can also add styles for other blocks that need to respect the theme */
+    .editor-view .callout {
+        /* Example: Make callout background a slightly different shade */
+        /* background-color: rgba(255, 255, 255, 0.03); */
+    }
+
+/* --- 4. Quote Block Click Wrapper Style Fix --- */
+/*
+   When a Quote block has a clickLink, it's wrapped in an <a> tag.
+   This rule prevents the link's accent color from cascading down and
+   turning all the quoted content's text blue. Instead, it inherits
+   the normal text color, and the wrapper itself becomes transparent to clicks.
+*/
+    .editor-view a.quote-click-wrapper,
+    .editor-view a.quote-click-wrapper:hover {
+        color: inherit; /* Inherit the color from parent (e.g., --page-text-primary) */
+        text-decoration: none; /* Remove the underline */
+    }
+.page-background-container::-webkit-scrollbar-thumb {
+    background-clip: content-box;
+    border: 4px solid transparent;
+}

@@ -141,7 +141,7 @@ class CodeBlock extends Block {
     
     showLanguagePicker(buttonElement) {
         // --- MODIFIED: This now calls the new, dedicated popover function in main.js ---
-        window.showLanguagePickerPopover({
+        this.editor.popoverManager.showLanguagePicker({
             targetElement: buttonElement,
             availableLanguages: this.availableLanguages,
             callback: (selectedLanguage) => {
@@ -172,5 +172,44 @@ class CodeBlock extends Block {
                 action: 'changeLanguage'
             }
         ];
+    }
+
+
+    // --- NEW: Implement Export API ---
+
+    /**
+     * Specifies the vendor libraries that this block depends on for export.
+     * The main export process will collect these and include them in the final HTML.
+     */
+    static get requiredExportLibs() {
+        return [
+            'vendor/highlight/highlight.min.js',
+            'vendor/highlight/theme.css'
+        ];
+    }
+
+    /**
+     * Provides a script to initialize syntax highlighting on the exported page.
+     * This static method is used so the main export process only needs to include
+     * the script once, even if there are many code blocks on the page.
+     */
+    static getExportScripts() {
+        // This script will run once per exported page.
+        return `
+            if (typeof hljs !== 'undefined') {
+                hljs.highlightAll();
+            }
+        `;
+    }
+
+    /**
+     * Modifies the block's DOM element for export.
+     * For CodeBlock, the default rendered HTML is already perfect for export,
+     * so no modifications are needed here.
+     */
+    async getExportHtml(blockElement, options) {
+        // The default `render()` method already produces clean <pre><code>...</code></pre>
+        // which is exactly what highlight.js needs. So, no changes are required.
+        return blockElement;
     }
 }

@@ -16,13 +16,6 @@ set(WEB_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/webview_ui")
 
 
 # --- 自动化前端资源嵌入 ---
-# 1. 读取关键CSS文件的内容
-file(READ "${WEB_ASSETS_DIR}/css/style.css" STYLE_CSS_CONTENT)
-# 对CSS内容进行转义，以安全地插入到HTML的<style>标签中
-string(REPLACE "\\" "\\\\" STYLE_CSS_CONTENT "${STYLE_CSS_CONTENT}")
-string(REPLACE "`" "\\`" STYLE_CSS_CONTENT "${STYLE_CSS_CONTENT}")
-string(REPLACE "$" "\\$" STYLE_CSS_CONTENT "${STYLE_CSS_CONTENT}")
-
 
 # 2. 查找 webview_ui 目录下的所有文件
 file(GLOB_RECURSE WEB_ASSETS "${WEB_ASSETS_DIR}/*")
@@ -49,28 +42,8 @@ foreach(ASSET_PATH ${WEB_ASSETS})
     set(RESOURCE_MAP_CONTENT "${RESOURCE_MAP_CONTENT}    {L\"${URL_PATH_ESCAPED}\", ${ID_NAME}},\n")
 
     # --- 核心修改：对HTML文件进行预处理 ---
-    string(REPLACE "\\" "/" ASSET_PATH_FOR_CMP ${ASSET_PATH})
-    if(ASSET_PATH_FOR_CMP MATCHES ".*/(index|dashboard)\\.html$")
-        # 这是我们需要处理的HTML文件
-        file(READ "${ASSET_PATH}" HTML_CONTENT)
-        # 将外部CSS链接替换为内联<style>标签
-        string(REGEX REPLACE "<link rel=\"stylesheet\" href=\"[^\"]*style.css\">"
-               "<style>${STYLE_CSS_CONTENT}</style>"
-               PROCESSED_HTML_CONTENT "${HTML_CONTENT}")
-        
-        # 将处理后的HTML内容写入build目录下的一个临时文件
-        get_filename_component(FILENAME ${ASSET_PATH} NAME)
-        set(TEMP_HTML_PATH "${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}")
-        file(WRITE ${TEMP_HTML_PATH} "${PROCESSED_HTML_CONTENT}")
-
-        # 让RC文件指向这个处理过的临时文件
-        string(REPLACE "\\" "\\\\" TEMP_HTML_PATH_ESCAPED ${TEMP_HTML_PATH})
-        file(APPEND ${RESOURCE_RC} "${ID_NAME} RCDATA \"${TEMP_HTML_PATH_ESCAPED}\"\n")
-    else()
-        # 对于非HTML文件，或者其他HTML文件，保持原样
-        string(REPLACE "\\" "\\\\" ASSET_PATH_ESCAPED ${ASSET_PATH})
-        file(APPEND ${RESOURCE_RC} "${ID_NAME} RCDATA \"${ASSET_PATH_ESCAPED}\"\n")
-    endif()
+    string(REPLACE "\\" "\\\\" ASSET_PATH_ESCAPED ${ASSET_PATH})
+    file(APPEND ${RESOURCE_RC} "${ID_NAME} RCDATA \"${ASSET_PATH_ESCAPED}\"\n")
 
     math(EXPR RESOURCE_ID_COUNTER "${RESOURCE_ID_COUNTER} + 1")
 endforeach()
@@ -141,8 +114,6 @@ target_link_libraries(VeritNote PRIVATE
     version.lib
 )
 
-# --- 资源文件处理 (旧逻辑已移除) ---
-
-# 告诉 VS 在项目文件浏览器中显示前端文件 (仍然有用)
+# 告诉 VS 在项目文件浏览器中显示前端文件
 file(GLOB_RECURSE UI_FILES "webview_ui/*")
 source_group("webview_ui" FILES ${UI_FILES})

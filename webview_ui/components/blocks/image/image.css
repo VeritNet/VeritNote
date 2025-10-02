@@ -1,0 +1,19 @@
+/* components/blocks/image/image.css */
+
+.block-content[data-type="image"] img {
+    max-width: 100%;
+    border-radius: 4px;
+    display: block; /* Prevents extra space below the image */
+}
+
+.image-placeholder {
+    width: 100%;
+    background: var(--bg-accent);
+    border: 2px dashed var(--border-primary);
+    padding: var(--spacing-l);
+    text-align: center;
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+}

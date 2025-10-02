@@ -1,0 +1,210 @@
+﻿/* --- Config Modal Enhancements --- */
+.config-modal-content {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-m) var(--spacing-l);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px var(--shadow-primary);
+    width: 650px;
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh; /* Limit height */
+}
+
+.config-modal-header {
+    padding: var(--spacing-m) var(--spacing-l);
+    border-bottom: 1px solid var(--border-primary);
+    flex-shrink: 0;
+}
+
+    .config-modal-header h3 {
+        margin: 0;
+    }
+
+.config-content-area {
+    padding: var(--spacing-l);
+    overflow-y: auto; /* Make the content scrollable */
+    flex-grow: 1;
+}
+
+.config-category-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--spacing-m);
+    padding-bottom: var(--spacing-s);
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.config-item {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: var(--spacing-l);
+    align-items: center;
+    margin-bottom: var(--spacing-m);
+}
+
+.config-item-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+    justify-self: end;
+}
+
+.config-item-control {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-s);
+}
+
+/* Custom Input ComboBox */
+.input-combobox {
+    position: relative;
+    width: 100%;
+}
+
+    .input-combobox input {
+        width: 100%;
+        background-color: var(--bg-accent);
+        border: 1px solid var(--border-primary);
+        color: var(--text-primary);
+        border-radius: 4px;
+        padding: var(--spacing-s) 28px var(--spacing-s) var(--spacing-s);
+        outline: none;
+        font-family: inherit;
+        font-size: 14px;
+    }
+
+        .input-combobox input:focus {
+            border-color: var(--border-highlight);
+        }
+
+.input-combobox-arrow {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.input-combobox-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px var(--shadow-primary);
+    z-index: 10;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none; /* Controlled by JS */
+}
+
+.combobox-item {
+    padding: var(--spacing-s);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+    .combobox-item:hover {
+        background-color: var(--bg-tertiary);
+    }
+
+    .combobox-item.separator {
+        height: 1px;
+        background-color: var(--border-primary);
+        margin: 4px 0;
+        padding: 0;
+    }
+
+/* Background Control Specific */
+.config-item-control .btn-group {
+    display: flex;
+    background-color: var(--bg-accent);
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.btn-group button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+    .btn-group button.active {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+
+/* --- Footer Buttons Alignment --- */
+.config-modal-footer {
+    padding: var(--spacing-m) var(--spacing-l) 0;
+    margin-top: var(--spacing-s);
+    border-top: 1px solid var(--border-primary);
+    display: flex;
+    justify-content: flex-end; /* Align to the right */
+    gap: var(--spacing-s);
+    flex-shrink: 0;
+}
+
+    .config-modal-footer button {
+        background-color: var(--bg-accent);
+        color: var(--text-primary);
+        border: 1px solid var(--border-primary);
+        padding: var(--spacing-s) var(--spacing-m);
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 14px;
+        transition: background-color var(--transition-fast);
+    }
+
+        .config-modal-footer button:hover {
+            background-color: var(--bg-tertiary);
+        }
+
+        .config-modal-footer button.primary-btn {
+            background-color: var(--text-accent);
+            border-color: var(--text-accent);
+            color: var(--text-on-accent-bg);
+        }
+
+            .config-modal-footer button.primary-btn:hover {
+                background-color: #6ba1d4;
+            }
+
+
+/* --- Image URL Input Styling --- */
+.config-custom-input.is-text-like {
+    width: 100%;
+    background-color: var(--bg-accent);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: var(--spacing-s);
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+    .config-custom-input.is-text-like:focus {
+        border-color: var(--border-highlight);
+    }
+
+    .config-custom-input.is-text-like::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.7;
+    }

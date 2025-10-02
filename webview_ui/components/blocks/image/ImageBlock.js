@@ -54,7 +54,7 @@ class ImageBlock extends Block {
     handleToolbarAction(action, buttonElement) {
         if (action === 'editImage') {
             // --- REFACTORED: Updates properties.src ---
-            window.showImageSourcePopover({
+            this.editor.popoverManager.showImageSource({
                 targetElement: buttonElement,
                 existingValue: this.properties.src,
                 callback: (value) => {
@@ -64,8 +64,7 @@ class ImageBlock extends Block {
                 }
             });
         } else if (action === 'linkImage') {
-            // --- REFACTORED: Updates properties.href ---
-            window.showLinkPopover({
+            this.editor.popoverManager.showLink({
                 targetElement: buttonElement,
                 existingValue: this.properties.href,
                 callback: (value) => {
@@ -75,5 +74,27 @@ class ImageBlock extends Block {
                 }
             });
         }
+    }
+
+
+    // --- NEW: Implement Export API ---
+    async getExportHtml(blockElement, options, imageSrcMap) {
+        const imgTag = blockElement.querySelector('img');
+        if (imgTag) {
+            const originalSrc = imgTag.getAttribute('src');
+            if (imageSrcMap[originalSrc]) {
+                imgTag.setAttribute('src', imageSrcMap[originalSrc]);
+            }
+            
+            if (this.properties.href) {
+                const linkWrapper = document.createElement('a');
+                
+                linkWrapper.setAttribute('href', this.properties.href);
+                
+                imgTag.parentNode.insertBefore(linkWrapper, imgTag);
+                linkWrapper.appendChild(imgTag);
+            }
+        }
+        return blockElement;
     }
 }

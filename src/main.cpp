@@ -252,6 +252,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                                 BOOL success;
                                 args->get_IsSuccess(&success);
 
+                                // [THE FIX]
+                                // Instead of calling a function directly, we now set a global variable
+                                // in the JS context and dispatch an event. This decouples the C++ call
+                                // from the JS initialization timeline.
                                 if (success && !g_nextWorkspacePath.empty()) {
                                     std::wstring escapedPath;
                                     for (wchar_t c : g_nextWorkspacePath) {
@@ -259,9 +263,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                                         else if (c == L'"') escapedPath += L"\\\"";
                                         else escapedPath += c;
                                     }
-                                    std::wstring script = L"window.initializeWorkspace(\"" + escapedPath + L"\");";
+
+                                    // 1. Set a global variable with the path.
+                                    // 2. Dispatch a custom event to signal that the path is ready.
+                                    std::wstring script = L"window.pendingWorkspacePath = \"" + escapedPath + L"\"; "
+                                        L"window.dispatchEvent(new Event('workspacePathReady'));";
+
                                     sender->ExecuteScript(script.c_str(), nullptr);
-                                    g_nextWorkspacePath.clear();
+                                    g_nextWorkspacePath.clear(); // Clear it after sending.
                                 }
                                 return S_OK;
                             }).Get(), &navigationToken);

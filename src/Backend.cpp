@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <urlmon.h>
+#include <string>
 #pragma comment(lib, "urlmon.lib")
 
 #include <shellapi.h>
@@ -155,9 +156,6 @@ void Backend::HandleWebMessage(const std::wstring& message) {
         else if (action == "savePage") {
             SavePage(payload);
         }
-        else if (action == "exportPages") {
-            StartExport(payload);
-        }
         else if (action == "exportPageAsHtml") {
             ExportPageAsHtml(payload);
         }
@@ -211,6 +209,18 @@ void Backend::HandleWebMessage(const std::wstring& message) {
         }
         else if (action == "fetchQuoteContent") {
             FetchQuoteContent(payload);
+        }
+        else if (action == "ensureWorkspaceConfigs") {
+            EnsureWorkspaceConfigs(payload);
+        }
+        else if (action == "readConfigFile") {
+            ReadConfigFile(payload);
+        }
+        else if (action == "writeConfigFile") {
+            WriteConfigFile(payload);
+        }
+        else if (action == "resolveFileConfiguration") {
+            ResolveFileConfiguration(payload);
         }
         else {
             std::cout << "Unknown Action: " + action << std::endl;
@@ -318,15 +328,17 @@ void Backend::LoadPage(const json& payload) {
     try {
         std::ifstream file(pagePath);
         if (file.is_open()) {
-            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-            if (content.empty()) {
-                response["payload"]["content"] = json::array({
-                    {{"type", "paragraph"}, {"content", ""}}
-                    });
+            json pageJson = json::parse(file);
+
+            if (pageJson.is_array()) { // Handle old format for backward compatibility
+                response["payload"]["content"] = pageJson;
+                response["payload"]["config"] = json::object(); // No config in old format
             }
-            else {
-                response["payload"]["content"] = json::parse(content);
+            else { // New object format
+                response["payload"]["content"] = pageJson.value("blocks", json::array());
+                response["payload"]["config"] = pageJson.value("config", json::object());
             }
+
         }
         else {
             response["error"] = "Failed to open file.";
@@ -341,7 +353,13 @@ void Backend::LoadPage(const json& payload) {
 
 void Backend::SavePage(const json& payload) {
     std::string path_str = payload.value("path", "");
-    json content = payload.value("content", json::array());
+    json blocks = payload.value("blocks", json::array());
+    json config = payload.value("config", json::object());
+
+    json fileContent;
+    fileContent["config"] = config;
+    fileContent["blocks"] = blocks;
+
     std::filesystem::path pagePath(path_str);
 
     json response;
@@ -352,7 +370,7 @@ void Backend::SavePage(const json& payload) {
         std::ofstream file(pagePath);
         if (file.is_open()) {
             // 使用 dump(2) 进行格式化输出，美观
-            file << content.dump(2);
+            file << fileContent.dump(2);
             response["payload"]["success"] = true;
         }
         else {
@@ -366,34 +384,6 @@ void Backend::SavePage(const json& payload) {
     }
 
     SendMessageToJS(response);
-}
-
-void Backend::StartExport(const json& payload) {
-    /*try {
-        std::filesystem::path buildPath = m_workspaceRoot;
-        buildPath /= "build";
-
-        // 清空并创建 build 文件夹
-        if (std::filesystem::exists(buildPath)) {
-            std::filesystem::remove_all(buildPath);
-        }
-        std::filesystem::create_directory(buildPath);
-
-        // 导出css
-        std::filesystem::path exeDir = GetExePath();
-        std::filesystem::path sourceCssPath = exeDir / "webview_ui" / "css" / "style.css";
-        std::filesystem::path destCssPath = buildPath / "style.css";
-
-        if (std::filesystem::exists(sourceCssPath)) {
-            std::filesystem::copy_file(sourceCssPath, destCssPath);
-        }
-
-        // 通知前端可以开始逐个发送文件了
-        SendMessageToJS({ {"action", "exportReady"} });
-    }
-    catch (const std::exception& e) {
-        SendMessageToJS({ {"action", "exportError"}, {"error", e.what()} });
-    }*/
 }
 
 void Backend::ExportPageAsHtml(const json& payload) {
@@ -442,8 +432,16 @@ void Backend::CreateItem(const json& payload) {
         }
         else { // page
             fullPath.replace_extension(".veritnote");
+            // 创建一个符合新格式的 JSON 对象
+            json newPageContent;
+            newPageContent["config"] = json::object({
+                {"page", json::object()} // 可以创建一个空的 page config
+                });
+            newPageContent["blocks"] = json::array();
+
             std::ofstream file(fullPath);
-            file << "[]"; // 创建一个空的 JSON 数组作为初始内容
+            // 使用 dump(2) 写入格式化的 JSON
+            file << newPageContent.dump(2);
             file.close();
         }
         // 通知前端更新文件树
@@ -579,28 +577,68 @@ void Backend::PrepareExportLibs(const json& payload) {
     try {
         std::filesystem::path buildPath = std::filesystem::path(m_workspaceRoot).append(L"build");
 
-        // 清空并创建 build 文件夹
         if (std::filesystem::exists(buildPath)) {
             std::filesystem::remove_all(buildPath);
         }
         std::filesystem::create_directory(buildPath);
 
-        // --- 核心修改：从资源中提取 style.css ---
-        std::filesystem::path destCssPath = buildPath / "style.css";
-        if (!ExtractResourceToFile(L"/css/style.css", destCssPath)) {
-            // 如果提取失败，可以发送一个错误
-            throw std::runtime_error("Failed to extract style.css from resources.");
-        }
+        std::vector<std::wstring> css_resource_paths = {
+            L"/components/main/theme.css",
+            L"/page-theme.css",
+            L"/components/main/main.css",
+            L"/components/page-editor/page-editor.css",
+            L"/components/blocks/_shared/block-core.css",
+            L"/components/blocks/callout/callout.css",
+            L"/components/blocks/code/code.css",
+            L"/components/blocks/columns/columns.css",
+            L"/components/blocks/heading/heading.css",
+            L"/components/blocks/image/image.css",
+            L"/components/blocks/link-button/link-button.css",
+            L"/components/blocks/list-items/list-item-shared.css",
+            L"/components/blocks/quote/quote.css",
+            L"/components/blocks/table/table.css"
+        };
 
-        // --- 核心修改：从资源中提取其他 JS 库 ---
+        std::filesystem::path styleCssPath = buildPath / "style.css";
+        std::ofstream styleCssFile(styleCssPath, std::ios::binary);
+
+        for (const auto& resource_path : css_resource_paths) {
+            auto it = g_resource_map.find(resource_path);
+            if (it != g_resource_map.end()) {
+                void* pData = nullptr;
+                DWORD dwSize = 0;
+                if (LoadResourceData(it->second, pData, dwSize)) {
+
+                    // --- 新增的BOM检查逻辑 ---
+                    const char* data_ptr = static_cast<const char*>(pData);
+                    DWORD data_size = dwSize;
+
+                    // 检查是否存在 UTF-8 BOM (0xEF, 0xBB, 0xBF)
+                    if (data_size >= 3 &&
+                        static_cast<unsigned char>(data_ptr[0]) == 0xEF &&
+                        static_cast<unsigned char>(data_ptr[1]) == 0xBB &&
+                        static_cast<unsigned char>(data_ptr[2]) == 0xBF)
+                    {
+                        // 如果存在，则跳过这3个字节
+                        data_ptr += 3;
+                        data_size -= 3;
+                    }
+
+                    // 写入处理过的数据
+                    styleCssFile.write(data_ptr, data_size);
+                    styleCssFile << "\n\n";
+                }
+            }
+        }
+        styleCssFile.close();
+
+        // Step 2: Copy JavaScript libraries as requested by the frontend
         if (payload.contains("paths") && payload["paths"].is_array()) {
             for (const auto& item : payload["paths"]) {
                 if (item.is_string()) {
                     std::string libPathStr = item.get<std::string>();
-                    // 将 webview_ui 相对路径转换为我们的资源 URL 路径 (e.g., "js/vendor/..." -> "/js/vendor/...")
                     std::replace(libPathStr.begin(), libPathStr.end(), '\\', '/');
                     std::wstring resourceUrlPath = string_to_wstring("/" + libPathStr);
-
                     std::filesystem::path destLibPath = buildPath / libPathStr;
 
                     if (!ExtractResourceToFile(resourceUrlPath, destLibPath)) {
@@ -610,7 +648,6 @@ void Backend::PrepareExportLibs(const json& payload) {
             }
         }
 
-        // 成功后，通知前端继续
         SendMessageToJS({ {"action", "exportLibsReady"} });
     }
     catch (const std::exception& e) {
@@ -639,41 +676,43 @@ void Backend::ProcessExportImages(const json& payload) {
             std::string pagePathStr = task.at("pagePath").get<std::string>();
             std::filesystem::path pagePath(pagePathStr);
 
-            // 1. Determine the target 'src' directory for this page
             std::filesystem::path relativePagePath = std::filesystem::relative(pagePath, workspacePath);
             std::filesystem::path targetHtmlPath = buildPath / relativePagePath;
             targetHtmlPath.replace_extension(".html");
             std::filesystem::path targetSrcDir = targetHtmlPath.parent_path() / "src";
 
-            // 2. Create the 'src' directory if it doesn't exist
             if (!std::filesystem::exists(targetSrcDir)) {
                 std::filesystem::create_directories(targetSrcDir);
             }
 
             std::wstring newRelativePathStr;
-            std::wstring sourcePathW = string_to_wstring(originalSrc);
+            std::filesystem::path sourcePath;
 
-            std::string fileUriPrefix = "file:///";
-            if (originalSrc.rfind(fileUriPrefix, 0) == 0) {
-                // It's a file URI. Strip the prefix and convert slashes.
-                sourcePathW = sourcePathW.substr(fileUriPrefix.length());
-                std::replace(sourcePathW.begin(), sourcePathW.end(), L'/', L'\\');
+            // Check for the special local file URI scheme first.
+            std::string localFileAppPrefix = "https://veritnote.app/local-file/";
+            if (originalSrc.rfind(localFileAppPrefix, 0) == 0) {
+                std::string encoded_path_str = originalSrc.substr(localFileAppPrefix.length());
+
+                // URL Decode the path
+                char decoded_path_cstr[MAX_PATH];
+                DWORD decoded_len = MAX_PATH;
+                if (UrlUnescapeA((char*)encoded_path_str.c_str(), decoded_path_cstr, &decoded_len, 0) == S_OK) {
+                    sourcePath = string_to_wstring(std::string(decoded_path_cstr, decoded_len));
+                }
+                else {
+                    continue; // Skip if decoding fails
+                }
             }
-            std::filesystem::path sourcePath(sourcePathW);
-
-            // 3. Check if it's a local file or an online URL
-            if (originalSrc.rfind("http", 0) == 0) {
+            else if (originalSrc.rfind("http", 0) == 0) {
                 // It's an online URL, download it
                 std::wstring originalSrcW = string_to_wstring(originalSrc);
+                std::filesystem::path onlinePath(originalSrcW);
 
-                // Generate a unique filename to avoid collisions
                 size_t hash = std::hash<std::string>{}(originalSrc);
-                std::wstring extension = sourcePath.extension().wstring();
+                std::wstring extension = onlinePath.extension().wstring();
                 std::wstring uniqueFilename = std::to_wstring(hash) + extension;
-
                 std::filesystem::path destPath = targetSrcDir / uniqueFilename;
 
-                // --- NEW: Use IBindStatusCallback for progress ---
                 int lastPercentage = -1;
                 auto onProgress = [&](ULONG progress, ULONG max) {
                     int percentage = (int)(((float)progress / max) * 100);
@@ -690,41 +729,38 @@ void Backend::ProcessExportImages(const json& payload) {
                     };
 
                 HRESULT downloadResult = E_FAIL;
-                auto onComplete = [&](HRESULT hr) {
-                    downloadResult = hr;
-                    };
-
-                // Create the callback object
+                auto onComplete = [&](HRESULT hr) { downloadResult = hr; };
                 DownloadProgressCallback* callback = new DownloadProgressCallback(onProgress, onComplete);
-
-                // Download the file with the callback
                 HRESULT hr = URLDownloadToFileW(NULL, originalSrcW.c_str(), destPath.c_str(), 0, callback);
-                callback->Release(); // Release reference
+                callback->Release();
 
                 if (SUCCEEDED(hr)) {
                     newRelativePathStr = L"src/" + uniqueFilename;
                 }
                 else {
-                    // Could not download, skip this image
                     continue;
                 }
             }
             else {
-                // It's a local file, copy it
-                if (std::filesystem::exists(sourcePath)) {
-                    std::wstring filename = sourcePath.filename().wstring();
-                    std::filesystem::path destPath = targetSrcDir / filename;
-                    std::filesystem::copy_file(sourcePath, destPath, std::filesystem::copy_options::overwrite_existing);
-                    newRelativePathStr = L"src/" + filename;
-                }
-                else {
-                    // Source file doesn't exist, skip it
-                    continue;
-                }
+                // It's a regular local file (e.g., from an old relative path)
+                sourcePath = string_to_wstring(originalSrc);
             }
 
-            // 4. Add the mapping to our map
-            // The new path needs to use forward slashes for HTML
+            // --- Unified Copy Logic ---
+            // This part now works for both decoded special URIs and regular local paths.
+            if (!newRelativePathStr.empty()) {
+                // This was an online file, already processed.
+            }
+            else if (std::filesystem::exists(sourcePath)) {
+                std::wstring filename = sourcePath.filename().wstring();
+                std::filesystem::path destPath = targetSrcDir / filename;
+                std::filesystem::copy_file(sourcePath, destPath, std::filesystem::copy_options::overwrite_existing);
+                newRelativePathStr = L"src/" + filename;
+            }
+            else {
+                continue; // Source file doesn't exist, skip.
+            }
+
             std::string finalRelativePath = wstring_to_string(newRelativePathStr);
             std::replace(finalRelativePath.begin(), finalRelativePath.end(), '\\', '/');
             srcMap[originalSrc] = finalRelativePath;
@@ -734,7 +770,7 @@ void Backend::ProcessExportImages(const json& payload) {
     }
     catch (const std::exception& e) {
         response["error"] = e.what();
-        response["payload"]["srcMap"] = json::object(); // Send empty map on error
+        response["payload"]["srcMap"] = json::object();
     }
 
     SendMessageToJS(response);
@@ -760,12 +796,10 @@ void Backend::FetchQuoteContent(const json& payload) {
     response["action"] = "quoteContentLoaded";
 
     try {
-        // 1. Extract data from the frontend's request
         std::string quoteBlockId = payload.at("quoteBlockId").get<std::string>();
         std::string referenceLink = payload.at("referenceLink").get<std::string>();
         response["payload"]["quoteBlockId"] = quoteBlockId;
 
-        // 2. Parse the reference link into file path and an optional block ID
         std::string filePathStr;
         std::string blockId;
         size_t hashPos = referenceLink.find('#');
@@ -779,41 +813,41 @@ void Backend::FetchQuoteContent(const json& payload) {
         }
 
         std::filesystem::path filePath(filePathStr);
-
-        // 3. Read and parse the source .veritnote file
         std::ifstream file(filePath);
         if (!file.is_open()) {
             throw std::runtime_error("Referenced file not found: " + filePathStr);
         }
 
-        std::string contentStr((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        if (contentStr.empty()) {
-            // If the source file is empty, return an empty array
-            response["payload"]["content"] = json::array();
-            SendMessageToJS(response);
-            return;
+        json pageJson = json::parse(file); // This can be an array (old) or an object (new)
+
+        // --- START OF FIX ---
+
+        json blocksArray;
+        // Determine where the array of blocks is located
+        if (pageJson.is_array()) {
+            blocksArray = pageJson; // Old format, the whole file is the array
+        }
+        else if (pageJson.is_object() && pageJson.contains("blocks")) {
+            blocksArray = pageJson["blocks"]; // New format, it's in the "blocks" key
+        }
+        else {
+            blocksArray = json::array(); // Not a valid format, treat as empty
         }
 
-        json pageContent = json::parse(contentStr);
-
-        // 4. Find the specific content to send back
         if (blockId.empty()) {
-            // Case A: No block ID, reference is to the whole page.
-            // The content is the entire JSON array from the file.
-            response["payload"]["content"] = pageContent;
+            // Case A: Reference is to the whole page.
+            // Send the extracted array of blocks.
+            response["payload"]["content"] = blocksArray;
         }
         else {
             // Case B: A specific block ID is provided.
-            // We need to search for it recursively.
             json foundBlock = nullptr;
 
             std::function<void(const json&)> find_block =
                 [&](const json& current_blocks) {
                 if (!current_blocks.is_array()) return;
-
                 for (const auto& block : current_blocks) {
-                    if (foundBlock != nullptr) return; // Stop searching once found
-
+                    if (foundBlock != nullptr) return;
                     if (block.value("id", "") == blockId) {
                         foundBlock = block;
                         return;
@@ -824,25 +858,22 @@ void Backend::FetchQuoteContent(const json& payload) {
                 }
                 };
 
-            find_block(pageContent);
+            // Search in the extracted blocksArray
+            find_block(blocksArray);
 
             if (foundBlock != nullptr) {
-                // If found, send it back as an array containing just that one block
                 response["payload"]["content"] = json::array({ foundBlock });
             }
             else {
-                // If not found, send an empty array
                 response["payload"]["content"] = json::array();
             }
         }
+        // --- END OF FIX ---
     }
     catch (const std::exception& e) {
-        // If any error occurs (file not found, JSON parse error, etc.)
-        // send an error message back to the frontend.
         response["payload"]["error"] = e.what();
     }
 
-    // 5. Send the final response to the frontend
     SendMessageToJS(response);
 }
 
@@ -1031,4 +1062,143 @@ void Backend::OpenExternalLink(const std::wstring& url) {
     // ShellExecute is the standard Windows API to open files/URLs with their default handler.
     // We pass the main window handle, the "open" verb, the URL, and default parameters.
     ShellExecuteW(m_hWnd, L"open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+}
+
+
+
+// Helper to read a JSON file, returns empty object on failure
+json Backend::ReadJsonFile(const std::filesystem::path& path) {
+    if (!std::filesystem::exists(path)) return json::object();
+    try {
+        std::ifstream file(path);
+        return json::parse(file);
+    }
+    catch (...) {
+        return json::object();
+    }
+}
+
+// Helper to write a JSON file
+void Backend::WriteJsonFile(const std::filesystem::path& path, const json& data) {
+    try {
+        std::ofstream file(path);
+        file << data.dump(2);
+    }
+    catch (...) {
+        // Handle error
+    }
+}
+
+// Safely extracts a value that could be a string or a number and returns it as a string.
+std::string get_callback_id(const json& payload) {
+    if (payload.contains("callbackId")) {
+        const auto& id_val = payload["callbackId"];
+        if (id_val.is_string()) {
+            return id_val.get<std::string>();
+        }
+        if (id_val.is_number()) {
+            // This ensures it's always a string
+            return std::to_string(id_val.get<long long>());
+        }
+    }
+    return "";
+}
+
+
+
+void Backend::EnsureWorkspaceConfigs(const json& payload) {
+    if (m_workspaceRoot.empty()) return;
+
+    // Define the default structure for a new veritnoteconfig file
+    json defaultConfig = {
+        {"page", json::object()}
+        // Future: {"graph", json::object()}
+    };
+
+    // Add one for the root directory itself
+    std::filesystem::path rootConfigPath = std::filesystem::path(m_workspaceRoot) / "veritnoteconfig";
+    if (!std::filesystem::exists(rootConfigPath)) {
+        WriteJsonFile(rootConfigPath, defaultConfig);
+    }
+
+    // Recursively iterate through all subdirectories
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(m_workspaceRoot)) {
+        if (entry.is_directory()) {
+            std::filesystem::path configPath = entry.path() / "veritnoteconfig";
+            if (!std::filesystem::exists(configPath)) {
+                WriteJsonFile(configPath, defaultConfig);
+            }
+        }
+    }
+    // Optionally, send a message back to JS confirming completion
+}
+
+void Backend::ReadConfigFile(const json& payload) {
+    std::string pathStr = payload.value("path", "");
+    std::string callbackId = get_callback_id(payload);
+
+    json response;
+    response["action"] = "configFileRead";
+    response["payload"]["callbackId"] = callbackId;
+    response["payload"]["data"] = ReadJsonFile(pathStr);
+
+    SendMessageToJS(response);
+}
+
+void Backend::WriteConfigFile(const json& payload) {
+    std::string pathStr = payload.value("path", "");
+    json data = payload.value("data", json::object());
+    WriteJsonFile(pathStr, data);
+    // Optionally send a success message
+}
+
+void Backend::ResolveFileConfiguration(const json& payload) {
+    std::string filePathStr = payload.value("path", "");
+    std::string callbackId = get_callback_id(payload);
+
+    json finalConfig = json::object();
+    std::filesystem::path currentPath(filePathStr);
+
+    // Step 1: Read the file's own embedded config
+    json fileContent = ReadJsonFile(currentPath);
+    // 在访问键之前，检查它是否是一个对象
+    if (fileContent.is_object() && fileContent.contains("config")) {
+        finalConfig = fileContent["config"];
+    }
+
+    // Step 2: Walk up the directory tree, merging folder configs
+    std::filesystem::path dirPath = currentPath.parent_path();
+    std::filesystem::path workspacePath(m_workspaceRoot);
+
+    while (true) {
+        if (dirPath.wstring().length() < workspacePath.wstring().length()) {
+            break; // Stop if we go above the workspace root
+        }
+
+        json folderConfig = ReadJsonFile(dirPath / "veritnoteconfig");
+
+        // Merge folderConfig into finalConfig, but only for keys that are "inherit" or missing in finalConfig
+        for (auto const& [category, catConfig] : folderConfig.items()) {
+            if (!finalConfig.contains(category)) {
+                finalConfig[category] = json::object();
+            }
+            for (auto const& [key, value] : catConfig.items()) {
+                if (!finalConfig[category].contains(key) || finalConfig[category][key] == "inherit") {
+                    finalConfig[category][key] = value;
+                }
+            }
+        }
+
+        if (dirPath == workspacePath) {
+            break; // Stop after processing the root
+        }
+        dirPath = dirPath.parent_path();
+    }
+
+    json response;
+    response["action"] = "fileConfigurationResolved";
+    response["payload"]["callbackId"] = callbackId;
+    response["payload"]["config"] = finalConfig;
+
+    SendMessageToJS(response);
 }

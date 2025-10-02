@@ -46,6 +46,11 @@ class TodoListItemBlock extends TextBlock {
 
         // 初始化 checkbox 的状态
         this.checkbox.checked = this.properties.checked;
+        if (this.properties.checked) {
+            this.checkbox.setAttribute('checked', '');
+        } else {
+            this.checkbox.removeAttribute('checked');
+        }
         this.updateCheckedStateStyle();
 
         // 初始化文本区域
@@ -125,5 +130,61 @@ class TodoListItemBlock extends TextBlock {
         
         // 复用 TextBlock 的空块删除等逻辑
         super.onKeyDown(e);
+    }
+
+
+    // --- NEW: Implement Export API ---
+    async getExportHtml(blockElement, options) {
+        const checkbox = blockElement.querySelector('.todo-checkbox');
+        if (checkbox) {
+            // Add a data-id for the script to target
+            checkbox.setAttribute('data-id', `todo-${this.id}`);
+        }
+        return blockElement;
+    }
+
+    static getExportScripts() {
+        // The entire script logic is now self-contained here.
+        return `
+            const TODO_STORAGE_KEY = 'veritnote_todo_state';
+
+            function loadTodoState() {
+                try {
+                    const savedState = JSON.parse(localStorage.getItem(TODO_STORAGE_KEY) || '{}');
+                    document.querySelectorAll('.todo-checkbox[data-id]').forEach(checkbox => {
+                        const id = checkbox.getAttribute('data-id');
+                        const textEl = checkbox.closest('.block-content').querySelector('.list-item-text-area');
+                        
+                        if (savedState[id] !== undefined) {
+                            const isChecked = savedState[id];
+                            checkbox.checked = isChecked;
+                            if (textEl) {
+                                textEl.classList.toggle('todo-checked', isChecked);
+                            }
+                        }
+                    });
+                } catch (e) { console.error('Failed to load todo state:', e); }
+            }
+
+            function saveTodoState(id, isChecked) {
+                try {
+                    const savedState = JSON.parse(localStorage.getItem(TODO_STORAGE_KEY) || '{}');
+                    savedState[id] = isChecked;
+                    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(savedState));
+                } catch (e) { console.error('Failed to save todo state:', e); }
+            }
+
+            document.querySelectorAll('.todo-checkbox[data-id]').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    const isChecked = e.target.checked;
+                    saveTodoState(id, isChecked);
+                    const textEl = e.target.closest('.block-content').querySelector('.list-item-text-area');
+                    if (textEl) { textEl.classList.toggle('todo-checked', isChecked); }
+                });
+            });
+
+            loadTodoState();
+        `;
     }
 }

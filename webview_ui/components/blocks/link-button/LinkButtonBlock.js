@@ -43,7 +43,7 @@
     handleToolbarAction(action, buttonElement) {
         if (action === 'editLinkButton') {
             // We call the global showLinkPopover function
-            window.showLinkPopover({
+            this.editor.popoverManager.showLink({
                 targetElement: buttonElement,
                 existingValue: this.properties.url || '',
                 callback: (value) => {

@@ -11,34 +11,23 @@ const ipc = {
 
     // 初始化，监听来自 C++ 的消息
     init: () => {
-        if (window.chrome && window.chrome.webview) { // Corrected: should be window.chrome.webview
-            console.log('DEBUG: ipc.js - Initializing message listener...');
+        if (window.chrome && window.chrome.webview) {
             window.chrome.webview.addEventListener('message', event => {
                 const message = event.data;
+                const callbackId = message.payload?.callbackId;
                 
-                // ** DEBUG: Log EVERY single message received **
-                console.group(`--- DEBUG: ipc.js received a message @ ${new Date().toLocaleTimeString()} ---`);
-                console.log('Raw message data:', message);
-                console.log('Type of message:', typeof message);
-                
-                // Check if it's our specific message from the preview
-                // We check for `source` to be absolutely sure.
-                if (message && typeof message === 'object' && message.source === 'preview-link-click') {
-                    console.log('Action: Identified as a preview link click.');
-                    
-                    console.groupEnd();
-                    return; // Stop further processing
+                // SIMPLIFIED LOGIC: Assuming C++ always sends a string now.
+                if (callbackId !== undefined && ipc._callbacks.has(Number(callbackId))) {
+                    const numericId = Number(callbackId);
+                    const resolve = ipc._callbacks.get(numericId);
+                    resolve(message.payload);
+                    ipc._callbacks.delete(numericId);
+                } else {
+                    // Existing event dispatching logic
+                    const customEvent = new CustomEvent(message.action, { detail: message });
+                    window.dispatchEvent(customEvent);
                 }
-
-                // If it's not our custom message, assume it's from C++
-                console.log('Action: Treating as a message from C++. Dispatching as CustomEvent:', message.action);
-                const customEvent = new CustomEvent(message.action, { detail: message });
-                window.dispatchEvent(customEvent);
-                console.groupEnd();
             });
-            console.log('DEBUG: ipc.js - Message listener attached successfully.');
-        } else {
-            console.error('DEBUG: ipc.js - ERROR: window.chrome.webview not found! IPC will not work.');
         }
     },
 
@@ -51,8 +40,8 @@ const ipc = {
         ipc.send('loadPage', { path, fromPreview, blockIdToFocus });
     },
 
-    savePage: (path, content) => {
-        ipc.send('savePage', { path, content });
+    savePage: (path, blocks, config) => {
+        ipc.send('savePage', { path, blocks, config });
     },
 
     startExport: () => {
@@ -99,6 +88,23 @@ const ipc = {
     closeWindow: () => ipc.send('closeWindow'),
     startWindowDrag: () => ipc.send('startWindowDrag'),
     checkWindowState: () => ipc.send('checkWindowState'),
+
+    // --- NEW: Promise-based wrappers for new C++ functions ---
+    _callbacks: new Map(),
+    _nextCallbackId: 0,
+
+    _sendRequest: function(action, payload) {
+        return new Promise((resolve) => {
+            const callbackId = this._nextCallbackId++;
+            this._callbacks.set(callbackId, resolve);
+            this.send(action, { ...payload, callbackId });
+        });
+    },
+
+    ensureWorkspaceConfigs: () => ipc.send('ensureWorkspaceConfigs'),
+    readConfigFile: (path) => ipc._sendRequest('readConfigFile', { path }),
+    writeConfigFile: (path, data) => ipc.send('writeConfigFile', { path, data }),
+    resolveFileConfiguration: (path) => ipc._sendRequest('resolveFileConfiguration', { path }),
 };
 
 // 立即初始化监听器

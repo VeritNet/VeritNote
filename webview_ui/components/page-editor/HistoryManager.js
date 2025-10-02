@@ -1,4 +1,4 @@
-// js/HistoryManager.js
+﻿// js/HistoryManager.js
 class HistoryManager {
     constructor(editor, maxStackSize = 100) {
         this.editor = editor;
@@ -122,17 +122,23 @@ class HistoryManager {
         if (!snapshot) return;
         const pageContent = JSON.parse(snapshot);
         
-        this.editor.load({
-            path: this.editor.currentPagePath,
-            content: pageContent
-        });
+        // 1. 用快照中的数据替换编辑器当前的 blocks 数组
+        this.editor.blocks = pageContent.map(data => this.editor.createBlockInstance(data)).filter(Boolean);
+        // 2. 确保所有根级块的 parent 属性为 null
+        this.editor.blocks.forEach(block => block.parent = null);
+        // 3. 调用编辑器的 render 方法，用新的 blocks 数组完全重构 DOM
+        this.editor.render();
 
-        // ** NEW: Dispatch a global update event after history change **
-        // This tells listeners like ReferenceManager to re-check everything.
+        if (this.editor.referenceManager) {
+            const allBlockData = this.editor.getBlocksForSaving();
+            this.editor.referenceManager.handleHistoryChange(this.editor.filePath, allBlockData);
+        }
+
+        // 这个事件对于让 ReferenceManager 等其他模块同步状态至关重要
         window.dispatchEvent(new CustomEvent('history:applied', {
             detail: {
                 filePath: this.editor.currentPagePath,
-                allBlockData: this.editor.getBlocksForSaving() // Send the complete new state
+                allBlockData: this.editor.getBlocksForSaving() // 发送完整的最新状态
             }
         }));
     }

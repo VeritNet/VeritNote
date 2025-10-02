@@ -1,0 +1,16 @@
+/* components/blocks/link-button/link-button.css */
+
+.block-content[data-type="linkButton"] a {
+    display: inline-block;
+    background-color: var(--bg-accent);
+    border: 1px solid var(--border-primary);
+    padding: var(--spacing-s) var(--spacing-m);
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color var(--transition-fast);
+}
+
+    .block-content[data-type="linkButton"] a:hover {
+        background-color: var(--bg-tertiary);
+        text-decoration: none; /* Ensure no underline on hover */
+    }

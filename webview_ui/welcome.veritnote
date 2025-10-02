@@ -1,325 +1,369 @@
-[
-  {
-    "children": [],
-    "content": "Welcome to VeritNote 👋",
-    "id": "e7d4c360-6773-494d-831e-f9dda233986a",
-    "properties": {},
-    "type": "heading1"
-  },
-  {
-    "children": [],
-    "content": "This is an example page.",
-    "id": "a872e90c-acb8-4441-b3b5-fc8e952b19ac",
-    "properties": {},
-    "type": "paragraph"
-  },
-  {
-    "children": [],
-    "content": "How to get started ?",
-    "id": "12bf45d2-60ba-40da-8225-0f60d6047310",
-    "properties": {},
-    "type": "heading2"
-  },
-  {
-    "children": [],
-    "content": "Right-click on the folders in the sidebar on the left to create new page or new folder to organize your workspace.",
-    "id": "3a4f5c29-1528-455b-9415-b267cd7e6d0b",
-    "properties": {},
-    "type": "paragraph"
-  },
-  {
-    "children": [],
-    "content": "In the editor, typing \"/\" will bring up the command menu, allowing you to quickly create different types of Blocks, as annotated below:",
-    "id": "b568684d-ef8e-4ec7-9293-ec9959f85055",
-    "properties": {},
-    "type": "paragraph"
-  },
-  {
-    "children": [],
-    "content": "You can&nbsp;<b>bold text</b>,&nbsp;<i>italic text</i>,&nbsp;<u>underlined text</u>&nbsp;or&nbsp;<span style=\"color: rgb(255, 107, 107);\">add color to text</span>&nbsp;like this.",
-    "id": "191a25bc-3329-4a49-82dd-a3708dc67c69",
-    "properties": {},
-    "type": "paragraph"
-  },
-  {
-    "children": [
-      {
-        "children": [
-          {
-            "children": [
-              {
-                "children": [],
-                "content": "<b>Try dragging a block to the left or right side of another block to create a&nbsp;<span style=\"color: rgb(247, 209, 84);\">column layout!</span></b>",
-                "id": "2c944318-8c0f-4a80-862e-0d2aa0e619b9",
-                "properties": {},
-                "type": "paragraph"
-              }
-            ],
-            "content": "",
-            "id": "265e1d16-5fac-41f8-83ad-b47a67e3e4cc",
-            "properties": {
-              "width": 0.5320855614973262
+{
+  "blocks": [
+    {
+      "children": [],
+      "content": "Welcome to VeritNote 👋",
+      "id": "e7d4c360-6773-494d-831e-f9dda233986a",
+      "properties": {},
+      "type": "heading1"
+    },
+    {
+      "children": [],
+      "content": "This is an example page.",
+      "id": "a872e90c-acb8-4441-b3b5-fc8e952b19ac",
+      "properties": {},
+      "type": "paragraph"
+    },
+    {
+      "children": [],
+      "content": "How to get started ?",
+      "id": "12bf45d2-60ba-40da-8225-0f60d6047310",
+      "properties": {},
+      "type": "heading2"
+    },
+    {
+      "children": [],
+      "content": "Right-click on the folders in the sidebar on the left to create new page or new folder to organize your workspace.",
+      "id": "3a4f5c29-1528-455b-9415-b267cd7e6d0b",
+      "properties": {},
+      "type": "paragraph"
+    },
+    {
+      "children": [],
+      "content": "In the editor, typing \"/\" will bring up the command menu, allowing you to quickly create different types of Blocks, as annotated below:",
+      "id": "b568684d-ef8e-4ec7-9293-ec9959f85055",
+      "properties": {},
+      "type": "paragraph"
+    },
+    {
+      "children": [],
+      "content": "You can&nbsp;<b>bold text</b>,&nbsp;<i>italic text</i>,&nbsp;<u>underlined text</u>&nbsp;or&nbsp;<span style=\"color: rgb(255, 107, 107);\">add color to text</span>&nbsp;like this.",
+      "id": "191a25bc-3329-4a49-82dd-a3708dc67c69",
+      "properties": {},
+      "type": "paragraph"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "content": "<b>Try dragging a block to the left or right side of another block to create a&nbsp;<span style=\"color: rgb(247, 209, 84);\">column layout!</span></b>",
+                  "id": "2c944318-8c0f-4a80-862e-0d2aa0e619b9",
+                  "properties": {},
+                  "type": "paragraph"
+                }
+              ],
+              "content": "",
+              "id": "265e1d16-5fac-41f8-83ad-b47a67e3e4cc",
+              "properties": {
+                "width": 0.5320855614973262
+              },
+              "type": "column"
             },
-            "type": "column"
+            {
+              "children": [
+                {
+                  "children": [],
+                  "content": "console.log(\"Like this !\")",
+                  "id": "9aaf3116-16e0-4b40-8c2c-1894e44201bd",
+                  "properties": {
+                    "language": "javascript"
+                  },
+                  "type": "code"
+                }
+              ],
+              "content": "",
+              "id": "9c0007b5-6f37-4633-a8cc-f3e1f78f6516",
+              "properties": {
+                "width": 0.4679144385026738
+              },
+              "type": "column"
+            }
+          ],
+          "content": "",
+          "id": "312c5b10-d3de-41de-88a0-dac6c240ede0",
+          "properties": {},
+          "type": "columns"
+        }
+      ],
+      "content": "",
+      "id": "74bc1b11-1127-4fde-ace3-88535e563e03",
+      "properties": {},
+      "type": "callout"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [],
+              "content": "",
+              "id": "d8196c6f-730a-4ef5-8913-8ac82a126913",
+              "properties": {
+                "href": "https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg",
+                "src": "https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg"
+              },
+              "type": "image"
+            }
+          ],
+          "content": "",
+          "id": "659e580f-737a-4105-9590-9215acff1ec8",
+          "properties": {
+            "width": 0.5
           },
-          {
-            "children": [
-              {
-                "children": [],
-                "content": "console.log(\"Like this !\")",
-                "id": "9aaf3116-16e0-4b40-8c2c-1894e44201bd",
-                "properties": {
-                  "language": "javascript"
+          "type": "column"
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "content": "Images, text, and buttons can all be used for navigation (link to <span style=\"color: rgb(255, 107, 107);\">page/block/url</span>).",
+              "id": "e5d122c0-2d2e-40d2-90a5-1cab10cb4a22",
+              "properties": {},
+              "type": "paragraph"
+            },
+            {
+              "children": [],
+              "content": "For example, click the image to view the original webpage for this image.",
+              "id": "2213aa68-c375-4956-a56a-865f0a89d174",
+              "properties": {},
+              "type": "paragraph"
+            },
+            {
+              "children": [],
+              "content": "Click&nbsp;<a href=\"http://github.com/veritnet/veritnote\" style=\"color: rgb(86, 156, 214);\">here</a>&nbsp;to view the VeritNote open-source repository.",
+              "id": "e1b56abd-6f5b-4e1a-9286-e9ba7c95553c",
+              "properties": {},
+              "type": "paragraph"
+            },
+            {
+              "children": [],
+              "content": "🎉Enjoy using it! Feel free to ✨star or pull request&nbsp;<a href=\"http://github.com/veritnet/veritnote\" style=\"color: rgb(86, 156, 214);\">this repository.</a>",
+              "id": "c601c868-0f9b-493b-8ee1-9444f7dfcba2",
+              "properties": {},
+              "type": "paragraph"
+            }
+          ],
+          "content": "",
+          "id": "678a7775-e012-416a-9170-fa7c307c44f2",
+          "properties": {
+            "width": 0.5
+          },
+          "type": "column"
+        }
+      ],
+      "content": "",
+      "id": "47ba6d1a-8e6d-48a6-81a6-04a5fe27711e",
+      "properties": {},
+      "type": "columns"
+    },
+    {
+      "children": [],
+      "content": "PS:&nbsp;Click the&nbsp;<span style=\"color: rgb(255, 107, 107);\">Cook</span>&nbsp;button in the bottom-left corner to export the entire workspace as&nbsp;<span style=\"color: rgb(69, 183, 209);\">native static HTML</span>, including&nbsp;<span style=\"color: rgb(69, 183, 209);\">all CSS styles and animations&nbsp;</span>!",
+      "id": "bd3fcc96-5680-4c82-a8d3-b742b5ce5763",
+      "properties": {},
+      "type": "paragraph"
+    },
+    {
+      "children": [],
+      "content": "Some example blocks:",
+      "id": "28483b0a-96bc-4828-8891-c51d7428e122",
+      "properties": {},
+      "type": "heading2"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [],
+              "content": "Link Button",
+              "id": "b23ba775-c867-4001-ba92-b4bc8104cde3",
+              "properties": {
+                "url": "#"
+              },
+              "type": "linkButton"
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "children": [],
+                      "content": "<b><i><u>Hi</u></i></b>",
+                      "id": "15715557-98fb-47e7-af3b-77581812e57f",
+                      "properties": {},
+                      "type": "paragraph"
+                    }
+                  ],
+                  "content": "",
+                  "id": "f20120a9-ec2a-463b-a541-136d65b1054a",
+                  "properties": {},
+                  "type": "callout"
+                }
+              ],
+              "content": "Toggle List",
+              "id": "2db3f006-fc86-407a-9c14-f53d83ec6e6b",
+              "properties": {
+                "isCollapsed": false
+              },
+              "type": "toggleListItem"
+            }
+          ],
+          "content": "",
+          "id": "20aac22c-5132-45e1-8a50-7d70b81ef9e8",
+          "properties": {
+            "width": 0.39498806682577564
+          },
+          "type": "column"
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "content": "Lists can hold sub blocks!",
+                  "id": "ed5181d2-146a-41f1-b0bf-72735178e374",
+                  "properties": {},
+                  "type": "paragraph"
+                }
+              ],
+              "content": "Bullet List",
+              "id": "926361dc-a0eb-40ca-8999-f6b1c4fecb14",
+              "properties": {},
+              "type": "bulletedListItem"
+            }
+          ],
+          "content": "",
+          "id": "65fc93b4-8501-4f69-933a-33f9005f5c7f",
+          "properties": {
+            "width": 0.6050119331742243
+          },
+          "type": "column"
+        }
+      ],
+      "content": "",
+      "id": "2b3576e8-c749-498a-bf49-e2592ec1346b",
+      "properties": {},
+      "type": "columns"
+    },
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "content": "Table View",
+                  "id": "e2be83f3-f24d-4439-bb5e-8ab7a1a1fc70",
+                  "properties": {},
+                  "type": "heading2"
+                }
+              ],
+              "content": "",
+              "id": "f629d8af-6419-4d81-bc16-0eaf6fcf633a",
+              "properties": {},
+              "type": "tableCell"
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "children": [],
+                      "content": "And even sub sub blocks...",
+                      "id": "ef413a9b-f388-4d0c-9ad9-24d03aa9ee74",
+                      "properties": {
+                        "number": 1
+                      },
+                      "type": "numberedListItem"
+                    }
+                  ],
+                  "content": "Todo List",
+                  "id": "39f9abc9-c299-4321-8a2b-06ff69d22aa9",
+                  "properties": {
+                    "checked": true
+                  },
+                  "type": "todoListItem"
+                }
+              ],
+              "content": "",
+              "id": "5996f37d-68b9-46d2-bafb-16c83316385e",
+              "properties": {},
+              "type": "tableCell"
+            }
+          ],
+          "content": "",
+          "id": "cf851bdf-4a74-4647-9862-b5c34b640c56",
+          "properties": {},
+          "type": "tableRow"
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "content": "",
+                  "id": "5204c3b0-0036-4787-b99c-536dd76ffe2e",
+                  "properties": {
+                    "clickLink": "welcome.veritnote#2c944318-8c0f-4a80-862e-0d2aa0e619b9",
+                    "referenceLink": "welcome.veritnote#2c944318-8c0f-4a80-862e-0d2aa0e619b9",
+                    "style": "default"
+                  },
+                  "type": "quote"
+                }
+              ],
+              "content": "",
+              "id": "779473c6-bd09-4baf-90d9-01cb33135fcc",
+              "properties": {},
+              "type": "tableCell"
+            },
+            {
+              "children": [
+                {
+                  "children": [],
+                  "content": "You can <b>quote</b>, copy, and link to blocks by dragging them in and out of the reference board on the right.",
+                  "id": "bc719e82-7ff5-4a0f-9879-c5e33f54a0aa",
+                  "properties": {},
+                  "type": "paragraph"
                 },
-                "type": "code"
-              }
-            ],
-            "content": "",
-            "id": "9c0007b5-6f37-4633-a8cc-f3e1f78f6516",
-            "properties": {
-              "width": 0.4679144385026738
-            },
-            "type": "column"
-          }
+                {
+                  "children": [],
+                  "content": "Also check the details board for more info about the selected blocks.",
+                  "id": "ecc1d771-23a2-4834-9dd1-607350f0bd35",
+                  "properties": {},
+                  "type": "paragraph"
+                }
+              ],
+              "content": "",
+              "id": "558aa5c3-b969-4d77-8b72-05ab2ef3dca8",
+              "properties": {},
+              "type": "tableCell"
+            }
+          ],
+          "content": "",
+          "id": "db0d773a-5252-4462-9543-5fdf46821b0a",
+          "properties": {},
+          "type": "tableRow"
+        }
+      ],
+      "content": "",
+      "id": "0b79b37d-de60-4db0-93a2-b9558ff9dc27",
+      "properties": {
+        "colWidths": [
+          0.4177215189873418,
+          0.5822784810126582
         ],
-        "content": "",
-        "id": "312c5b10-d3de-41de-88a0-dac6c240ede0",
-        "properties": {},
-        "type": "columns"
-      }
-    ],
-    "content": "",
-    "id": "74bc1b11-1127-4fde-ace3-88535e563e03",
-    "properties": {},
-    "type": "callout"
-  },
-  {
-    "children": [
-      {
-        "children": [
-          {
-            "children": [],
-            "content": "",
-            "id": "d8196c6f-730a-4ef5-8913-8ac82a126913",
-            "properties": {
-              "href": "https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg",
-              "src": "https://images.pexels.com/photos/358528/pexels-photo-358528.jpeg"
-            },
-            "type": "image"
-          }
-        ],
-        "content": "",
-        "id": "659e580f-737a-4105-9590-9215acff1ec8",
-        "properties": {
-          "width": 0.5
-        },
-        "type": "column"
+        "hasHeaderRow": false
       },
-      {
-        "children": [
-          {
-            "children": [],
-            "content": "Images, text, and buttons can all be used for navigation (link to <span style=\"color: rgb(255, 107, 107);\">page/block/url</span>).",
-            "id": "e5d122c0-2d2e-40d2-90a5-1cab10cb4a22",
-            "properties": {},
-            "type": "paragraph"
-          },
-          {
-            "children": [],
-            "content": "For example, click the image to view the original webpage for this image.",
-            "id": "2213aa68-c375-4956-a56a-865f0a89d174",
-            "properties": {},
-            "type": "paragraph"
-          },
-          {
-            "children": [],
-            "content": "Click&nbsp;<a href=\"http://github.com/veritnet/veritnote\" style=\"color: rgb(86, 156, 214);\">here</a>&nbsp;to view the VeritNote open-source repository.",
-            "id": "e1b56abd-6f5b-4e1a-9286-e9ba7c95553c",
-            "properties": {},
-            "type": "paragraph"
-          },
-          {
-            "children": [],
-            "content": "🎉Enjoy using it! Feel free to ✨star or pull request&nbsp;<a href=\"http://github.com/veritnet/veritnote\" style=\"color: rgb(86, 156, 214);\">this repository.</a>",
-            "id": "c601c868-0f9b-493b-8ee1-9444f7dfcba2",
-            "properties": {},
-            "type": "paragraph"
-          }
-        ],
-        "content": "",
-        "id": "678a7775-e012-416a-9170-fa7c307c44f2",
-        "properties": {
-          "width": 0.5
-        },
-        "type": "column"
-      }
-    ],
-    "content": "",
-    "id": "47ba6d1a-8e6d-48a6-81a6-04a5fe27711e",
-    "properties": {},
-    "type": "columns"
-  },
-  {
-    "children": [],
-    "content": "PS:&nbsp;Click the&nbsp;<span style=\"color: rgb(255, 107, 107);\">Cook</span>&nbsp;button in the bottom-left corner to export the entire workspace as&nbsp;<span style=\"color: rgb(69, 183, 209);\">native static HTML</span>, including&nbsp;<span style=\"color: rgb(69, 183, 209);\">all CSS styles and animations&nbsp;</span>!",
-    "id": "bd3fcc96-5680-4c82-a8d3-b742b5ce5763",
-    "properties": {},
-    "type": "paragraph"
-  },
-  {
-    "children": [],
-    "content": "Some example blocks:",
-    "id": "28483b0a-96bc-4828-8891-c51d7428e122",
-    "properties": {},
-    "type": "heading2"
-  },
-  {
-    "children": [
-      {
-        "children": [
-          {
-            "children": [],
-            "content": "Link Button",
-            "id": "b23ba775-c867-4001-ba92-b4bc8104cde3",
-            "properties": {
-              "url": "#"
-            },
-            "type": "linkButton"
-          },
-          {
-            "children": [
-              {
-                "children": [
-                  {
-                    "children": [],
-                    "content": "<b><i><u>Hi</u></i></b>",
-                    "id": "15715557-98fb-47e7-af3b-77581812e57f",
-                    "properties": {},
-                    "type": "paragraph"
-                  }
-                ],
-                "content": "",
-                "id": "f20120a9-ec2a-463b-a541-136d65b1054a",
-                "properties": {},
-                "type": "callout"
-              }
-            ],
-            "content": "Toggle List",
-            "id": "2db3f006-fc86-407a-9c14-f53d83ec6e6b",
-            "properties": {
-              "isCollapsed": false
-            },
-            "type": "toggleListItem"
-          }
-        ],
-        "content": "",
-        "id": "20aac22c-5132-45e1-8a50-7d70b81ef9e8",
-        "properties": {
-          "width": 0.39498806682577564
-        },
-        "type": "column"
-      },
-      {
-        "children": [
-          {
-            "children": [
-              {
-                "children": [],
-                "content": "Lists can hold sub blocks!",
-                "id": "ed5181d2-146a-41f1-b0bf-72735178e374",
-                "properties": {},
-                "type": "paragraph"
-              }
-            ],
-            "content": "Bullet List",
-            "id": "926361dc-a0eb-40ca-8999-f6b1c4fecb14",
-            "properties": {},
-            "type": "bulletedListItem"
-          },
-          {
-            "children": [
-              {
-                "children": [],
-                "content": "And even sub sub blocks...",
-                "id": "ef413a9b-f388-4d0c-9ad9-24d03aa9ee74",
-                "properties": {
-                  "number": 1
-                },
-                "type": "numberedListItem"
-              }
-            ],
-            "content": "Todo List",
-            "id": "39f9abc9-c299-4321-8a2b-06ff69d22aa9",
-            "properties": {
-              "checked": true
-            },
-            "type": "todoListItem"
-          }
-        ],
-        "content": "",
-        "id": "65fc93b4-8501-4f69-933a-33f9005f5c7f",
-        "properties": {
-          "width": 0.6050119331742243
-        },
-        "type": "column"
-      }
-    ],
-    "content": "",
-    "id": "2b3576e8-c749-498a-bf49-e2592ec1346b",
-    "properties": {},
-    "type": "columns"
-  },
-  {
-    "children": [
-      {
-        "children": [
-          {
-            "children": [],
-            "content": "",
-            "id": "5204c3b0-0036-4787-b99c-536dd76ffe2e",
-            "properties": {
-              "clickLink": "welcome.veritnote#2c944318-8c0f-4a80-862e-0d2aa0e619b9",
-              "referenceLink": "welcome.veritnote#2c944318-8c0f-4a80-862e-0d2aa0e619b9",
-              "style": "default"
-            },
-            "type": "quote"
-          }
-        ],
-        "content": "",
-        "id": "695ea10d-5461-4269-b98c-b8a45511c04f",
-        "properties": {
-          "width": 0.441527446300716
-        },
-        "type": "column"
-      },
-      {
-        "children": [
-          {
-            "children": [],
-            "content": "You can <b>quote</b>, copy, and link to blocks by dragging them in and out of the reference board on the right.",
-            "id": "bc719e82-7ff5-4a0f-9879-c5e33f54a0aa",
-            "properties": {},
-            "type": "paragraph"
-          },
-          {
-            "children": [],
-            "content": "Also check the details board for more info about the selected blocks.",
-            "id": "ecc1d771-23a2-4834-9dd1-607350f0bd35",
-            "properties": {},
-            "type": "paragraph"
-          }
-        ],
-        "content": "",
-        "id": "dee0008d-3133-48b1-8fef-259f618d71c6",
-        "properties": {
-          "width": 0.5584725536992841
-        },
-        "type": "column"
-      }
-    ],
-    "content": "",
-    "id": "f289bc6e-6dc8-47c0-99b9-be9960eed591",
-    "properties": {},
-    "type": "columns"
-  }
-]
+      "type": "table"
+    }
+  ],
+  "config": {}
+}

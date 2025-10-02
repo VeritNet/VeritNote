@@ -1,183 +1,100 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
-<!-- UI 文字改为英文 -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VeritNote</title>
-    <link rel="stylesheet" href="css/style.css">
 
-    <link rel="stylesheet" href="css/code-block.css">
+    <!-- Vendor -->
     <link rel="stylesheet" href="vendor/highlight/theme.css">
+
+    <!-- 1. Load global theme variables first -->
+    <link rel="stylesheet" href="components/main/theme.css">
+
+    <!-- 2. Load component-specific styles -->
+    <link rel="stylesheet" href="components/main/ConfigModal.css">
+
+    <link rel="stylesheet" href="components/main/main.css">
+
+    <link rel="stylesheet" href="page-theme.css">
+    <link rel="stylesheet" href="components/page-editor/page-editor.css">
+
+    <!-- 3. Load block-specific styles -->
+    <!-- Shared -->
+    <link rel="stylesheet" href="components/blocks/_shared/block-core.css">
+    <!-- Individual -->
+    <link rel="stylesheet" href="components/blocks/callout/callout.css">
+    <link rel="stylesheet" href="components/blocks/code/code.css">
+    <link rel="stylesheet" href="components/blocks/columns/columns.css">
+    <link rel="stylesheet" href="components/blocks/heading/heading.css">
+    <link rel="stylesheet" href="components/blocks/image/image.css">
+    <link rel="stylesheet" href="components/blocks/link-button/link-button.css">
+    <link rel="stylesheet" href="components/blocks/list-items/list-item-shared.css">
+    <link rel="stylesheet" href="components/blocks/quote/quote.css">
+    <link rel="stylesheet" href="components/blocks/table/table.css">
 
 </head>
 <body>
-    <!-- PEEK TRIGGERS NOW AT THE TOP LEVEL -->
-    <div id="sidebar-peek-trigger"></div>
-    <div id="right-sidebar-peek-trigger"></div>
-
-    <div class="app-container" style="user-select: none;">
-        <!-- 左侧边栏 -->
-        <aside id="sidebar">
-            <div class="sidebar-header">
-                <button id="back-to-dashboard-btn" class="toolbar-icon-btn" title="Back to Dashboard">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><polyline points="12 19 5 12 12 5"></polyline></svg>
-                </button>
-                <h3 style="padding-left: 42px; padding-top: 4px;">Workspace</h3>
-            </div>
-            <div id="workspace-tree" class="workspace-tree">
-                <div class="loading-placeholder">Loading workspace...</div>
-            </div>
-            <div class="sidebar-footer">
-                <button id="sidebar-toggle-btn" class="sidebar-footer-btn" title="Collapse sidebar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-                    <span>Collapse</span>
-                </button>
-                <button id="export-btn">Cook Workspace</button>
-            </div>
-            <div id="sidebar-resizer"></div>
-        </aside>
-
-        <!-- 主内容区域 -->
-        <main id="main-content">
-            <div id="window-controls">
-                <button id="toggle-fullscreen-btn-wc" class="window-control-btn" title="Toggle Fullscreen">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-                </button>
-                <button id="minimize-btn" class="window-control-btn" title="Minimize">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                </button>
-                <button id="maximize-btn" class="window-control-btn" title="Maximize">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                </button>
-                <button id="close-btn" class="window-control-btn danger" title="Close">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-            </div>
-
-            <div id="tab-bar">
-                <div id="dynamic-tabs-container"></div>
-            </div>
-
-            <div id="main-content-body">
-                <div id="editor-area-container">
-                    <div id="no-file-message">Open a file from the workspace to start editing.</div>
-                </div>
-                <aside id="right-sidebar">
-                    <div id="right-sidebar-resizer"></div>
-                    <div class="right-sidebar-header">
-                        <div id="right-sidebar-view-toggle">
-                            <div class="rs-view-slider"></div>
-                            <div class="rs-view-option active" data-view="references" title="References">
-                                <svg xmlns="http://www.w.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>
-                            </div>
-                            <div class="rs-view-option" data-view="details" title="Details">
-                                <svg xmlns="http://www.w.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="right-sidebar-content">
-                        <div id="references-view" class="rs-view active">
-                            <div class="empty-references-placeholder">Drag blocks here to create references.</div>
-                        </div>
-                        <div id="details-view" class="rs-view">
-                            <div class="empty-details-placeholder">Select a block to see its details.</div>
-                        </div>
-                    </div>
-                    <div class="right-sidebar-footer">
-                        <button id="right-sidebar-toggle-btn" class="sidebar-footer-btn" title="Collapse right sidebar">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><polyline points="10 8 15 12 10 16"></polyline></svg>
-                            <span>Collapse</span>
-                        </button>
-                    </div>
-                </aside>
-            </div>
-
-            <div id="floating-toolbar">
-                <div id="toolbar-peek-trigger"></div>
-                <button id="toggle-toolbar-btn" class="toolbar-icon-btn" title="Collapse Toolbar">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                <button id="save-btn" class="toolbar-icon-btn" title="Save (Ctrl+S)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                </button>
-                <div class="mode-toggle edit-active" id="mode-toggle">
-                    <div class="mode-toggle-slider"></div>
-                    <div class="mode-toggle-option" data-mode="edit" title="Edit Mode">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                    </div>
-                    <div class="mode-toggle-option" data-mode="preview" title="Preview Mode">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Modals, Menus, etc. -->
-    <div id="command-menu" class="command-menu" style="display: none;"></div>
-
-    <div id="export-overlay" class="export-overlay" style="display: none; user-select: none;">
-        <div class="export-modal">
-            <h3>Cooking</h3>
-            <div class="progress-bar-container">
-                <div id="progress-bar" class="progress-bar"></div>
-            </div>
-            <p id="export-status">Preparing Files...</p>
-        </div>
-    </div>
-
-    <div id="cook-settings-modal" class="export-overlay" style="display: none; user-select: none;">
-        <div class="cook-settings-content">
-            <h3>Cook Workspace Options</h3>
-            <div class="cook-options-list">
-                <div class="cook-option"><input type="checkbox" id="copy-local-images" checked><label for="copy-local-images">Copy local images to the build folder.</label></div>
-                <div class="cook-option"><input type="checkbox" id="download-online-images"><label for="download-online-images">Attempt to download online images to the build folder.</label></div>
-                <div class="cook-option"><input type="checkbox" id="disable-drag-export" checked><label for="disable-drag-export">Make content non-draggable for easier text selection.</label></div>
-            </div>
-            <div class="cook-settings-footer">
-                <button id="cancel-cook-btn">Cancel</button>
-                <button id="start-cook-btn" class="primary-btn">Start Cooking</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="block-toolbar-grace-area" class="block-toolbar-grace-area" style="display: none; user-select: none;"></div>
-    <div id="block-toolbar" class="block-toolbar" style="display: none; user-select: none;"></div>
-
-    <div id="popover" class="popover" style="display: none; user-select: none;">
-        <!-- Popover content will be dynamically inserted here -->
-    </div>
-
-    <div id="context-menu" class="context-menu" style="display: none; user-select: none;">
-        <div class="context-menu-item" data-action="newPage">New Page</div>
-        <div class="context-menu-item" data-action="newFolder">New Folder</div>
-        <div class="context-menu-item separator"></div>
-        <div class="context-menu-item danger" data-action="delete">Delete</div>
-    </div>
+    <!-- The main application shell will be loaded here -->
+    <div id="app-root"></div>
 
     <!-- Scripts -->
-    <script src="js/ipc.js"></script>
-    <script src="js/blocks/Block.js"></script>
-    <script src="js/blocks/TextBlock.js"></script>
-    <script src="js/blocks/ContainerBlock.js"></script>
-    <script src="js/blocks/ParagraphBlock.js"></script>
-    <script src="js/blocks/Heading1Block.js"></script>
-    <script src="js/blocks/Heading2Block.js"></script>
-    <script src="js/blocks/ImageBlock.js"></script>
-    <script src="js/blocks/LinkButtonBlock.js"></script>
-    <script src="js/blocks/CalloutBlock.js"></script>
-    <script src="js/blocks/ColumnBlock.js"></script>
-    <script src="js/blocks/ColumnsBlock.js"></script>
-    <script src="js/blocks/CodeBlock.js"></script>
-    <script src="js/blocks/BulletedListItemBlock.js"></script>
-    <script src="js/blocks/TodoListItemBlock.js"></script>
-    <script src="js/blocks/NumberedListItemBlock.js"></script>
-    <script src="js/blocks/ToggleListItemBlock.js"></script>
-    <script src="js/blocks/QuoteBlock.js"></script>
-    <script src="js/editor.js"></script>
-    <script src="js/HistoryManager.js"></script>
-    <script src="js/main.js"></script>
+    <!-- Note: We are not including block scripts here anymore. They will be loaded by the PageEditor -->
+    <script src="components/main/default-config.js"></script>
+    <script src="components/main/ipc.js"></script>
+    <script src="components/main/ConfigModal.js"></script>
+    <script src="components/main/global-state.js"></script>
+    <script src="components/main/main.js"></script>
+
+    <!-- Editor and Block scripts -->
+    <script src="components/page-editor/HistoryManager.js"></script>
+    <script src="components/page-editor/popovers.js"></script>
+
+    <!-- Load Block Base Classes FIRST -->
+    <script src="components/blocks/Block.js"></script>
+    <script src="components/blocks/TextBlock.js"></script>
+    <script src="components/blocks/ContainerBlock.js"></script>
+
+    <!-- Load All Concrete Block Implementations -->
+    <script src="components/blocks/paragraph/ParagraphBlock.js"></script>
+    <script src="components/blocks/heading/Heading1Block.js"></script>
+    <script src="components/blocks/heading/Heading2Block.js"></script>
+    <script src="components/blocks/image/ImageBlock.js"></script>
+    <script src="components/blocks/link-button/LinkButtonBlock.js"></script>
+    <script src="components/blocks/callout/CalloutBlock.js"></script>
+    <script src="components/blocks/columns/ColumnBlock.js"></script>
+    <script src="components/blocks/columns/ColumnsBlock.js"></script>
+    <script src="components/blocks/code/CodeBlock.js"></script>
+    <script src="components/blocks/list-items/BulletedListItemBlock.js"></script>
+    <script src="components/blocks/list-items/TodoListItemBlock.js"></script>
+    <script src="components/blocks/list-items/NumberedListItemBlock.js"></script>
+    <script src="components/blocks/list-items/ToggleListItemBlock.js"></script>
+    <script src="components/blocks/quote/QuoteBlock.js"></script>
+    <script src="components/blocks/table/TableBlock.js"></script>
+
+    <!-- Load the PageEditor class itself LAST -->
+    <script src="components/page-editor/page-editor.js"></script>
+
+    <!-- Vendor Scripts -->
     <script src="vendor/highlight/highlight.min.js"></script>
+
+    <script>
+        // Main application entry point
+        document.addEventListener('DOMContentLoaded', async () => {
+        const appRoot = document.getElementById('app-root');
+
+        // Fetch and inject the main HTML structure
+        const response = await fetch('components/main/main.html');
+        appRoot.innerHTML = await response.text();
+
+        // After the HTML is injected, the DOM is ready for the main script.
+        // We check if the initialization function exists on the window object and then call it.
+        if (window.initializeMainComponent) {
+        window.initializeMainComponent();
+        } else {
+        console.error("Main component initialization function not found!");
+        }
+        });
+    </script>
 </body>
 </html>

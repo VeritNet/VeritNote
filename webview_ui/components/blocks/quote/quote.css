@@ -1,0 +1,71 @@
+/* components/blocks/quote/quote.css */
+
+.block-content[data-type="quote"] {
+    margin: var(--spacing-s) 0;
+    transition: all var(--transition-fast);
+}
+
+    .block-content[data-type="quote"][data-style="default"] {
+        border-left: 3px solid var(--text-primary);
+        padding-left: var(--spacing-m);
+    }
+
+    .block-content[data-type="quote"][data-style="plain"] {
+        border-left: 3px solid transparent;
+        padding-left: 0;
+    }
+
+.quote-preview-container {
+    min-height: 26px;
+}
+
+    /* By default, nothing inside the preview is interactive */
+    .quote-preview-container * {
+        pointer-events: none !important;
+        user-select: none !important;
+    }
+
+/* The only exception is if the entire quote block is a single clickable link */
+.quote-click-wrapper {
+    pointer-events: auto !important;
+}
+
+    /* Re-enable pointer events on direct children of the link wrapper */
+    .quote-click-wrapper > * {
+        pointer-events: auto !important;
+    }
+
+    /* STILL disable any nested links inside the clickable quote block */
+    .quote-click-wrapper a {
+        pointer-events: none !important;
+    }
+
+.quote-empty-placeholder, .quote-loading-placeholder, .quote-error-placeholder {
+    width: 100%;
+    background: var(--bg-accent);
+    border: 2px dashed var(--border-primary);
+    padding: var(--spacing-l);
+    text-align: center;
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.quote-error-placeholder {
+    border-color: var(--color-red-danger);
+    color: var(--text-danger);
+}
+
+.quote-click-wrapper {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 4px;
+    transition: background-color var(--transition-fast);
+}
+
+    .quote-click-wrapper:hover {
+        background-color: var(--bg-tertiary);
+        text-decoration: none;
+    }

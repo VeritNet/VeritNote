@@ -127,4 +127,61 @@ class ToggleListItemBlock extends TextBlock {
         // Reuse TextBlock's logic for deleting empty blocks, etc.
         super.onKeyDown(e);
     }
+
+
+     // --- NEW: Implement Export API ---
+
+    /**
+     * Modifies the block's DOM element for export.
+     * Adds a data-id to the toggle triangle for the script to find it.
+     */
+    async getExportHtml(blockElement, options) {
+        const toggleTriangle = blockElement.querySelector('.toggle-triangle');
+        if (toggleTriangle) {
+            // Add a unique ID for the export script to target.
+            toggleTriangle.setAttribute('data-id', `toggle-${this.id}`);
+        }
+        return blockElement;
+    }
+
+    /**
+     * Provides the necessary JavaScript to make the toggle list interactive in the exported HTML.
+     * This script handles click events, toggles a CSS class, and saves the state to localStorage.
+     */
+    static getExportScripts() {
+        // The entire script logic is now self-contained in this block.
+        return `
+            const TOGGLE_STORAGE_KEY = 'veritnote_toggle_state';
+            function loadToggleState() {
+                try {
+                    const savedState = JSON.parse(localStorage.getItem(TOGGLE_STORAGE_KEY) || '{}');
+                    document.querySelectorAll('.toggle-triangle[data-id]').forEach(triangle => {
+                        const id = triangle.getAttribute('data-id');
+                        const container = triangle.closest('.block-content[data-type="toggleListItem"]');
+                        if (savedState[id] !== undefined && container) {
+                            container.classList.toggle('is-collapsed', savedState[id]);
+                        }
+                    });
+                } catch (e) { console.error('Failed to load toggle state:', e); }
+            }
+            function saveToggleState(id, isCollapsed) {
+                try {
+                    const savedState = JSON.parse(localStorage.getItem(TOGGLE_STORAGE_KEY) || '{}');
+                    savedState[id] = isCollapsed;
+                    localStorage.setItem(TOGGLE_STORAGE_KEY, JSON.stringify(savedState));
+                } catch (e) { console.error('Failed to save toggle state:', e); }
+            }
+            document.querySelectorAll('.toggle-triangle[data-id]').forEach(triangle => {
+                triangle.addEventListener('click', (e) => {
+                    const container = e.target.closest('.block-content[data-type="toggleListItem"]');
+                    if (container) {
+                        const id = e.target.getAttribute('data-id');
+                        container.classList.toggle('is-collapsed');
+                        saveToggleState(id, container.classList.contains('is-collapsed'));
+                    }
+                });
+            });
+            loadToggleState();
+        `;
+    }
 }

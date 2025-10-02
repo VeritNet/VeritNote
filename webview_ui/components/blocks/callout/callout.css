@@ -1,0 +1,25 @@
+/* components/blocks/callout/callout.css */
+
+.block-content[data-type="callout"] {
+    background-color: rgba(86, 156, 214, 0.1);
+    border: 1px solid rgba(86, 156, 214, 0.2);
+    border-radius: 4px;
+    display: flex;
+    position: relative;
+    min-height: 50px;
+    padding: var(--spacing-s);
+}
+
+.callout-icon {
+    margin-right: var(--spacing-s);
+    font-size: 1.2em;
+    user-select: none;
+    padding-top: var(--spacing-s);
+}
+
+.callout-content-wrapper.block-children-container {
+    flex-grow: 1;
+    min-width: 0;
+    padding: var(--spacing-s);
+    min-height: 100%;
+}
