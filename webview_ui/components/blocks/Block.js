@@ -86,7 +86,6 @@ class Block {
         element.draggable = true;
         element.innerHTML = `
             <div class="block-controls">
-                <span class="delete-btn" title="Delete">🗑️</span>
                 <span class="drag-handle" title="Drag to move">⠿</span>
             </div>
         `;

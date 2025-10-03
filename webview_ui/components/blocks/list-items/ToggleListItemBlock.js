@@ -68,20 +68,6 @@ class ToggleListItemBlock extends TextBlock {
         // Manually bind onKeyDown to the text area
         this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
-        // Active state handling (identical to other list items)
-        const setActive = (isActive) => {
-            if (isActive) { this.element.classList.add('vn-active'); } 
-            else { this.element.classList.remove('vn-active'); }
-        };
-        this.element.addEventListener('mouseenter', () => setActive(true));
-        this.element.addEventListener('mouseleave', () => {
-            if (document.activeElement !== this.textElement) { setActive(false); }
-        });
-        this.textElement.addEventListener('focus', () => setActive(true));
-        this.textElement.addEventListener('blur', () => {
-            if (!this.element.matches(':hover')) { setActive(false); }
-        });
-
         return this.element;
     }
 

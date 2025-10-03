@@ -27,6 +27,9 @@ class PageEditor {
         this.elements.commandMenuSelectedIndex = 0;
         this.allNotes = []; // For link popover search
 
+         // --- Property to track the currently hovered container's children-container element ---
+        this.hoveredChildrenContainer = null;
+
         // --- Sub-managers for organization ---
         this.selectionManager = new SelectionManager(this);
         // The following will be initialized after HTML is loaded
@@ -187,6 +190,7 @@ class PageEditor {
             blockToolbar: this.container.querySelector('#block-toolbar'),
             blockToolbarGraceArea: this.container.querySelector('#block-toolbar-grace-area'),
             popover: this.container.querySelector('#popover'),
+            deleteDropZone: this.container.querySelector('#delete-drop-zone'),
         };
         
 
@@ -269,6 +273,60 @@ class PageEditor {
         this.elements.settingsBtn.addEventListener('click', () => {
              window.openConfigModal('page', this.filePath);
         });
+
+
+        // --- Add dedicated listeners for the Delete Drop Zone ---
+        const deleteZone = this.elements.deleteDropZone;
+        if (deleteZone) {
+            // Listener 1: When a draggable element is dragged OVER the delete zone.
+            deleteZone.addEventListener('dragover', (e) => {
+                // *** CRITICAL FIX PART 1 ***
+                e.preventDefault(); // This is absolutely necessary to allow a drop.
+                e.dataTransfer.dropEffect = 'move'; // Show a "move" cursor, not "disabled".
+                
+                // Add visual feedback and set the drop info, just like in the main _onDragOver.
+                deleteZone.classList.add('is-active');
+                this._cleanupDragIndicators(); // Hide any block indicators.
+                this.currentDropInfo = { targetId: 'DELETE_ZONE', position: 'inside' };
+            });
+    
+            // Listener 2: When a draggable element LEAVES the delete zone.
+            deleteZone.addEventListener('dragleave', (e) => {
+                // Remove visual feedback.
+                deleteZone.classList.remove('is-active');
+                // Important: Reset drop info if we are not moving to another valid target.
+                // The main _onDragOver will handle creating new drop info if needed.
+                this.currentDropInfo = null; 
+            });
+    
+            // Listener 3: When a draggable element is DROPPED ONTO the delete zone.
+            deleteZone.addEventListener('drop', (e) => {
+                // *** CRITICAL FIX PART 2 ***
+                e.preventDefault(); // Prevent any default browser action.
+                
+                // This logic is now self-contained and guaranteed to fire.
+                // We can reuse the same logic from the _onDrop method.
+                this.elements.deleteDropZone.classList.remove('is-active');
+                
+                const multiDragData = e.dataTransfer.getData('application/veritnote-block-ids');
+                const singleDragId = e.dataTransfer.getData('text/plain');
+                
+                let idsToDelete = [];
+                if (multiDragData) { idsToDelete = JSON.parse(multiDragData); }
+                else if (singleDragId) { idsToDelete = [singleDragId]; }
+    
+                if (idsToDelete.length > 0) {
+                    idsToDelete.forEach(id => {
+                        const el = this.container.querySelector(`.block-container[data-id="${id}"]`);
+                        if (el) el.remove();
+                    });
+                    this.deleteMultipleBlocks(idsToDelete);
+                }
+                
+                // Manually call drag end cleanup.
+                this._onDragEnd(e);
+            });
+        }
     }
     
     _initUiState() {
@@ -724,75 +782,63 @@ class PageEditor {
     }
 
     _onClick(e) {
-        // --- 优先级 1: UI 控件交互 (删除按钮) ---
-        const deleteButton = e.target.closest('.delete-btn');
-        if (deleteButton) {
-            const blockContainerEl = deleteButton.closest('.block-container');
+        // --- 优先级 1: UI 控件交互 (拖拽把手单击) ---
+        const dragHandle = e.target.closest('.drag-handle');
+        if (dragHandle) {
+            const blockContainerEl = dragHandle.closest('.block-container');
             if (blockContainerEl) {
                 const blockId = blockContainerEl.dataset.id;
-                // --- BATCH DELETE LOGIC ---
-                if (this.selectionManager.size() > 0 && this.selectionManager.has(blockId)) {
-                    const idsToDelete = this.selectionManager.get();
-                    this.deleteMultipleBlocks(idsToDelete);
-                    this.selectionManager.clear();
+                const isMultiSelectKey = e.ctrlKey || e.metaKey || e.shiftKey;
+                if (isMultiSelectKey) {
+                    this.selectionManager.toggle(blockId);
                 } else {
-                    const blockInstance = this._findBlockInstanceAndParent(blockId)?.block;
-                    if (blockInstance) { this.deleteBlock(blockInstance); }
+                    this.selectionManager.set(blockId);
                 }
-                // --- END BATCH DELETE LOGIC ---
             }
-            return; // 处理完毕，提前退出
+            return;
         }
-
-        // --- 优先级 2: 特定块的特殊交互 (例如，点击空的 Column 或容器) ---
-        // 检查是否直接点击在一个 Column 的内容区域
+    
+        // --- 优先级 2: 检查点击目标是否是容器的背景或其激活的留白区 ---
+        // The target will be the container itself if its background is clicked,
+        // or if its ::after pseudo-element is clicked.
+        if (e.target.matches('.block-children-container.show-add-area, .callout-content-wrapper.show-add-area, .table-cell-content')) {
+            // Find the closest parent element with a data-id, which represents the block instance
+            const containerElement = e.target.closest('[data-id]');
+            if (containerElement) {
+                const containerInstance = this._findBlockInstanceAndParent(containerElement.dataset.id)?.block;
+                
+                // Ensure it's a container and NOT a column (columns have their own logic)
+                if (containerInstance && containerInstance.isContainer && containerInstance.type !== 'column') {
+                    this._appendNewBlockToContainer(containerInstance);
+                    return;
+                }
+            }
+        }
+    
+        // --- 优先级 3: Column 的特殊点击逻辑 (保持不变) ---
+        // 只有当上面的逻辑没有命中时，才会检查 Column。
+        // 这就解决了 List 干扰 Column 的问题。
         if (e.target.matches('.block-content[data-type="column"]')) {
             const columnId = e.target.dataset.id;
             const columnInstance = this._findBlockInstanceAndParent(columnId)?.block;
-            // 确保 Column 内部是空的，或者点击发生在所有子块之后
-            if (columnInstance && (columnInstance.children.length === 0 || e.target === columnInstance.contentElement)) {
+            if (columnInstance) {
                 this._appendNewBlockToContainer(columnInstance);
-                return; // 处理完毕，提前退出
+                return;
             }
         }
-        
-        // 检查是否点击在通用容器的空白区域
-        const childrenContainer = e.target.closest('.block-children-container');
-        if (childrenContainer) {
-            // 确认点击的目标就是 childrenContainer 本身，而不是它里面的某个块
-            if (e.target === childrenContainer) {
-                 const containerElement = childrenContainer.closest('[data-id]');
-                 if(containerElement) {
-                    const containerInstance = this._findBlockInstanceAndParent(containerElement.dataset.id)?.block;
-                    if (containerInstance) {
-                        this._appendNewBlockToContainer(containerInstance);
-                        return; // 处理完毕，提前退出
-                    }
-                 }
-            }
-        }
-
-
-        // --- 优先级 3: 多选键检查 ---
-        // 如果按下了多选键，则不执行后续的单选或背景点击逻辑。
-        // 实际的多选逻辑在全局 mousedown 监听器中处理，这里只是提前退出。
+    
+        // --- 优先级 4: 多选键检查 ---
         if (e.ctrlKey || e.metaKey || e.shiftKey) {
-            return; 
+            return;
         }
-
-        // --- 优先级 4 (默认行为): 背景点击或单选 ---
-        // 检查是否点中了任何块容器。
+    
+        // --- 优先级 5 (默认行为): 背景点击或单选 ---
         const clickedBlockContainer = e.target.closest('.block-container');
-        
         if (!clickedBlockContainer) {
-            // 如果没有点中任何块容器，并且点击发生在编辑区域内，则视为点击背景。
             if (e.target.closest('#editor-area-container')) {
                 this._onBackgroundClick();
             }
-            // 如果连编辑区域都没点中（比如点在了滚动条上），则什么都不做。
         }
-        // 如果点中了块容器 (clickedBlockContainer is not null),
-        // 单选逻辑已经在全局 mousedown 监听器中处理，所以这里不需要做任何事。
     }
 
     /**
@@ -844,15 +890,25 @@ class PageEditor {
 
     _appendNewBlockToContainer(containerBlock) {
         const newBlockInstance = this.createBlockInstance({ type: 'paragraph' });
+        
+        // 1. 将新块实例添加到数据模型中
         containerBlock.children.push(newBlockInstance);
+        // 确保新块知道它的父级是谁
+        newBlockInstance.parent = containerBlock; 
        
         const newBlockEl = newBlockInstance.render();
-        // Find the correct DOM container for children
-        const childrenContainerEl = containerBlock.element.querySelector('.block-children-container');
-        if (childrenContainerEl) {
-            childrenContainerEl.appendChild(newBlockEl);
+    
+        // 2. 直接使用实例上缓存的正确 DOM 容器引用
+        //    Column 的 childrenContainer 指向它自己的 contentElement。
+        //    List/Callout 的 childrenContainer 指向它们内部的 wrapper。
+        //    这个引用在各自的 render 方法中被正确设置，所以是可靠的。
+        const targetDomContainer = containerBlock.childrenContainer;
+    
+        if (targetDomContainer) {
+            targetDomContainer.appendChild(newBlockEl);
         } else {
-            // Fallback for containers without a dedicated children div
+            // 如果由于某种原因 childrenContainer 不存在，提供一个健壮的回退
+            console.warn(`Block type "${containerBlock.type}" is a container but lacks a .childrenContainer reference. Appending to .element as a fallback.`);
             containerBlock.element.appendChild(newBlockEl);
         }
         
@@ -1177,6 +1233,7 @@ class PageEditor {
 
     _onDragOver(e) {
         e.preventDefault();
+
     
         const rightSidebar = e.target.closest('#right--sidebar');
         const referencesView = document.getElementById('references-view');
@@ -1199,54 +1256,71 @@ class PageEditor {
         }
 
 
-        // 1. 寻找一个潜在的可放置区域
-        const potentialDropZone = e.target;
-        let emptyContainer = null;
-
-        // 场景 A: 鼠标直接悬浮在空的容器上
-        if (potentialDropZone.classList.contains('block-children-container') && !potentialDropZone.firstElementChild) {
-            emptyContainer = potentialDropZone;
-        } 
-        // 场景 B: 鼠标悬浮在空的容器的直接父元素上 (处理Table Cell的padding问题)
-        else {
-            const childContainer = potentialDropZone.querySelector(':scope > .block-children-container');
-            if (childContainer && !childContainer.firstElementChild) {
-                emptyContainer = childContainer;
-            }
-        }
-
-        // 2. 如果找到了一个有效的空容器
-        if (emptyContainer) {
-            this._cleanupDragIndicators();
-            emptyContainer.classList.add('is-drop-target');
-
-            // 关键修复: 使用 .closest('[data-id]') 来查找带ID的父级。
-            // 这对标准的 .block-container 和自定义的 .table-cell-content 都有效。
-            const parentIdElement = emptyContainer.closest('[data-id]');
-            if (parentIdElement) {
-                const parentId = parentIdElement.dataset.id;
-                this.currentDropInfo = { targetId: parentId, position: 'inside_last' };
-            }
-            
-            return; // 处理完毕，提前返回
-        }
-
-    
-        // (如果上面的逻辑没有命中，则执行现有的“在块之间放置”的逻辑)
-        const targetEl = e.target.closest('.block-container');
+        // --- 容器拖拽逻辑 ---
         
-        // If not over a valid block, or over the dragged block itself, clean up and exit.
-        if (!targetEl || targetEl === this.draggedBlock || (this.selectionManager && this.selectionManager.has(targetEl.dataset.id))) {
-             this._cleanupDragIndicators();
-             this.currentDropInfo = null;
+        this._cleanupDragIndicators();
+    
+        // 1. 寻找鼠标正下方的块
+        const targetEl = e.target.closest('.block-container');
+    
+        // 如果没找到块，或者在拖拽的块上，则退出
+        if (!targetEl || targetEl.classList.contains('is-dragging-ghost')) {
+            this.currentDropInfo = null;
             return;
         }
+    
+        const rect = targetEl.getBoundingClientRect();
+        const targetBlockInstance = this._findBlockInstanceById(this.blocks, targetEl.dataset.id)?.block;
+        if (!targetBlockInstance) return;
+    
+        // --- 关键修复：重新定义拖拽意图的优先级 ---
+        const yMidpoint = rect.top + rect.height / 2;
+        const isContainer = targetBlockInstance.isContainer;
+        
+        // 定义一个缓冲区，只有在块的中间大部分区域才算“拖入”
+        const verticalBuffer = Math.min(rect.height * 0.25, 20); // 25% 或最多 20px
+    
+        // 意图 1: 拖拽到块的上方或下方 (最高优先级)
+        if (e.clientY < rect.top + verticalBuffer) {
+            this._showHorizontalIndicator(targetEl, 'before');
+            this.currentDropInfo = { targetId: targetEl.dataset.id, position: 'before' };
+            return;
+        }
+        if (e.clientY > rect.bottom - verticalBuffer) {
+            this._showHorizontalIndicator(targetEl, 'after');
+            this.currentDropInfo = { targetId: targetEl.dataset.id, position: 'after' };
+            return;
+        }
+    
+        // 意图 2: 如果是容器，并且鼠标在中间区域，则视为“拖入”
+        if (isContainer) {
+            const childrenContainer = targetBlockInstance.childrenContainer;
+            if (childrenContainer) {
+                // 如果容器是空的，高亮整个容器
+                if (targetBlockInstance.children.length === 0) {
+                    childrenContainer.classList.add('is-drop-target');
+                } else {
+                    // 如果容器有内容，高亮末尾的 ::after 区域
+                    childrenContainer.classList.add('is-drop-target-child');
+                }
+                this.currentDropInfo = { targetId: targetEl.dataset.id, position: 'inside_last' };
+                return;
+            }
+        }
+    
+        // 意图 3: 如果不是容器，或者作为回退，则根据中线判断上方或下方
+        const positionV = (e.clientY < yMidpoint) ? 'before' : 'after';
+        this._showHorizontalIndicator(targetEl, positionV);
+        this.currentDropInfo = { targetId: targetEl.dataset.id, position: positionV };
+
+
+        
+        this._showQuadrantOverlay(targetEl, e);
+
         
         // --- NEW: Four-Quadrant Overlay Logic ---
         this._showQuadrantOverlay(targetEl, e);
 
-        const rect = targetEl.getBoundingClientRect();
-        const targetBlockInstance = this._findBlockInstanceById(this.blocks, targetEl.dataset.id)?.block;
         const canHaveChildren = targetBlockInstance?.isContainer;
         
         const paddingBottom = 24;
@@ -1469,6 +1543,11 @@ class PageEditor {
         document.body.classList.remove('is-dragging-block');
         this.container.querySelectorAll('.is-dragging-ghost').forEach(el => el.classList.remove('is-dragging-ghost'));
         this._cleanupDragIndicators();
+
+        // Ensure active state is removed from delete zone on drag end
+        if (this.elements.deleteDropZone) {
+            this.elements.deleteDropZone.classList.remove('is-active');
+        }
         
         if (this.draggedBlock) {
             this.draggedBlock.style.opacity = '1';
@@ -1598,15 +1677,10 @@ class PageEditor {
     }
 
     _cleanupDragIndicators() {
-        // 在查询选择器中加入新的高亮类 '.is-drop-target'
-        this.container.querySelectorAll('.drop-indicator, .drop-indicator-vertical, .quadrant-overlay, .is-drop-target').forEach(el => {
-            // .is-drop-target 是添加到现有元素上的类，所以我们只移除类名，而不是移除元素本身
-            if (el.classList.contains('is-drop-target')) {
-                el.classList.remove('is-drop-target');
-            } else {
-                // 其他指示器是临时添加的元素，可以直接移除
-                el.remove();
-            }
+        this.container.querySelectorAll('.drop-indicator, .drop-indicator-vertical, .quadrant-overlay').forEach(el => el.remove());
+    
+        this.container.querySelectorAll('.is-drop-target, .is-drop-target-child').forEach(el => {
+            el.classList.remove('is-drop-target', 'is-drop-target-child');
         });
     }
 
@@ -1909,6 +1983,7 @@ class PageEditor {
     
     // --- Block Toolbar Handlers ---
     _onBlockMouseOver(e) {
+        // --- Part 1: Block Toolbar Logic (existing) ---
         const targetEl = e.target.closest('.block-container');
         if (targetEl && targetEl !== this.activeToolbarBlock?.element) {
             clearTimeout(this.toolbarHideTimeout);
@@ -1917,18 +1992,49 @@ class PageEditor {
                 this._showBlockToolbar(blockInstance);
             }
         }
+    
+        // --- Part 2: NEW Add Area Logic ---
+        // Find the block container the mouse is directly over
+        const hoveredBlockEl = e.target.closest('.block-container, .table-cell-content');
+        if (!hoveredBlockEl) return;
+    
+        const blockInstance = this._findBlockInstanceById(this.blocks, hoveredBlockEl.dataset.id)?.block;
+        
+        // If it's a valid container block
+        if (blockInstance && blockInstance.isContainer && blockInstance.childrenContainer) {
+            const childrenContainer = blockInstance.childrenContainer;
+    
+            // If we are hovering a new container, switch the active class
+            if (childrenContainer !== this.hoveredChildrenContainer) {
+                // Deactivate the previously hovered one
+                if (this.hoveredChildrenContainer) {
+                    this.hoveredChildrenContainer.classList.remove('show-add-area');
+                }
+                // Activate the new one and store its reference
+                childrenContainer.classList.add('show-add-area');
+                this.hoveredChildrenContainer = childrenContainer;
+            }
+        }
     }
 
     _onBlockMouseOut(e) {
+        // --- Part 1: Block Toolbar Logic (existing) ---
         clearTimeout(this.toolbarHideTimeout);
         this.toolbarHideTimeout = setTimeout(() => {
-            // Also check if the mouse is over the new grace area
             if (!this.elements.blockToolbar.matches(':hover') && 
                 !this.elements.blockToolbarGraceArea.matches(':hover') && 
                 !this.container.querySelector('.block-container:hover')) {
                 this._hideBlockToolbar();
             }
-        }, 300); // A slightly longer delay can also help
+        }, 300);
+    
+        // --- Part 2: NEW Add Area Logic ---
+        // Check if the mouse has moved to an element that is NOT a descendant
+        // of the currently hovered container. `relatedTarget` is where the mouse is going.
+        if (this.hoveredChildrenContainer && !this.hoveredChildrenContainer.closest('.block-container, .table-cell-content').contains(e.relatedTarget)) {
+            this.hoveredChildrenContainer.classList.remove('show-add-area');
+            this.hoveredChildrenContainer = null;
+        }
     }
 
     _showBlockToolbar(blockInstance) {

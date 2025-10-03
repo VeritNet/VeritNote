@@ -690,27 +690,63 @@ body.is-linking-block .reference-item {
     }
 
 /* --- Block Container Drop Target Styles --- */
-/*
-  为所有指定为子块容器的元素，在它们为空时，提供一个最小高度和视觉提示，
-  使其成为一个明确的可交互区域。
-*/
-.block-children-container:empty {
-    min-height: 28px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-    border: 1px dashed transparent; /* 预留边框空间，防止高亮时跳动 */
+
+.block-children-container.is-drop-target {
+    /* This style is for when the WHOLE container is a drop target, e.g., an empty callout */
+    min-height: 28px; /* Keep this for empty containers */
+    background-color: var(--bg-selected);
+    border-color: var(--text-accent);
+    border-style: dashed;
+    border-width: 1px;
 }
 
-    /* 鼠标悬浮在空的容器区域上时的样式 */
-    .block-children-container:empty:hover {
-        background-color: var(--bg-tertiary);
-    }
 
-/* 
-  当一个块被拖拽到这个容器区域上方时，应用此高亮样式。
-  这由 JS 中的 _onDragOver 方法动态添加/移除。
-*/
-.block-children-container.is-drop-target {
-    background-color: var(--bg-selected); /* 使用主题中已有的选中颜色 */
-    border-color: var(--text-accent);
+
+/* --- Delete Drop Zone --- */
+.delete-drop-zone {
+    position: absolute;
+    bottom: 0; /* Align to the bottom edge */
+    left: 0; /* Align to the left edge */
+    width: 50px; /* Define the size of the square area */
+    height: 50px;
+    /* Create the quarter-circle shape */
+    background-color: var(--bg-tertiary); /* Default gray color */
+    border-top-right-radius: 50px; /* This creates the curve */
+    /* Default hidden state */
+    opacity: 0;
+    transform: translateY(100%) translateX(-100%); /* Start off-screen */
+    pointer-events: none;
+    transition: transform 0.3s var(--transition-cubic), opacity 0.3s ease, background-color 0.2s ease;
+    z-index: 100;
+}
+
+/* When dragging starts, bring it into view */
+body.is-dragging-block .delete-drop-zone {
+    opacity: 0.9;
+    transform: translateY(0) translateX(0);
+    pointer-events: auto;
+}
+
+/* When a block is dragged OVER the zone, it turns red */
+.delete-drop-zone.is-active {
+    background-color: var(--color-red-danger);
+}
+
+/* Inner wrapper to position the icon correctly within the quarter circle */
+.delete-drop-zone-icon-wrapper {
+    position: absolute;
+    bottom: 10px; /* Position icon inside the curve */
+    left: 10px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary); /* Default icon color */
+    transition: color 0.2s ease;
+}
+
+/* Change icon color when the zone is active (red) */
+.delete-drop-zone.is-active .delete-drop-zone-icon-wrapper {
+    color: var(--color-white-pure);
 }

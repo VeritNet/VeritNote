@@ -2,7 +2,7 @@
 
 .block-container {
     position: relative;
-    padding-left: 28px;
+    padding-left: 20px;
     margin-bottom: var(--spacing-xs);
     display: flex;
     flex-direction: column;
@@ -19,14 +19,14 @@
 .block-controls {
     position: absolute;
     top: 2px;
-    left: 24px;
+    left: 18px;
     transform: translateX(-100%);
     display: flex;
     align-items: center;
     opacity: 0;
     transition: opacity var(--transition-fast);
     z-index: 10;
-    gap: 4px;
+    gap: 0;
 }
 
 .block-container:hover > .block-controls {
@@ -47,10 +47,6 @@
     .drag-handle:active {
         cursor: grabbing;
     }
-
-.delete-btn:hover {
-    color: var(--color-red-danger);
-}
 
 .block-content {
     outline: none;
@@ -184,12 +180,53 @@
     transition: background-color var(--transition-medium);
 }
 
-.block-children-container:empty {
-    min-height: 24px;
-    border-radius: 4px;
-    transition: background-color var(--transition-fast);
+
+/* --- Universal Empty Children Container Interaction --- */
+.block-children-container {
+    position: relative;
 }
 
-    .block-children-container:empty:hover {
-        background-color: rgba(255, 255, 255, 0.05);
+    .block-children-container::after {
+        content: '';
+        display: block;
+        height: 0;
+        margin-top: 0;
+        border-radius: 4px;
+        background-color: transparent;
+        transition: all 0.2s ease-out;
+        pointer-events: none; /* Default: cannot be interacted with */
+    }
+
+/* 
+  --- Class ADDED BY JAVASCRIPT on MOUSEOVER ---
+  This makes the "add area" visible for CLICKING.
+*/
+    .block-children-container.show-add-area::after {
+        height: 24px;
+        margin-top: var(--spacing-xs);
+        background-color: var(--bg-tertiary);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        pointer-events: auto;
+        cursor: pointer;
+        content: '+';
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        font-size: 18px;
+        font-weight: 300;
+    }
+
+
+/* 
+  --- Class ADDED BY JAVASCRIPT on DRAGOVER ---
+  This makes the "add area" visible and highlighted for DROPPING.
+  It has slightly different styles to provide better feedback.
+*/
+    .block-children-container.is-drop-target-child::after {
+        height: 28px;
+        margin-top: var(--spacing-xs);
+        background-color: var(--bg-selected);
+        border: 1px dashed var(--text-accent);
+        pointer-events: auto; /* It can be a drop target */
     }

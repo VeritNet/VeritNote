@@ -61,33 +61,6 @@ class NumberedListItemBlock extends TextBlock {
 
         this._renderChildren();
 
-        // --- Active state handling (identical to bulleted list) ---
-        const setActive = (isActive) => {
-            if (isActive) {
-                this.element.classList.add('vn-active');
-            } else {
-                this.element.classList.remove('vn-active');
-            }
-        };
-        this.element.addEventListener('mouseenter', () => setActive(true));
-        this.element.addEventListener('mouseleave', () => {
-            if (document.activeElement !== this.textElement && document.activeElement !== this.numberElement) {
-                setActive(false);
-            }
-        });
-        this.textElement.addEventListener('focus', () => setActive(true));
-        this.textElement.addEventListener('blur', () => {
-            if (!this.element.matches(':hover')) {
-                setActive(false);
-            }
-        });
-        this.numberElement.addEventListener('focus', () => setActive(true));
-        this.numberElement.addEventListener('blur', () => {
-             if (!this.element.matches(':hover')) {
-                setActive(false);
-            }
-        });
-
         return this.element;
     }
 

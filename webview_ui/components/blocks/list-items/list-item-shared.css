@@ -24,46 +24,6 @@
     transition: min-height 0.2s ease-out, padding 0.2s ease-out, margin 0.2s ease-out;
 }
 
-/* 
-  1. 默认状态 (空的容器)
-  - 完全折叠，不占任何空间。
-*/
-    .list-item-children-container:empty {
-        min-height: 0;
-        padding-top: 0;
-        padding-bottom: 0;
-        margin-top: 0; /* 确保与主文本区域紧密贴合 */
-    }
-
-/* 
-  2. 交互状态 (鼠标悬浮在整个列表项上时，空的容器出现)
-  - .vn-active 类由JS在鼠标悬浮时添加/移除。
-  - 这会平滑地撑开一个可交互的区域。
-*/
-.block-container.vn-active .list-item-children-container:empty {
-    min-height: 24px;
-    margin-top: var(--spacing-xs);
-}
-
-/* 
-  3. 拖拽状态 (当块被拖拽到空的容器上时，容器出现并高亮)
-  - 这个样式会覆盖上面的悬浮样式，提供更强的视觉反馈。
-  - 它会从 page-editor.css 继承高亮背景和边框。
-*/
-.list-item-children-container:empty.is-drop-target {
-    min-height: 28px; /* 匹配 page-editor.css 中的高度 */
-    margin-top: 4px;
-}
-
-/* 
-  4. 有内容状态 (容器内有块时)
-  - 容器自然展开，并添加内边距。
-*/
-.list-item-children-container:not(:empty) {
-    padding-left: 28px; /* 缩进 */
-    padding-top: var(--spacing-xs);
-    padding-bottom: 12px;
-}
 
 /* --- 2. Bulleted List Item Specific --- */
 .bullet-point {

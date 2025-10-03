@@ -73,20 +73,6 @@ class TodoListItemBlock extends TextBlock {
         // 为文本区手动绑定 onKeyDown
         this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
-
-        const setActive = (isActive) => {
-            if (isActive) { this.element.classList.add('vn-active'); } 
-            else { this.element.classList.remove('vn-active'); }
-        };
-        this.element.addEventListener('mouseenter', () => setActive(true));
-        this.element.addEventListener('mouseleave', () => {
-            if (document.activeElement !== this.textElement) { setActive(false); }
-        });
-        this.textElement.addEventListener('focus', () => setActive(true));
-        this.textElement.addEventListener('blur', () => {
-            if (!this.element.matches(':hover')) { setActive(false); }
-        });
-
         return this.element;
     }
 

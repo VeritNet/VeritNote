@@ -50,33 +50,6 @@ class BulletedListItemBlock extends TextBlock {
         // 调用基类的 _renderChildren 方法，它会自动将子块渲染到 this.childrenContainer 中
         this._renderChildren();
 
-        // --- 新增: 手动控制激活状态 ---
-        const setActive = (isActive) => {
-            if (isActive) {
-                this.element.classList.add('vn-active');
-            } else {
-                this.element.classList.remove('vn-active');
-            }
-        };
-
-        // 鼠标悬浮时激活
-        this.element.addEventListener('mouseenter', () => setActive(true));
-        this.element.addEventListener('mouseleave', () => {
-            // 离开时，只有在文本区域没有焦点的情况下才取消激活
-            if (document.activeElement !== this.textElement) {
-                setActive(false);
-            }
-        });
-
-        // 文本区域获得焦点时激活
-        this.textElement.addEventListener('focus', () => setActive(true));
-        // 文本区域失去焦点时，只有在鼠标没有悬浮在整个块上的情况下才取消激活
-        this.textElement.addEventListener('blur', () => {
-            if (!this.element.matches(':hover')) {
-                setActive(false);
-            }
-        });
-
         return this.element;
     }
 
