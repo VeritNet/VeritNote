@@ -9,59 +9,95 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_definitions(-D_UNICODE -DUNICODE)
 set(CMAKE_WINDOWS_KIND "WINDOWSEXE")
 
-
-# 定义 Vendor 目录
+# --- 路径定义 ---
 set(VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor")
 set(WEB_ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/webview_ui")
+# 定义处理后资源的存放目录（在构建目录下）
+set(PROCESSED_ASSETS_DIR "${CMAKE_CURRENT_BINARY_DIR}/processed_assets")
+
+# --- 准备生成的资源文件路径 ---
+set(RESOURCE_H "${CMAKE_CURRENT_BINARY_DIR}/resources.h")
+set(RESOURCE_RC "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
 
 
 # --- 自动化前端资源嵌入 ---
 
-# 2. 查找 webview_ui 目录下的所有文件
-file(GLOB_RECURSE WEB_ASSETS "${WEB_ASSETS_DIR}/*")
+# 1. 查找 node.exe 和 uglifyjs 的主脚本
+find_program(NODE_EXECUTABLE node)
+if(NOT NODE_EXECUTABLE)
+    message(FATAL_ERROR "node.exe not found. Please ensure Node.js is installed and its path is in the system PATH environment variable.")
+endif()
+message(STATUS "Found Node.js executable: ${NODE_EXECUTABLE}")
 
-# 3. 准备生成的资源文件路径
-set(RESOURCE_H "${CMAKE_CURRENT_BINARY_DIR}/resources.h")
-set(RESOURCE_RC "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
 
-# 4. 生成头文件和资源脚本的开头
-file(WRITE ${RESOURCE_H} "#pragma once\n\n#include <map>\n#include <string>\n\n")
-file(WRITE ${RESOURCE_RC} "#include \"resources.h\"\n\n")
+# !! 需要您手动确认此路径 !!
+# 尝试在 npm 全局模块的通用位置自动查找 uglifyjs 脚本
+find_file(UGLIFYJS_DEFAULT_SCRIPT_PATH
+    NAMES uglifyjs
+    PATHS "$ENV{APPDATA}/npm/node_modules/uglify-js/bin" # Windows
+          "$ENV{HOME}/.nvm/versions/node/v*/lib/node_modules/uglify-js/bin" # Linux/macOS with NVM
+          "/usr/local/lib/node_modules/uglify-js/bin" # Linux/macOS global
+    NO_DEFAULT_PATH
+)
 
-# 5. 遍历每个资源文件，为它们生成唯一的ID和RC文件中的条目
-set(RESOURCE_ID_COUNTER 1000)
-set(RESOURCE_MAP_CONTENT "static std::map<std::wstring, int> g_resource_map = {\n")
+# 定义一个缓存变量，允许用户通过 Preset 或 CMake GUI 覆盖它
+set(VERITNOTE_UGLIFYJS_SCRIPT_PATH "${UGLIFYJS_DEFAULT_SCRIPT_PATH}"
+    CACHE FILEPATH "Path to the main uglifyjs script file (not the .cmd wrapper).")
 
-foreach(ASSET_PATH ${WEB_ASSETS})
-    file(RELATIVE_PATH RELATIVE_ASSET_PATH "${WEB_ASSETS_DIR}" "${ASSET_PATH}")
-    string(REPLACE "\\" "/" URL_PATH "/${RELATIVE_ASSET_PATH}")
-    string(TOUPPER ${RELATIVE_ASSET_PATH} ID_NAME)
-    string(REGEX REPLACE "[^A-Z0-9]" "_" ID_NAME "IDR_${ID_NAME}")
-    file(APPEND ${RESOURCE_H} "#define ${ID_NAME} ${RESOURCE_ID_COUNTER}\n")
-    string(REPLACE "\\" "\\\\" URL_PATH_ESCAPED ${URL_PATH})
-    set(RESOURCE_MAP_CONTENT "${RESOURCE_MAP_CONTENT}    {L\"${URL_PATH_ESCAPED}\", ${ID_NAME}},\n")
+# 检查最终确定的路径是否存在
+if(NOT EXISTS "${VERITNOTE_UGLIFYJS_SCRIPT_PATH}")
+    message(FATAL_ERROR "UglifyJS script not found. Please specify its location using the VERITNOTE_UGLIFYJS_SCRIPT_PATH cache variable in your CMakeUserPresets.json or the CMake GUI. Searched default location: ${UGLIFYJS_DEFAULT_SCRIPT_PATH}")
+endif()
+message(STATUS "Using UglifyJS script: ${VERITNOTE_UGLIFYJS_SCRIPT_PATH}")
 
-    # --- 核心修改：对HTML文件进行预处理 ---
-    string(REPLACE "\\" "\\\\" ASSET_PATH_ESCAPED ${ASSET_PATH})
-    file(APPEND ${RESOURCE_RC} "${ID_NAME} RCDATA \"${ASSET_PATH_ESCAPED}\"\n")
 
-    math(EXPR RESOURCE_ID_COUNTER "${RESOURCE_ID_COUNTER} + 1")
-endforeach()
+# 2. 查找所有源 webview_ui 文件，用于依赖性检查
+file(GLOB_RECURSE WEB_ASSETS_SOURCES "${WEB_ASSETS_DIR}/*")
 
-# 6. 完成资源映射map并写入头文件
-set(RESOURCE_MAP_CONTENT "${RESOURCE_MAP_CONTENT}};\n")
-file(APPEND ${RESOURCE_H} "\n${RESOURCE_MAP_CONTENT}")
+# 3. 创建一个自定义目标来处理所有前端资源
+# 这个目标将负责复制、压缩JS，并生成RC和H文件
+add_custom_target(preprocess_web_assets
+    
+    # 步骤 A: 清理并复制资源到处理目录
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${PROCESSED_ASSETS_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROCESSED_ASSETS_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${WEB_ASSETS_DIR}/" "${PROCESSED_ASSETS_DIR}/"
+    
+    # 步骤 B: *** 核心修改 *** 
+    # 我们传递 node.exe 和 uglifyjs 脚本的路径给处理脚本
+    COMMAND ${CMAKE_COMMAND} 
+        -D "PROCESSED_DIR=${PROCESSED_ASSETS_DIR}" 
+        -D "NODE_CMD=${NODE_EXECUTABLE}" 
+        -D "UGLIFYJS_SCRIPT=${VERITNOTE_UGLIFYJS_SCRIPT_PATH}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/UglifyScripts.cmake"
+
+    # 步骤 C: 基于处理后的资源，生成 resources.h 和 resources.rc
+    COMMAND ${CMAKE_COMMAND} -D "WEB_ASSETS_DIR_SRC=${WEB_ASSETS_DIR}" -D "PROCESSED_ASSETS_DIR_DST=${PROCESSED_ASSETS_DIR}" -D "RESOURCE_H=${RESOURCE_H}" -D "RESOURCE_RC=${RESOURCE_RC}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateResources.cmake"
+
+    # 依赖项：如果源文件发生变化，则重新运行此目标
+    DEPENDS ${WEB_ASSETS_SOURCES}
+    
+    # 注释：告知构建系统这个目标会生成这些文件
+    BYPRODUCTS ${RESOURCE_H} ${RESOURCE_RC}
+
+    COMMENT "Preprocessing web assets: copying, uglifying JS, and generating resource files..."
+)
+
 
 # --- 添加可执行文件 ---
 add_executable(VeritNote WIN32
     src/main.cpp
     src/Backend.cpp
-    ${RESOURCE_RC} # <--- 将生成的RC文件添加到编译目标
+    ${RESOURCE_RC} # <--- 仍然添加生成的RC文件
 )
+
+# 建立依赖关系：VeritNote 依赖于 preprocess_web_assets 的完成
+add_dependencies(VeritNote preprocess_web_assets)
+
 
 if(MSVC)
     target_compile_options(VeritNote PRIVATE
-        $<$<CONFIG:Release>:/O2 /Oi /Ot /GL /Gy /fp:fast /GR->
+        $<$<CONFIG:Release>:/O2 /Oi /Ot /GL /Gy /fp:fast /EHsc /GR->
     )
     target_link_options(VeritNote PRIVATE
         $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF /INCREMENTAL:NO /SUBSYSTEM:WINDOWS,6.00>
@@ -82,7 +118,6 @@ endif()
 set(WebView2_INCLUDE_DIR "${VENDOR_DIR}/WebView2/include")
 set(WIL_INCLUDE_DIR "${VENDOR_DIR}/wil/include") 
 
-# 检查依赖文件是否存在
 if (NOT EXISTS "${WebView2_INCLUDE_DIR}")
     message(FATAL_ERROR "WebView2 SDK include directory not found. Please check the path: ${WebView2_INCLUDE_DIR}")
 endif()
@@ -92,7 +127,7 @@ endif()
 
 # 为项目添加所有头文件目录
 target_include_directories(VeritNote PUBLIC
-    "${CMAKE_CURRENT_BINARY_DIR}" # <--- 新增：为了能找到生成的 resources.h
+    "${CMAKE_CURRENT_BINARY_DIR}" # <--- 必须包含，为了能找到生成的 resources.h
     "${VENDOR_DIR}"             
     "${WebView2_INCLUDE_DIR}"   
     "${WIL_INCLUDE_DIR}"        
