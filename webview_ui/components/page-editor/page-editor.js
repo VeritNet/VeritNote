@@ -244,6 +244,16 @@ class PageEditor {
         this.elements.editorAreaContainer.addEventListener('dragend', this._onDragEnd.bind(this));
         this.elements.editorAreaContainer.addEventListener('mouseover', this._onBlockMouseOver.bind(this));
         this.elements.editorAreaContainer.addEventListener('mouseout', this._onBlockMouseOut.bind(this));
+        this.elements.editorAreaContainer.addEventListener('contextmenu', (e) => {
+            const blockEl = e.target.closest('.block-container');
+            if (blockEl) {
+                e.preventDefault(); // Prevent the default browser context menu
+                const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset.id)?.block;
+                if (blockInstance) {
+                    this._showBlockDetails(blockInstance);
+                }
+            }
+        });
         
         // UI Chrome Listeners
         this.elements.commandMenu.addEventListener('click', this._onCommandMenuClick.bind(this));
@@ -272,6 +282,23 @@ class PageEditor {
         // Listener for the new settings button
         this.elements.settingsBtn.addEventListener('click', () => {
              window.openConfigModal('page', this.filePath);
+        });
+
+        // Click listener for hierarchy view in details panel
+        this.elements.detailsView.addEventListener('click', (e) => {
+            // Target the entire row for a larger click area
+            const targetRow = e.target.closest('.details-hierarchy-row');
+            if (targetRow && targetRow.dataset.blockId) {
+                const blockId = targetRow.dataset.blockId;
+                // 1. Update the selection using the selection manager
+                this.selectionManager.set(blockId);
+                // 2. Find the block's element in the editor
+                const blockEl = this.elements.editorAreaContainer.querySelector(`.block-container[data-id="${blockId}"]`);
+                // 3. If found, scroll it into view
+                if (blockEl) {
+                    blockEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
         });
 
 
@@ -845,7 +872,7 @@ class PageEditor {
      * Handles clicks within the preview view, specifically for internal links.
      * @param {MouseEvent} e The click event.
      */
-    _onPreviewClick(e) {
+    async _onPreviewClick(e) {
         // 使用 .closest() 寻找被点击的元素或其祖先元素中符合条件的链接
         const link = e.target.closest('a.internal-link');
 
@@ -865,7 +892,7 @@ class PageEditor {
             // 3. 调用 TabManager 来打开或切换到目标标签页
             // openTab 方法足够智能，如果标签页已打开，它会切换过去，
             // 并将 blockId 传递给编辑器以滚动到指定块。
-            this.tabManager.openTab(absolutePath, blockId);
+            await this.tabManager.openTab(absolutePath, blockId);
         }
     }
 
@@ -1050,54 +1077,59 @@ class PageEditor {
     }
 
     // --- Command Menu Handlers ---
+    /**
+     * Checks if the command menu is visible. If so, updates it. If not, shows it.
+     * This prevents conflicting show/hide calls on every input.
+     * @param {Block} blockInstance The block that triggered the command.
+     */
     showCommandMenuForBlock(blockInstance) {
         const blockEl = blockInstance.contentElement;
-        if (!blockEl) return;
+        if (!blockEl || this.elements.commandMenu.classList.contains('is-visible')) {
+            return; // Don't show if no element or already visible
+        }
 
-        const wasAlreadyVisible = this.elements.commandMenu.style.display === 'block';
-
-        this.elements.commandMenu.style.display = 'block'; // Show first to measure height
-        this.activeCommandBlock = blockInstance;
-
+        // Make it visible
+        this.elements.commandMenu.style.display = 'block';
+        requestAnimationFrame(() => {
+            this.elements.commandMenu.classList.add('is-visible');
+        });
+        
+        // Position it
         const rect = blockEl.getBoundingClientRect();
         const menuHeight = this.elements.commandMenu.offsetHeight;
         const windowHeight = window.innerHeight;
-        const buffer = 10; // 10px spacing from the edge
-
+        const buffer = 10;
         let topPosition = rect.bottom;
-
-        // Check if the menu would go off-screen at the bottom
         if (rect.bottom + menuHeight > windowHeight - buffer) {
-            // If so, position it ABOVE the block instead
             topPosition = rect.top - menuHeight;
         }
-
         this.elements.commandMenu.style.left = `${rect.left}px`;
         this.elements.commandMenu.style.top = `${topPosition}px`;
-        
-        this._updateCommandMenu(blockEl.textContent.substring(1));
 
-        if (!wasAlreadyVisible) {
-            // Use a timeout to prevent the same click that opened the menu
-            // from immediately closing it.
-            setTimeout(() => {
-                // Define the handler and store it
-                this._handleDocumentClickForMenu = (e) => {
-                    // If the click is outside the command menu, hide it
-                    if (!this.elements.commandMenu.contains(e.target)) {
-                        this.hideCommandMenu();
-                    }
-                };
-                // Add the listener to the document
-                document.addEventListener('mousedown', this._handleDocumentClickForMenu);
-            }, 0);
-        }
+        // Add the click-away listener
+        setTimeout(() => {
+            this._handleDocumentClickForMenu = (e) => {
+                if (!this.elements.commandMenu.contains(e.target)) {
+                    this.hideCommandMenu();
+                }
+            };
+            document.addEventListener('mousedown', this._handleDocumentClickForMenu);
+        }, 0);
     }
 
     hideCommandMenu() {
-        if (this.elements.commandMenu.style.display === 'block') {
-            this.elements.commandMenu.style.display = 'none';
+        if (this.elements.commandMenu.classList.contains('is-visible')) {
+            this.elements.commandMenu.classList.remove('is-visible');
             this.activeCommandBlock = null;
+
+            // Wait for the animation to finish before setting display to none
+            setTimeout(() => {
+                // Check again in case it was re-opened quickly
+                if (!this.elements.commandMenu.classList.contains('is-visible')) {
+                    this.elements.commandMenu.style.display = 'none';
+                }
+            }, 150); // Match the CSS transition duration
+            
             this.elements.commandMenuSelectedIndex = 0;
 
             if (this._handleDocumentClickForMenu) {
@@ -1107,10 +1139,15 @@ class PageEditor {
         }
     }
 
-    _updateCommandMenu(searchTerm) {
+    /**
+     * Filters the registered block commands based on a search term.
+     * @param {string} searchTerm The term to filter by.
+     * @returns {Array<object>} An array of matching command objects.
+     * @private
+     */
+    _getFilteredCommands(searchTerm) {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        
-        let filteredCommands = [];
+        const filteredCommands = [];
         this.blockRegistry.forEach(BlockClass => {
             if (BlockClass.canBeToggled) {
                 const match = BlockClass.label.toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -1120,21 +1157,24 @@ class PageEditor {
                         type: BlockClass.type,
                         title: BlockClass.label,
                         description: BlockClass.description,
-                        icon: BlockClass.icon || '■' // Get icon from class static property
+                        icon: BlockClass.icon || '■'
                     });
                 }
             }
         });
+        return filteredCommands;
+    }
 
-        if (filteredCommands.length === 0) {
-            this.hideCommandMenu();
-            return;
-        }
-
+    /**
+     * Renders the command menu's inner HTML from a list of commands.
+     * @param {Array<object>} commands - The command objects to render.
+     * @private
+     */
+    _renderCommandMenu(commands) {
         this.elements.commandMenu.innerHTML = `
             <div class="command-menu-title">Basic Blocks</div>
             <div class="command-menu-list">
-                ${filteredCommands.map(cmd => `
+                ${commands.map(cmd => `
                     <div class="command-item" data-type="${cmd.type}">
                         <span class="command-item-icon">${cmd.icon}</span>
                         <div class="command-item-text">
@@ -1145,10 +1185,47 @@ class PageEditor {
                 `).join('')}
             </div>
         `;
-        
-        // NEW: Reset index and apply selection after updating content
         this.elements.commandMenuSelectedIndex = 0;
         this._updateCommandMenuSelection();
+    }
+
+    /**
+     * The single source of truth for managing the command menu's state.
+     * Decides whether to show, update, or hide the menu based on block content.
+     * @param {Block} blockInstance The block instance that may trigger the menu.
+     * @private
+     */
+    _handleCommandMenuLifecycle(blockInstance) {
+        const content = blockInstance.contentElement.textContent || '';
+
+        // --- DECISION 1: Should the menu exist at all? ---
+        // If content doesn't start with '/', hide and exit immediately.
+        if (!content.startsWith('/')) {
+            this.hideCommandMenu();
+            return;
+        }
+
+        // --- DECISION 2: Are there any commands to show? ---
+        const searchTerm = content.substring(1);
+        const filteredCommands = this._getFilteredCommands(searchTerm);
+
+        // If the filter returns no results, hide and exit.
+        if (filteredCommands.length === 0) {
+            this.hideCommandMenu();
+            return;
+        }
+
+        // --- CONCLUSION: The menu should be visible. ---
+        // At this point, we know we need to display the menu with content.
+
+        // 1. Update the content of the menu.
+        this._renderCommandMenu(filteredCommands);
+        this.activeCommandBlock = blockInstance;
+
+        // 2. If it's not already visible, perform the "show" actions.
+        if (!this.elements.commandMenu.classList.contains('is-visible')) {
+            this.showCommandMenuForBlock(blockInstance);
+        }
     }
 
     _updateCommandMenuSelection() {
@@ -1231,123 +1308,144 @@ class PageEditor {
         }
     }
 
-    _onDragOver(e) {
-        e.preventDefault();
-
-    
-        const rightSidebar = e.target.closest('#right--sidebar');
-        const referencesView = document.getElementById('references-view');
-    
-        if (e.target.closest('#right-sidebar')) {
-            // Check if the references view is active.
-            if (referencesView && referencesView.classList.contains('active')) {
-                // It's the correct view, proceed as normal.
-                this._cleanupDragIndicators();
-                this.currentDropInfo = null;
-                e.dataTransfer.dropEffect = 'copy';
-                // ONLY dispatch the event if it's the correct view.
-                window.dispatchEvent(new CustomEvent('block:dragover:right-sidebar')); 
-            } else {
-                // It's the wrong view (e.g., "Details"). Prohibit dropping.
-                e.dataTransfer.dropEffect = 'none';
-                // DO NOT dispatch the event, so no highlight will appear.
-            }
-            return; // IMPORTANT: Exit early.
-        }
-
-
-        // --- 容器拖拽逻辑 ---
-        
-        this._cleanupDragIndicators();
-    
-        // 1. 寻找鼠标正下方的块
-        const targetEl = e.target.closest('.block-container');
-    
-        // 如果没找到块，或者在拖拽的块上，则退出
-        if (!targetEl || targetEl.classList.contains('is-dragging-ghost')) {
-            this.currentDropInfo = null;
-            return;
+    /**
+     * Activates the "add area" for a specific container block and deactivates any previous one.
+     * This is the single source of truth for showing the container's drop/click target.
+     * @param {Block | null} containerBlockInstance The container block instance to activate.
+     */
+    _setActiveContainerAddArea(containerBlockInstance) {
+        // Deactivate the previously active one, if any.
+        if (this.hoveredChildrenContainer) {
+            this.hoveredChildrenContainer.classList.remove('show-add-area');
+            this.hoveredChildrenContainer.classList.remove('is-drop-target-child'); // Also clean up drag class
         }
     
-        const rect = targetEl.getBoundingClientRect();
-        const targetBlockInstance = this._findBlockInstanceById(this.blocks, targetEl.dataset.id)?.block;
-        if (!targetBlockInstance) return;
+        this.hoveredChildrenContainer = null;
     
-        // --- 关键修复：重新定义拖拽意图的优先级 ---
-        const yMidpoint = rect.top + rect.height / 2;
-        const isContainer = targetBlockInstance.isContainer;
-        
-        // 定义一个缓冲区，只有在块的中间大部分区域才算“拖入”
-        const verticalBuffer = Math.min(rect.height * 0.25, 20); // 25% 或最多 20px
+        // Activate the new one, if it's a valid container.
+        if (containerBlockInstance && containerBlockInstance.isContainer && containerBlockInstance.childrenContainer) {
+            const childrenContainer = containerBlockInstance.childrenContainer;
+            
+            // The class to add depends on whether we are dragging or not.
+            const className = document.body.classList.contains('is-dragging-block') 
+                ? 'is-drop-target-child' 
+                : 'show-add-area';
     
-        // 意图 1: 拖拽到块的上方或下方 (最高优先级)
-        if (e.clientY < rect.top + verticalBuffer) {
-            this._showHorizontalIndicator(targetEl, 'before');
-            this.currentDropInfo = { targetId: targetEl.dataset.id, position: 'before' };
-            return;
-        }
-        if (e.clientY > rect.bottom - verticalBuffer) {
-            this._showHorizontalIndicator(targetEl, 'after');
-            this.currentDropInfo = { targetId: targetEl.dataset.id, position: 'after' };
-            return;
-        }
-    
-        // 意图 2: 如果是容器，并且鼠标在中间区域，则视为“拖入”
-        if (isContainer) {
-            const childrenContainer = targetBlockInstance.childrenContainer;
-            if (childrenContainer) {
-                // 如果容器是空的，高亮整个容器
-                if (targetBlockInstance.children.length === 0) {
-                    childrenContainer.classList.add('is-drop-target');
-                } else {
-                    // 如果容器有内容，高亮末尾的 ::after 区域
-                    childrenContainer.classList.add('is-drop-target-child');
-                }
-                this.currentDropInfo = { targetId: targetEl.dataset.id, position: 'inside_last' };
-                return;
-            }
-        }
-    
-        // 意图 3: 如果不是容器，或者作为回退，则根据中线判断上方或下方
-        const positionV = (e.clientY < yMidpoint) ? 'before' : 'after';
-        this._showHorizontalIndicator(targetEl, positionV);
-        this.currentDropInfo = { targetId: targetEl.dataset.id, position: positionV };
-
-
-        
-        this._showQuadrantOverlay(targetEl, e);
-
-        
-        // --- NEW: Four-Quadrant Overlay Logic ---
-        this._showQuadrantOverlay(targetEl, e);
-
-        const canHaveChildren = targetBlockInstance?.isContainer;
-        
-        const paddingBottom = 24;
-        const isInBottomPadding = canHaveChildren && (e.clientY > rect.bottom - paddingBottom);
-
-        if (isInBottomPadding) {
-            this._showHorizontalIndicator(targetEl, 'inside_last');
-            this.currentDropInfo = { targetId: targetEl.dataset.id, position: 'inside_last' };
-        } else {
-            const yMidpoint = rect.top + rect.height / 2;
-            const xZone = rect.width * 0.15; // 15% of width for left/right zones
-            const dropInfo = { targetId: targetEl.dataset.id, position: 'after' };
-
-            if (e.clientX < rect.left + xZone) {
-                this._showVerticalIndicator(targetEl, 'left');
-                dropInfo.position = 'left';
-            } else if (e.clientX > rect.right - xZone) {
-                this._showVerticalIndicator(targetEl, 'right');
-                dropInfo.position = 'right';
-            } else {
-                const positionV = (e.clientY < yMidpoint) ? 'before' : 'after';
-                this._showHorizontalIndicator(targetEl, positionV);
-                dropInfo.position = positionV;
-            }
-            this.currentDropInfo = dropInfo;
+            childrenContainer.classList.add(className);
+            this.hoveredChildrenContainer = childrenContainer;
         }
     }
+
+_onDragOver(e) {
+    e.preventDefault();
+    
+    // --- Part 1: Handle external zones (Delete, Right Sidebar) ---
+    // This logic is self-contained and correct.
+    // ... (keep the existing logic for delete zone and right sidebar here) ...
+    const deleteZone = this.elements.deleteDropZone;
+    if (deleteZone && deleteZone.contains(e.target)) {
+        deleteZone.classList.add('is-active');
+        e.dataTransfer.dropEffect = 'move'; 
+        this._cleanupDragIndicators();
+        this._setActiveContainerAddArea(null);
+        this.currentDropInfo = { targetId: 'DELETE_ZONE', position: 'inside' };
+        return;
+    } else if (deleteZone) {
+        deleteZone.classList.remove('is-active');
+    }
+    if (e.target.closest('#right-sidebar')) {
+        this._cleanupDragIndicators();
+        this._setActiveContainerAddArea(null);
+        this.currentDropInfo = null;
+        const referencesView = document.getElementById('references-view');
+        if (referencesView && referencesView.classList.contains('active')) {
+            e.dataTransfer.dropEffect = 'copy';
+            window.dispatchEvent(new CustomEvent('block:dragover:right-sidebar')); 
+        } else {
+            e.dataTransfer.dropEffect = 'none';
+        }
+        return;
+    }
+
+    // --- Part 2: Handle dragging over the main editor area ---
+    
+    // *** NEW: Precise Target Identification Logic ***
+    let targetEl = null;
+    let targetBlockInstance = null;
+    
+    // Priority 1: Check for the most specific container first - a table cell.
+    const cellEl = e.target.closest('.table-cell-content');
+    if (cellEl) {
+        targetEl = cellEl; // The cell itself is our logical target element
+        targetBlockInstance = this._findBlockInstanceById(this.blocks, cellEl.dataset.id)?.block;
+    } else {
+        // Priority 2: If not a cell, check for a standard block container.
+        const containerEl = e.target.closest('.block-container');
+        if (containerEl) {
+            targetEl = containerEl;
+            targetBlockInstance = this._findBlockInstanceById(this.blocks, containerEl.dataset.id)?.block;
+        }
+    }
+    
+    // If no valid target found, or over a ghost, clean up and exit.
+    if (!targetEl || !targetBlockInstance || targetEl.classList.contains('is-dragging-ghost')) {
+        this._cleanupDragIndicators();
+        this._setActiveContainerAddArea(null);
+        this.currentDropInfo = null;
+        return;
+    }
+
+    // --- At this point, we have a guaranteed, precise targetEl and targetBlockInstance ---
+
+    // 1. Determine the base drop position.
+    const rect = targetEl.getBoundingClientRect();
+    const yMidpoint = rect.top + rect.height / 2;
+    const xZone = rect.width * 0.15;
+
+    let position = 'after'; // Default
+    if (targetBlockInstance.type !== 'tableCell' && e.clientX < rect.left + xZone) {
+        // Column creation only works for non-cell blocks
+        position = 'left';
+    } else if (targetBlockInstance.type !== 'tableCell' && e.clientX > rect.right - xZone) {
+        position = 'right';
+    } else if (e.clientY < yMidpoint) {
+        position = 'before';
+    }
+    
+    // 2. SPECIAL CASE: Override to 'inside_last' if it's a container
+    //    and the mouse is not in the top/bottom edge zones.
+    const isContainer = targetBlockInstance.isContainer;
+    const verticalBuffer = Math.min(rect.height * 0.3, 20); // Use a slightly larger buffer
+
+    if (isContainer && e.clientY > rect.top + verticalBuffer && e.clientY < rect.bottom - verticalBuffer) {
+        position = 'inside_last';
+    }
+
+    // 3. Update data state.
+    this.currentDropInfo = { targetId: targetEl.dataset.id, position: position };
+
+    // 4. Update UI based on the final determined position.
+    this._cleanupDragIndicators();
+
+    switch (position) {
+        case 'before':
+        case 'after':
+            this._setActiveContainerAddArea(null);
+            this._showHorizontalIndicator(targetEl, position);
+            break;
+        case 'left':
+        case 'right':
+            this._setActiveContainerAddArea(null);
+            this._showVerticalIndicator(targetEl, position);
+            break;
+        case 'inside_last':
+            this._setActiveContainerAddArea(targetBlockInstance);
+            break;
+        default:
+            this._setActiveContainerAddArea(null);
+            break;
+    }
+}
 
     _onDragLeave(e) {  }
 
@@ -1676,12 +1774,21 @@ class PageEditor {
         return { structuralChange, modifiedContainerIds };
     }
 
-    _cleanupDragIndicators() {
+    /**
+     * Cleans up all visual drag indicators from the editor.
+     * @param {boolean} [keepContainerIndicators=false] - If true, will not remove .is-drop-target classes.
+     */
+    _cleanupDragIndicators(keepContainerIndicators = false) {
         this.container.querySelectorAll('.drop-indicator, .drop-indicator-vertical, .quadrant-overlay').forEach(el => el.remove());
-    
-        this.container.querySelectorAll('.is-drop-target, .is-drop-target-child').forEach(el => {
-            el.classList.remove('is-drop-target', 'is-drop-target-child');
-        });
+        
+        if (!keepContainerIndicators) {
+            if (this.hoveredChildrenContainer) {
+                 this.hoveredChildrenContainer.classList.remove('show-add-area', 'is-drop-target-child');
+            }
+            this.container.querySelectorAll('.is-drop-target').forEach(el => {
+                el.classList.remove('is-drop-target');
+            });
+        }
     }
 
     _showQuadrantOverlay(targetEl, event) {
@@ -1993,27 +2100,12 @@ class PageEditor {
             }
         }
     
-        // --- Part 2: NEW Add Area Logic ---
-        // Find the block container the mouse is directly over
+        // --- Part 2: MODIFIED Add Area Logic ---
         const hoveredBlockEl = e.target.closest('.block-container, .table-cell-content');
-        if (!hoveredBlockEl) return;
-    
-        const blockInstance = this._findBlockInstanceById(this.blocks, hoveredBlockEl.dataset.id)?.block;
-        
-        // If it's a valid container block
-        if (blockInstance && blockInstance.isContainer && blockInstance.childrenContainer) {
-            const childrenContainer = blockInstance.childrenContainer;
-    
-            // If we are hovering a new container, switch the active class
-            if (childrenContainer !== this.hoveredChildrenContainer) {
-                // Deactivate the previously hovered one
-                if (this.hoveredChildrenContainer) {
-                    this.hoveredChildrenContainer.classList.remove('show-add-area');
-                }
-                // Activate the new one and store its reference
-                childrenContainer.classList.add('show-add-area');
-                this.hoveredChildrenContainer = childrenContainer;
-            }
+        if (hoveredBlockEl) {
+            const blockInstance = this._findBlockInstanceById(this.blocks, hoveredBlockEl.dataset.id)?.block;
+            // Use the new helper method to handle activation.
+            this._setActiveContainerAddArea(blockInstance);
         }
     }
 
@@ -2028,12 +2120,12 @@ class PageEditor {
             }
         }, 300);
     
-        // --- Part 2: NEW Add Area Logic ---
-        // Check if the mouse has moved to an element that is NOT a descendant
-        // of the currently hovered container. `relatedTarget` is where the mouse is going.
-        if (this.hoveredChildrenContainer && !this.hoveredChildrenContainer.closest('.block-container, .table-cell-content').contains(e.relatedTarget)) {
-            this.hoveredChildrenContainer.classList.remove('show-add-area');
-            this.hoveredChildrenContainer = null;
+        // --- Part 2: MODIFIED Add Area Logic ---
+        // Check if the mouse has moved to an element that is NOT a descendant of the hovered block.
+        const currentHoveredBlockEl = this.hoveredChildrenContainer?.closest('.block-container, .table-cell-content');
+        if (currentHoveredBlockEl && !currentHoveredBlockEl.contains(e.relatedTarget)) {
+            // Deactivate by calling the helper with null.
+            this._setActiveContainerAddArea(null);
         }
     }
 
@@ -2190,6 +2282,11 @@ class PageEditor {
                 });
                 break;
 
+            case 'showDetails':
+                this._showBlockDetails(blockInstance);
+                this._hideBlockToolbar(); // Hide toolbar after clicking
+                break;
+
             // Actions for specific blocks (e.g., Image, LinkButton)
             default:
                 if (typeof blockInstance.handleToolbarAction === 'function') {
@@ -2197,6 +2294,26 @@ class PageEditor {
                 }
                 break;
         }
+    }
+
+    /**
+     * Selects a block, ensures the right sidebar is open, and switches to the details view.
+     * @param {Block} blockInstance The block instance to show details for.
+     */
+    _showBlockDetails(blockInstance) {
+        if (!blockInstance) return;
+        
+        // 1. Select the current block
+        this.selectionManager.set(blockInstance.id);
+        
+        // 2. Expand the right sidebar if collapsed
+        const appContainer = this.container.closest('.app-container');
+        if (appContainer && appContainer.classList.contains('right-sidebar-collapsed')) {
+            this.setRightSidebarCollapsed(false);
+        }
+        
+        // 3. Switch to the details panel
+        this.switchRightSidebarView('details');
     }
 
     // --- ========================================================== ---
@@ -3161,18 +3278,41 @@ class ReferenceManager {
 
     // --- Interaction and State Management ---
 
-    _handleClick(e) {
+    async _handleClick(e) {
+        // Priority 1: Check for linking mode
         if (this.isLinkingMode) {
             const itemEl = e.target.closest('.reference-item');
             if (itemEl && this.linkingCallback) {
                 const blockId = itemEl.dataset.blockId;
-                const refData = globalState.references.find(r => r.blockData.id === blockId); // 从全局状态中查找
+                const refData = globalState.references.find(r => r.blockData.id === blockId);
                 if (refData) { this.linkingCallback(refData); }
             }
             return;
         }
+
+        // Priority 2: Check for delete button click
         const deleteBtn = e.target.closest('.reference-item-delete-btn');
-        if (deleteBtn) { this.removeReference(deleteBtn.closest('.reference-item').dataset.blockId); }
+        if (deleteBtn) {
+            this.removeReference(deleteBtn.closest('.reference-item').dataset.blockId);
+            return;
+        }
+
+        // Default action: Navigate to the block
+        const itemEl = e.target.closest('.reference-item');
+        if (itemEl) {
+            const blockId = itemEl.dataset.blockId;
+            const refData = globalState.references.find(r => r.blockData.id === blockId);
+
+            if (refData) {
+                // Check if the reference is in the current file
+                if (refData.filePath === this.editor.filePath) {
+                    this.editor.focusBlock(blockId);
+                } else {
+                    // Open or switch to the other file's tab and focus the block
+                    await this.editor.tabManager.openTab(refData.filePath, blockId);
+                }
+            }
+        }
     }
 
     enableLinkingMode(enable, callback = null) {

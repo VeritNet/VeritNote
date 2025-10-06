@@ -122,7 +122,7 @@ class CodeBlock extends Block {
     }
 
     get toolbarButtons() {
-        return [
+        const buttons = [
             {
                 // We use a special property 'html' to create a custom button with text
                 html: `<span class="toolbar-lang-icon"></span> ${this.properties.language}`,
@@ -130,6 +130,8 @@ class CodeBlock extends Block {
                 action: 'changeLanguage'
             }
         ];
+        buttons.push(...super.toolbarButtons);
+        return buttons;
     }
     
     // *** NEW: Handle the toolbar action ***
@@ -161,17 +163,6 @@ class CodeBlock extends Block {
         if (this.editor.activeToolbarBlock === this) {
             this.editor._populateToolbar(this);
         }
-    }
-    
-    // Code blocks do not have a standard toolbar
-    get toolbarButtons() {
-        return [
-            {
-                html: `<span class="toolbar-lang-icon"></span> ${this.properties.language || 'plaintext'}`,
-                title: 'Change Language',
-                action: 'changeLanguage'
-            }
-        ];
     }
 
 

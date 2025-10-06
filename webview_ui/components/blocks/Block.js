@@ -52,7 +52,15 @@ class Block {
      * @returns {Array} An array of button definition objects.
      */
     get toolbarButtons() {
-        return []; // e.g., [{ icon: 'B', title: 'Bold', action: 'format', arg: 'bold' }]
+        // We define this in the base class so all blocks get it.
+        // It's an array so subclasses can push their own buttons to it.
+        return [
+            {
+                html: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>',
+                title: 'More Actions',
+                action: 'showDetails' // A new action we will handle
+            }
+        ];
     }
 
     /**
@@ -166,13 +174,10 @@ class Block {
      * @param {InputEvent} e The event object.
      */
     onInput(e) {
-        const content = this.contentElement.textContent || '';
-        if (content.startsWith('/')) {
-            this.editor.showCommandMenuForBlock(this);
-        } else {
-            this.editor.hideCommandMenu();
-        }
-        // *** MODIFIED: Pass the 'typing' actionType ***
+        // Simply delegate the entire lifecycle management to the editor.
+        // The editor will decide whether to show, hide, or update the menu.
+        this.editor._handleCommandMenuLifecycle(this);
+        
         this.editor.emitChange(true, 'typing', this);
     }
     
@@ -199,7 +204,64 @@ class Block {
      * @returns {string} The HTML string to be inserted into the details panel.
      */
     renderDetailsPanel() {
-        // REVISED: Cleaner layout with Type as a key-value pair.
+        // --- Step 1: Build the Hierarchy Data Structure ---
+        const hierarchyData = [];
+        let maxAncestorDepth = 0;
+
+        // Function to gather ancestors (parents)
+        const gatherAncestors = (node) => {
+            if (!node) return;
+            // Add to the beginning of the array to maintain order
+            hierarchyData.unshift({ block: node }); 
+            maxAncestorDepth++; // Count how many ancestors we have
+            gatherAncestors(node.parent);
+        };
+
+        // Function to gather descendants (children)
+        const gatherDescendants = (children, depth) => {
+            if (!children || children.length === 0) return;
+            children.forEach(child => {
+                // The depth here is correct, it's relative to the current block
+                hierarchyData.push({ block: child, depth: depth });
+                gatherDescendants(child.children, depth + 1);
+            });
+        };
+
+        // --- REVISED LOGIC ---
+        // 1. Gather all ancestors first to determine the root depth
+        gatherAncestors(this.parent);
+        
+        // 2. Now, assign the correct, positive depth to each ancestor
+        hierarchyData.forEach((item, index) => {
+            item.depth = index;
+        });
+
+        // 3. Add the current block. Its depth is the number of ancestors.
+        hierarchyData.push({ block: this, depth: maxAncestorDepth });
+        
+        // 4. Gather descendants. Their depth is relative to the current block.
+        gatherDescendants(this.children, maxAncestorDepth + 1);
+        
+
+        // --- Step 2: Render HTML from the Data Structure ---
+        const hierarchyHtml = hierarchyData.map(item => {
+            const isCurrent = item.block.id === this.id;
+            return `
+                <div 
+                    class="details-hierarchy-row" 
+                    data-block-id="${item.block.id}" 
+                    style="--depth: ${item.depth};"  /* Now depth is always a positive integer */
+                    title="Click to select ${item.block.type}"
+                >
+                    <div class="details-hierarchy-indent"></div>
+                    <div class="details-hierarchy-item ${isCurrent ? 'is-current' : ''}">
+                        ${item.block.type}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+
         return `
             <div class="details-panel-section" data-block-id="${this.id}">
                 <div class="details-section-header">Block Details</div>
@@ -210,6 +272,11 @@ class Block {
                 <div class="details-property">
                     <span class="details-property-label">ID</span>
                     <span class="details-property-value is-monospace" title="${this.id}">${this.id}</span>
+                </div>
+                <br>
+                <div class="details-section-header">Hierarchy</div>
+                <div class="details-hierarchy-view">
+                    ${hierarchyHtml}
                 </div>
             </div>
         `;

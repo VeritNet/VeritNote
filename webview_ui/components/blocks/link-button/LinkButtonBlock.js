@@ -22,9 +22,11 @@
     }
 
     get toolbarButtons() {
-        return [
+        const buttons = [
             { icon: '🔗', title: 'Edit Button Link', action: 'editLinkButton' }
         ];
+        buttons.push(...super.toolbarButtons);
+        return buttons;
     }
     
     // Override sync to save only the text part from the contentEditable element

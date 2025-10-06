@@ -40,6 +40,8 @@ class CalloutBlock extends ContainerBlock {
 
     // Callouts don't have their own toolbar, but their children do.
     get toolbarButtons() {
-        return [];
+        const buttons = [];
+        buttons.push(...super.toolbarButtons);
+        return buttons;
     }
 }

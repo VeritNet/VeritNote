@@ -255,16 +255,17 @@ body.is-dragging-block #references-view.active {
     display: flex;
     align-items: center;
     gap: var(--spacing-s);
-    background: var(--bg-interactive-overlay);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(45, 45, 45, 0.65); /* 不透明度 */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1); /* 边框 */
     padding: var(--spacing-xs) var(--spacing-s);
     border-radius: 50px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); /* 阴影 */
     transition: transform var(--transition-cubic);
     will-change: transform;
 }
+
 
 #toolbar-peek-trigger {
     position: absolute;
@@ -381,12 +382,12 @@ body.is-dragging-block #references-view.active {
     position: fixed;
     display: flex;
     align-items: center;
-    background: var(--bg-interactive-overlay);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--shadow-primary);
+    background: rgba(45, 45, 45, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px; /* 圆角 */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     padding: var(--spacing-xs);
     z-index: 1000;
 }
@@ -417,10 +418,12 @@ body.is-dragging-block #references-view.active {
 
 #popover {
     position: fixed;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--shadow-primary);
+    background: rgba(35, 35, 37, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     z-index: 1001;
     width: 320px;
 }
@@ -570,14 +573,28 @@ body.is-linking-block .reference-item {
     position: absolute;
     width: 320px;
     border-radius: 8px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     z-index: 1000;
     overflow: hidden;
-    background: var(--bg-interactive-overlay);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(45, 45, 45, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    /* ANIMATION START */
+    transform-origin: top left;
+    transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+    /* Initial (hidden) state */
+    opacity: 0;
+    transform: scale(0.95) translateY(-5px);
+    pointer-events: none;
+    /* ANIMATION END */
 }
+    .command-menu.is-visible {
+        /* Visible state */
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        pointer-events: auto;
+    }
 
 .command-menu-title {
     padding: var(--spacing-s) var(--spacing-m);
@@ -591,6 +608,19 @@ body.is-linking-block .reference-item {
     max-height: 300px;
     overflow-y: auto;
     padding: 0 var(--spacing-xs) var(--spacing-xs) var(--spacing-xs);
+}
+
+    .command-menu-list::-webkit-scrollbar {
+        width: 8px; /* 可以让滚动条在弹窗中显得更纤细 */
+    }
+
+    .command-menu-list::-webkit-scrollbar-thumb {
+        border: none; /* 核心修复：移除边框 */
+        background-color: var(--bg-accent); /* 保持与主题一致的滑块颜色 */
+    }
+
+.command--menu-list::-webkit-scrollbar-thumb:hover {
+    background-color: #555; /* 保持悬浮效果 */
 }
 
 .command-item {
@@ -651,7 +681,7 @@ body.is-linking-block .reference-item {
 .details-section-header {
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     margin-bottom: var(--spacing-m);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -687,6 +717,62 @@ body.is-linking-block .reference-item {
     .details-property-value.is-monospace {
         font-family: var(--font-family-monospace);
         text-transform: none;
+    }
+
+
+.details-hierarchy-view {
+    font-size: 13px;
+    line-height: 1.5;
+    font-family: var(--font-family-monospace);
+    display: flex;
+    flex-direction: column;
+}
+
+.details-hierarchy-row {
+    display: flex;
+    align-items: stretch; /* Make children fill the height */
+    position: relative;
+    cursor: pointer;
+}
+
+    .details-hierarchy-row:hover .details-hierarchy-item {
+        background-color: var(--bg-tertiary);
+    }
+
+.details-hierarchy-indent {
+    /* The core of the new indentation and tree-line logic */
+    width: calc(var(--depth, 0) * 16px); /* Use CSS variable for depth */
+    flex-shrink: 0;
+    position: relative;
+    border-right: 1px solid var(--border-primary);
+}
+
+    .details-hierarchy-indent::before {
+        /* This creates the horizontal line connecting to the text */
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 8px; /* Length of the horizontal line */
+        height: 1px;
+        background-color: var(--border-primary);
+    }
+
+.details-hierarchy-item {
+    flex-grow: 1;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: background-color var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+    .details-hierarchy-item.is-current {
+        background-color: var(--bg-selected);
+        color: var(--text-primary);
+        font-weight: 500;
     }
 
 /* --- Block Container Drop Target Styles --- */

@@ -49,8 +49,39 @@ window.initializeMainComponent = () => {
             return this.tabs.get(this.activeTabPath);
         }
         
-        openTab(path, blockIdToFocus = null, computedConfig) {
+        async openTab(path, blockIdToFocus = null, computedConfig) {
+            let finalConfig = computedConfig;
+
+            // If computedConfig was not provided (e.g., called from a link), we must resolve it now.
+            if (!finalConfig) {
+                try {
+                    const resolved = await ipc.resolveFileConfiguration(path);
+                    if (resolved && resolved.config) {
+                        finalConfig = window.computeFinalConfig(resolved.config);
+                    } else {
+                        // Fallback to default if resolution fails
+                        console.warn(`Could not resolve configuration for ${path}. Using defaults.`);
+                        finalConfig = window.computeFinalConfig({});
+                    }
+                } catch (error) {
+                    console.error(`Error resolving configuration for ${path}:`, error);
+                    // Fallback in case of error
+                    finalConfig = window.computeFinalConfig({});
+                }
+            }
+
             if (this.tabs.has(path)) {
+                const existingTab = this.tabs.get(path);
+
+                // --- FIX: Update the existing tab's configuration if it has changed ---
+                // This is useful if the config was changed while the tab was open but inactive.
+                if (JSON.stringify(existingTab.computedConfig) !== JSON.stringify(finalConfig)) {
+                    existingTab.computedConfig = finalConfig;
+                    if (existingTab.instance && typeof existingTab.instance.applyConfiguration === 'function') {
+                        existingTab.instance.applyConfiguration(finalConfig);
+                    }
+                }
+
                 this.switchTab(path);
                 if (blockIdToFocus && this.getActiveTab().instance.focusBlock) {
                     this.getActiveTab().instance.focusBlock(blockIdToFocus);
@@ -58,13 +89,10 @@ window.initializeMainComponent = () => {
                 return;
             }
             
-            // --- NEW: Editor Type Factory (extensible) ---
-            // For now, it only knows about 'pageEditor'.
             let editorType = 'default';
             if (path.endsWith('.veritnote')) {
                 editorType = 'pageEditor';
             }
-            // Future: else if (path.endsWith('.png')) { editorType = 'imageViewer'; }
 
             if (editorType === 'default') {
                 alert(`No editor available for file type: ${path}`);
@@ -81,9 +109,8 @@ window.initializeMainComponent = () => {
 
             let tabInstance = null;
             if (editorType === 'pageEditor') {
-                // `PageEditor` is a class we will define in page-editor.js
-                // It will be responsible for creating its own HTML, CSS, and logic.
-                tabInstance = new PageEditor(wrapper, path, this, computedConfig);
+                // Pass the now-guaranteed finalConfig to the new PageEditor instance
+                tabInstance = new PageEditor(wrapper, path, this, finalConfig);
             }
             
             if (!tabInstance) return;
@@ -95,7 +122,7 @@ window.initializeMainComponent = () => {
                 isUnsaved: false,
                 instance: tabInstance,
                 dom: { wrapper, tabItem: null },
-                computedConfig: computedConfig 
+                computedConfig: finalConfig // Store the config with the tab data
             };
 
             this.tabs.set(path, newTab);
@@ -273,7 +300,7 @@ window.initializeMainComponent = () => {
             // --- CONFIG RESOLUTION STEP ---
             const resolved = await ipc.resolveFileConfiguration(path);
             const computedConfig = computeFinalConfig(resolved.config);
-            tabManager.openTab(path, null, computedConfig); // Pass config to tab manager
+            await tabManager.openTab(path, null, computedConfig); // Pass config to tab manager
         }
     });
 

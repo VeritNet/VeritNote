@@ -73,11 +73,13 @@ class QuoteBlock extends Block {
 
     // --- 5. Toolbar ---
     get toolbarButtons() {
-        return [
+        const buttons = [
             { icon: '“', title: 'Set Reference', action: 'setReference' },
             { icon: '|', title: 'Toggle Style', action: 'toggleStyle' },
             { icon: '🔗', title: 'Set Click Link', action: 'setClickLink' }
         ];
+        buttons.push(...super.toolbarButtons);
+        return buttons;
     }
     
     handleToolbarAction(action, buttonElement) {

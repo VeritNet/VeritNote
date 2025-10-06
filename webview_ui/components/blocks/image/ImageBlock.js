@@ -45,10 +45,12 @@ class ImageBlock extends Block {
     onKeyDown(e) { /* no-op */ }
 
     get toolbarButtons() {
-        return [
+        const buttons = [
             { icon: '🖼️', title: 'Set Image Source', action: 'editImage' },
             { icon: '🔗', title: 'Set Image Link', action: 'linkImage' }
         ];
+        buttons.push(...super.toolbarButtons);
+        return buttons;
     }
     
     handleToolbarAction(action, buttonElement) {

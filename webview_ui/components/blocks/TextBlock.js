@@ -14,7 +14,7 @@ class TextBlock extends Block {
     }
 
     get toolbarButtons() {
-        return [
+        const buttons = [
             { icon: '𝐁', title: 'Bold', action: 'format', arg: 'bold' },
             { icon: '𝘐', title: 'Italic', action: 'format', arg: 'italic' },
             { icon: 'U̲', title: 'Underlined', action: 'format', arg: 'underline' },
@@ -22,6 +22,8 @@ class TextBlock extends Block {
             { icon: '🎨', title: 'Color', action: 'colorPicker' },
             { icon: '🔗', title: 'Link', action: 'link' },
         ];
+        buttons.push(...super.toolbarButtons);
+        return buttons;
     }
 
     onKeyDown(e) {
