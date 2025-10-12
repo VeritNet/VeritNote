@@ -5,43 +5,48 @@
 #include <streambuf>
 #include <functional>
 #include <debugapi.h>
-#include <functional>
-#include "resources.h" // 由CMake生成
-#include <shlobj.h> // For SHGetFolderPath
+#include <shlobj.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
-
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 #include "nlohmann/json.hpp"
-
 #include <ShellScalingApi.h>
 #include <WebView2EnvironmentOptions.h>
 #include <windowsx.h>
 #pragma comment(lib, "Shcore.lib")
 
-#include "Backend.h"
+#include "resources.h" // 由CMake生成
+#include "Win_Backend.h" // <-- 【修改】包含新的头文件
+
 using namespace Microsoft::WRL;
 
 // 全局变量
 static wil::com_ptr<ICoreWebView2Controller> webviewController;
 static wil::com_ptr<ICoreWebView2> webview;
-static Backend backend; // 我们的后端逻辑处理实例
+static WinBackend backend; // <-- 【修改】使用 WinBackend 而不是 Backend
 static HWND global_hWnd;
-extern std::wstring g_nextWorkspacePath;
+
+// 【删除】 extern std::wstring g_nextWorkspacePath; (现在由 backend 管理)
 
 static RECT g_border_thickness;
 
-
-// Helper to convert string to wstring
-inline std::wstring string_to_wstring(const std::string& str) {
+// Helper to convert string to wstring (可以保留为本地 static 函数)
+static std::wstring string_to_wstring(const std::string& str) {
     if (str.empty()) return std::wstring();
     int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
     std::wstring wstrTo(size_needed, 0);
     MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
     return wstrTo;
 }
-
+// Helper to convert wstring to string
+static std::string wstring_to_string(const std::wstring& wstr) {
+    if (wstr.empty()) return std::string();
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
+}
 
 // 根据文件扩展名获取MIME类型
 std::wstring GetMimeType(const std::wstring& path) {
@@ -78,7 +83,6 @@ wil::com_ptr<IStream> StreamFromResource(int resource_id) {
     return wil::com_ptr<IStream>(SHCreateMemStream(static_cast<const BYTE*>(pData), dwSize));
 }
 
-
 std::string wstring_to_string_main(const std::wstring& wstr) {
     if (wstr.empty()) return std::string();
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
@@ -90,9 +94,6 @@ std::string wstring_to_string_main(const std::wstring& wstr) {
 
 // 函数声明
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-std::wstring GetExePath();
-std::wstring OpenWorkspaceFolderDialog(HWND hWnd);
-
 
 // WinMain: Windows应用程序入口
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -243,34 +244,26 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                         std::wstring htmlPath = L"https://veritnote.app/dashboard.html";
                         webview->Navigate(htmlPath.c_str());
 
-                        // ... 后续的 NavigationCompleted, WebMessageReceived, NavigationStarting 逻辑保持原样 ...
-                        // (这些部分的代码不需要修改)
-
                         EventRegistrationToken navigationToken;
                         webview->add_NavigationCompleted(Callback<ICoreWebView2NavigationCompletedEventHandler>(
                             [](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
                                 BOOL success;
                                 args->get_IsSuccess(&success);
 
-                                // [THE FIX]
-                                // Instead of calling a function directly, we now set a global variable
-                                // in the JS context and dispatch an event. This decouples the C++ call
-                                // from the JS initialization timeline.
-                                if (success && !g_nextWorkspacePath.empty()) {
+                                std::wstring pathToInject = backend.GetNextWorkspacePath();
+                                if (success && !pathToInject.empty()) {
                                     std::wstring escapedPath;
-                                    for (wchar_t c : g_nextWorkspacePath) {
+                                    for (wchar_t c : pathToInject) {
                                         if (c == L'\\') escapedPath += L"\\\\";
                                         else if (c == L'"') escapedPath += L"\\\"";
                                         else escapedPath += c;
                                     }
 
-                                    // 1. Set a global variable with the path.
-                                    // 2. Dispatch a custom event to signal that the path is ready.
                                     std::wstring script = L"window.pendingWorkspacePath = \"" + escapedPath + L"\"; "
                                         L"window.dispatchEvent(new Event('workspacePathReady'));";
 
                                     sender->ExecuteScript(script.c_str(), nullptr);
-                                    g_nextWorkspacePath.clear(); // Clear it after sending.
+                                    backend.ClearNextWorkspacePath(); // 使用 backend 的方法清除
                                 }
                                 return S_OK;
                             }).Get(), &navigationToken);
@@ -281,9 +274,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                                 LPWSTR message_ptr = nullptr;
                                 args->get_WebMessageAsJson(&message_ptr);
                                 if (message_ptr) {
-                                    std::wstring message(message_ptr);
+                                    std::wstring message_w(message_ptr);
                                     CoTaskMemFree(message_ptr);
-                                    backend.HandleWebMessage(message);
+                                    // 将 wstring 转为 UTF-8 string 再传递
+                                    backend.HandleWebMessage(wstring_to_string(message_w));
                                 }
                                 return S_OK;
                             }).Get(), &token);
@@ -423,33 +417,4 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-// 弹出选择文件夹对话框
-std::wstring OpenWorkspaceFolderDialog(HWND hWnd) {
-    IFileOpenDialog* pfd;
-    std::wstring selectedPath = L"";
-
-    if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))) {
-        if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pfd)))) {
-            DWORD dwOptions;
-            if (SUCCEEDED(pfd->GetOptions(&dwOptions))) {
-                pfd->SetOptions(dwOptions | FOS_PICKFOLDERS);
-            }
-            pfd->SetTitle(L"请选择 VeritNote 工作区文件夹");
-
-            if (SUCCEEDED(pfd->Show(hWnd))) {
-                IShellItem* psi;
-                if (SUCCEEDED(pfd->GetResult(&psi))) {
-                    PWSTR pszFilePath = NULL;
-                    if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath))) {
-                        selectedPath = pszFilePath;
-                        CoTaskMemFree(pszFilePath);
-                    }
-                    psi->Release();
-                }
-            }
-            pfd->Release();
-        }
-        CoUninitialize();
-    }
-    return selectedPath;
-}
+// 【删除】OpenWorkspaceFolderDialog 函数，它的逻辑已经移入 WinBackend::OpenWorkspaceDialog

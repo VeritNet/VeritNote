@@ -5,6 +5,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VeritNote - Welcome</title>
+    <script>
+      (function() {
+        const ua = navigator.userAgent.toLowerCase();
+        const html = document.documentElement;
+        if (ua.includes('android')) {
+          window.currentOS = 'android';
+          html.className += ' os-android';
+        } else {
+          window.currentOS = 'windows';
+          html.className += ' os-windows';
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="components/dashboard/dashboard.css">
 </head>
 <body>

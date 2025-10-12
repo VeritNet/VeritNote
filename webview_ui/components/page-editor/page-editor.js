@@ -244,16 +244,18 @@ class PageEditor {
         this.elements.editorAreaContainer.addEventListener('dragend', this._onDragEnd.bind(this));
         this.elements.editorAreaContainer.addEventListener('mouseover', this._onBlockMouseOver.bind(this));
         this.elements.editorAreaContainer.addEventListener('mouseout', this._onBlockMouseOut.bind(this));
-        this.elements.editorAreaContainer.addEventListener('contextmenu', (e) => {
-            const blockEl = e.target.closest('.block-container');
-            if (blockEl) {
-                e.preventDefault(); // Prevent the default browser context menu
-                const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset.id)?.block;
-                if (blockInstance) {
-                    this._showBlockDetails(blockInstance);
+        if (window.currentOS !== 'android') {//安卓上防止长按触发打开细节面板
+            this.elements.editorAreaContainer.addEventListener('contextmenu', (e) => {
+                const blockEl = e.target.closest('.block-container');
+                if (blockEl) {
+                    e.preventDefault(); // Prevent the default browser context menu
+                    const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset.id)?.block;
+                    if (blockInstance) {
+                        this._showBlockDetails(blockInstance);
+                    }
                 }
-            }
-        });
+            });
+        }
         
         // UI Chrome Listeners
         this.elements.commandMenu.addEventListener('click', this._onCommandMenuClick.bind(this));

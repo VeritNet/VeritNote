@@ -36,6 +36,19 @@ window.initializeMainComponent = () => {
 
     let contextMenuTarget = null;
 
+    // --- 辅助函数: 从路径/URI中获取文件名 (主应用范围) ---
+    function getFileNameFromPath(path) {
+        if (window.currentOS === 'android') {
+            // Android URI: "content://.../MyFolder%2FMyPage.veritnote" -> "MyPage.veritnote"
+            // 解码 URI 组件以处理像 %2F 这样的编码
+            const decodedPath = decodeURIComponent(path);
+            return decodedPath.substring(decodedPath.lastIndexOf('/') + 1);
+        } else {
+            // Windows 路径
+            return path.substring(path.lastIndexOf('\\') + 1);
+        }
+    }
+
     // --- Tab Management ---
     // This is the core of the new architecture. It manages different types of tabs.
     class TabManager {
@@ -99,7 +112,7 @@ window.initializeMainComponent = () => {
                 return;
             }
 
-            const fileName = path.substring(path.lastIndexOf('\\') + 1);
+            const fileName = getFileNameFromPath(path);
             const tabId = `tab-${Date.now()}-${Math.random()}`;
             const wrapper = document.createElement('div');
             wrapper.className = 'editor-instance-wrapper';

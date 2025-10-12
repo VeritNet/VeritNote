@@ -1,0 +1,24 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.VeritNote" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    </style>
+
+    <style name="Theme.VeritNote" parent="Base.Theme.VeritNote" />
+
+    <!-- 的全屏主题 -->
+    <style name="Theme.VeritNote.Fullscreen" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 让窗口内容延申到状态栏后面 -->
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
+        <item name="android:windowTranslucentStatus">true</item>
+
+        <!-- 让窗口内容延申到导航栏后面 -->
+        <item name="android:windowTranslucentNavigation">true</item>
+
+        <!-- (可选) 设置状态栏和导航栏颜色为透明，以获得更好的沉浸感 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+</resources>

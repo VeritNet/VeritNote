@@ -14,6 +14,17 @@
 
     const STORAGE_KEY = 'veritnote_recent_workspaces';
 
+    // --- 辅助函数: 从路径/URI中获取文件名 ---
+    function getFileNameFromPath(path) {
+        if (window.currentOS === 'android') {
+            // 对于 "content://..." URI, 文件名是最后一个 '/' 之后的部分
+            return path.substring(path.lastIndexOf('/') + 1);
+        } else {
+            // Windows 逻辑保持不变
+            return path.substring(path.lastIndexOf('\\') + 1);
+        }
+    }
+
     // --- Data Logic ---
     function getRecentWorkspaces() {
         try {
@@ -31,7 +42,7 @@
     function addRecentWorkspace(path) {
         let workspaces = getRecentWorkspaces();
         const now = new Date().toISOString();
-        const name = path.substring(path.lastIndexOf('\\') + 1);
+        const name = getFileNameFromPath(path);
         
         // Remove existing entry for the same path to move it to the top
         workspaces = workspaces.filter(ws => ws.path !== path);
@@ -79,8 +90,19 @@
     // --- Event Listeners ---
     searchInput.addEventListener('input', () => renderList(searchInput.value));
 
-    openWorkspaceBtn.addEventListener('click', () => {
-        ipc.send('openWorkspaceDialog');
+    openWorkspaceBtn.addEventListener('click', async () => {
+        // 1. 调用返回 Promise 的函数并等待结果
+        const selectedPath = await ipc.openWorkspaceDialog();
+        
+        // 2. 检查用户是否选择了路径 (如果取消对话框，selectedPath 会是 undefined)
+        if (selectedPath) {
+            // 3. 立即将新路径添加到最近列表并更新UI
+            addRecentWorkspace(selectedPath);
+            renderList(searchInput.value);
+            
+            // 4. 发送导航请求
+            ipc.openWorkspace(selectedPath);
+        }
     });
 
     // --- 新增: 窗口控件事件监听 ---

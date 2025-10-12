@@ -2,7 +2,10 @@
 const ipc = {
     // 向 C++ 后端发送消息
     send: (action, payload = {}) => {
-        if (window.chrome && window.chrome.webview) {
+        // [修改] 在 Android 上，我们使用 JS Bridge
+        if (window.AndroidBridge && window.AndroidBridge.postMessage) {
+            window.AndroidBridge.postMessage(JSON.stringify({ action, payload }));
+        } else if (window.chrome && window.chrome.webview) {
             window.chrome.webview.postMessage({ action, payload });
         } else {
             console.warn("WebView environment not detected. Message not sent:", { action, payload });
@@ -11,25 +14,40 @@ const ipc = {
 
     // 初始化，监听来自 C++ 的消息
     init: () => {
+        // Windows WebView2 的监听方式
         if (window.chrome && window.chrome.webview) {
             window.chrome.webview.addEventListener('message', event => {
-                const message = event.data;
-                const callbackId = message.payload?.callbackId;
-                
-                // SIMPLIFIED LOGIC: Assuming C++ always sends a string now.
-                if (callbackId !== undefined && ipc._callbacks.has(Number(callbackId))) {
-                    const numericId = Number(callbackId);
-                    const resolve = ipc._callbacks.get(numericId);
-                    resolve(message.payload);
-                    ipc._callbacks.delete(numericId);
-                } else {
-                    // Existing event dispatching logic
-                    const customEvent = new CustomEvent(message.action, { detail: message });
-                    window.dispatchEvent(customEvent);
-                }
+                ipc.messageHandler(event.data);
             });
         }
+        // 为 Android 设置一个全局的消息处理器
+        if (!window.chrome) window.chrome = {};
+        if (!window.chrome.webview) window.chrome.webview = {};
+        
+        window.chrome.webview.messageHandler = (jsonString) => {
+            try {
+                const message = JSON.parse(jsonString);
+                ipc.messageHandler(message);
+            } catch (e) {
+                console.error("Failed to parse message from C++:", jsonString, e);
+            }
+        };
     },
+    // 统一的消息处理逻辑
+    messageHandler: (message) => {
+        const callbackId = message.payload?.callbackId;
+
+        if (callbackId !== undefined && ipc._callbacks.has(Number(callbackId))) {
+            const numericId = Number(callbackId);
+            const resolve = ipc._callbacks.get(numericId);
+            resolve(message.payload);
+            ipc._callbacks.delete(numericId);
+        } else {
+            const customEvent = new CustomEvent(message.action, { detail: message });
+            window.dispatchEvent(customEvent);
+        }
+    },
+
 
     // --- 封装的API ---
     listWorkspace: () => {
@@ -77,8 +95,19 @@ const ipc = {
         ipc.send('fetchQuoteContent', { quoteBlockId: requestIdentifier, referenceLink });
     },
 
-    openWorkspaceDialog: () => ipc.send('openWorkspaceDialog'),
-    openWorkspace: (path) => ipc.send('openWorkspace', path),
+    openWorkspaceDialog: () => {
+        return new Promise((resolve) => {
+            const handleDialogClose = (event) => {
+                window.removeEventListener('workspaceDialogClosed', handleDialogClose);
+                resolve(event.detail.payload.path); // 返回选择的路径
+            };
+            
+            window.addEventListener('workspaceDialogClosed', handleDialogClose, { once: true });
+            
+            ipc.send('openWorkspaceDialog');
+        });
+    },
+    openWorkspace: (path) => ipc.send('openWorkspace', { path }),
     goToDashboard: () => ipc.send('goToDashboard'),
     toggleFullscreen: () => ipc.send('toggleFullscreen'),
     setWorkspace: (path) => ipc.send('setWorkspace', path),
