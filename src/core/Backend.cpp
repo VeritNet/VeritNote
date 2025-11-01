@@ -536,30 +536,6 @@ void Backend::GoToDashboard() {
     NavigateTo(L"https://veritnote.app/dashboard.html");
 }
 
-
-// Helper to read a JSON file, returns empty object on failure
-json Backend::ReadJsonFile(const std::filesystem::path& path) {
-    if (!std::filesystem::exists(path)) return json::object();
-    try {
-        std::ifstream file(path);
-        return json::parse(file);
-    }
-    catch (...) {
-        return json::object();
-    }
-}
-
-// Helper to write a JSON file
-void Backend::WriteJsonFile(const std::filesystem::path& path, const json& data) {
-    try {
-        std::ofstream file(path);
-        file << data.dump(2);
-    }
-    catch (...) {
-        // Handle error
-    }
-}
-
 // Safely extracts a value that could be a string or a number and returns it as a string.
 std::string get_callback_id(const json& payload) {
     if (payload.contains("callbackId")) {
@@ -583,7 +559,8 @@ void Backend::ReadConfigFile(const json& payload) {
     json response;
     response["action"] = "configFileRead";
     response["payload"]["callbackId"] = callbackId;
-    response["payload"]["data"] = ReadJsonFile(pathStr);
+    std::wstring identifier = this->string_to_wstring(pathStr);
+    response["payload"]["data"] = ReadJsonFile(identifier);
 
     SendMessageToJS(response);
 }
@@ -591,7 +568,8 @@ void Backend::ReadConfigFile(const json& payload) {
 void Backend::WriteConfigFile(const json& payload) {
     std::string pathStr = payload.value("path", "");
     json data = payload.value("data", json::object());
-    WriteJsonFile(pathStr, data);
+    std::wstring identifier = this->string_to_wstring(pathStr);
+    WriteJsonFile(identifier, data);
     // Optionally send a success message
 }
 
@@ -600,28 +578,35 @@ void Backend::ResolveFileConfiguration(const json& payload) {
     std::string callbackId = get_callback_id(payload);
 
     json finalConfig = json::object();
-    std::filesystem::path currentPath(filePathStr);
+    // 'identifier' can be a file path on Windows or a content URI on Android.
+    std::wstring currentFileIdentifier = this->string_to_wstring(filePathStr);
 
-    // Step 1: Read the file's own embedded config
-    json fileContent = ReadJsonFile(currentPath);
-    // 在访问键之前，检查它是否是一个对象
+    // Step 1: Read the file's own embedded config using a virtual method.
+    json fileContent = this->ReadJsonFile(currentFileIdentifier);
     if (fileContent.is_object() && fileContent.contains("config")) {
         finalConfig = fileContent["config"];
     }
 
-    // Step 2: Walk up the directory tree, merging folder configs
-    std::filesystem::path dirPath = currentPath.parent_path();
-    std::filesystem::path workspacePath(m_workspaceRoot);
+    // Step 2: Walk up the directory tree, merging folder configs.
+    // Use the virtual method to get the first parent identifier.
+    std::wstring currentParentIdentifier = this->GetParentIdentifier(currentFileIdentifier);
 
-    while (true) {
-        if (dirPath.wstring().length() < workspacePath.wstring().length()) {
-            break; // Stop if we go above the workspace root
-        }
+    // Loop until we can't get a parent or we are above the workspace root.
+    // The length check is a simple but effective way to stop traversal.
+    while (!currentParentIdentifier.empty() && currentParentIdentifier.length() >= m_workspaceRoot.length()) {
 
-        json folderConfig = ReadJsonFile(dirPath / "veritnoteconfig");
+        // Use a virtual method to correctly combine the parent identifier (a directory)
+        // with the config filename. This handles path separators vs. URI segments.
+        std::wstring configIdentifier = this->CombineIdentifier(currentParentIdentifier, L"veritnoteconfig");
 
-        // Merge folderConfig into finalConfig, but only for keys that are "inherit" or missing in finalConfig
+        // Read the folder's config file using the virtual method.
+        json folderConfig = this->ReadJsonFile(configIdentifier);
+
+        // Merge folderConfig into finalConfig, but only for keys that are "inherit" or missing in finalConfig.
+        // This merging logic is platform-agnostic.
         for (auto const& [category, catConfig] : folderConfig.items()) {
+            if (!catConfig.is_object()) continue; // Ensure category config is an object
+
             if (!finalConfig.contains(category)) {
                 finalConfig[category] = json::object();
             }
@@ -632,10 +617,13 @@ void Backend::ResolveFileConfiguration(const json& payload) {
             }
         }
 
-        if (dirPath == workspacePath) {
-            break; // Stop after processing the root
+        // Stop after processing the workspace root directory itself.
+        if (currentParentIdentifier == m_workspaceRoot) {
+            break;
         }
-        dirPath = dirPath.parent_path();
+
+        // Get the next parent up the chain for the next iteration.
+        currentParentIdentifier = this->GetParentIdentifier(currentParentIdentifier);
     }
 
     json response;

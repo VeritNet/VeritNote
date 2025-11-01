@@ -112,4 +112,20 @@ extern "C" {
             g_backend->ClearNextWorkspacePath();
         }
     }
+
+    // [NEW] JNI function for MainActivity to report an external link navigation
+    JNIEXPORT void JNICALL
+        Java_com_veritnet_veritnote_MainActivity_nativeOnExternalLinkNavigation(
+            JNIEnv* env,
+            jobject /* this */,
+            jstring url) {
+        if (g_backend) {
+            const char* url_chars = env->GetStringUTFChars(url, nullptr);
+            std::string url_str(url_chars);
+            env->ReleaseStringUTFChars(url, url_chars);
+
+            // Call the platform-specific public method on AndroidBackend
+            g_backend->OpenExternalLink(g_backend->string_to_wstring(url_str));
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.veritnet.veritnote
 
 import android.content.Intent
+import android.content.ContentResolver
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -12,9 +13,11 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updatePadding
 import androidx.webkit.WebViewAssetLoader
 import com.veritnet.veritnote.databinding.ActivityMainBinding
 import android.webkit.CookieManager
@@ -28,6 +31,7 @@ import androidx.documentfile.provider.DocumentFile // <-- 新增 import
 import java.io.BufferedReader // <-- 新增 import
 import java.io.FileOutputStream // <-- 新增 import
 import java.io.InputStreamReader // <-- 新增 import
+import java.nio.charset.StandardCharsets
 import org.json.JSONArray // <-- 新增 import
 import org.json.JSONObject // <-- 新增 import
 
@@ -41,16 +45,26 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setupFullscreen()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // SOFT_INPUT_ADJUST_RESIZE 通常与 Insets API 配合得更好
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setupKeyboardHandling() // 调用新的处理函数
+
         webView = binding.webView
 
         configureWebView()
+
+        // JNI Calls
         nativeInit()
         nativeOnUiReady()
+
+        binding.root.post {
+            setupFullscreen()
+        }
     }
 
     override fun onDestroy() {
@@ -61,6 +75,7 @@ class MainActivity : AppCompatActivity() {
     // --- JNI 声明 ---
     private external fun nativeInit()
     private external fun nativeDestroy()
+    private external fun nativeOnExternalLinkNavigation(url: String)
     private external fun nativeOnUiReady()
     private external fun nativeOnPlatformServiceResult(resultJson: String)
     private external fun nativeOnWebMessage(message: String)
@@ -75,8 +90,31 @@ class MainActivity : AppCompatActivity() {
 
 
     // --- UI 设置 ---
+    // [NEW] 新增函数来处理键盘和系统栏的 Insets
+    private fun setupKeyboardHandling() {
+        val decorView = window.decorView
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            // 获取键盘的 Insets
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            // 获取系统导航栏（通常在底部）的 Insets
+            val navBarInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+
+            // [CRITICAL CHANGE]
+            // 我们只关心底部的边距。这个边距应该是键盘高度和导航栏高度中的最大值。
+            // 当键盘弹出时，imeInsets.bottom > navBarInsets.bottom。
+            // 当键盘收起时，imeInsets.bottom = 0，我们需要避开底部导航栏。
+            val bottomPadding = Math.max(imeInsets.bottom, navBarInsets.bottom)
+
+            // 只更新根视图的底部 padding。顶部、左侧和右侧的 padding 保持为0。
+            view.updatePadding(bottom = bottomPadding)
+
+            // 返回原始 insets，但不消费它们，让子视图也能接收到
+            insets
+        }
+    }
+
     private fun setupFullscreen() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // [MODIFIED] 这个函数现在只负责隐藏 UI
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         insetsController.hide(WindowInsetsCompat.Type.systemBars())
         insetsController.systemBarsBehavior =
@@ -96,7 +134,50 @@ class MainActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                return assetLoader.shouldInterceptRequest(request.url)
+                val url = request.url
+
+                // [NEW] Handle our special local-file URIs for images
+                val localFilePrefix = "https://veritnote.app/local-file/"
+                if (url.toString().startsWith(localFilePrefix)) {
+                    try {
+                        // Decode the content URI from the URL path
+                        val encodedContentUri = url.toString().substring(localFilePrefix.length)
+                        val contentUriString = java.net.URLDecoder.decode(encodedContentUri, "UTF-8")
+                        val contentUri = Uri.parse(contentUriString)
+
+                        // Open an InputStream to the content URI
+                        val inputStream = contentResolver.openInputStream(contentUri)
+                        if (inputStream != null) {
+                            // Get the MIME type from the content resolver
+                            val mimeType = contentResolver.getType(contentUri) ?: "application/octet-stream"
+                            return WebResourceResponse(mimeType, "UTF-8", inputStream)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("VeritNoteWebView", "Error intercepting local file request: $url", e)
+                        // Fallback to asset loader or return null to indicate an error
+                    }
+                }
+
+                // Fallback for all other veritnote.app requests
+                return assetLoader.shouldInterceptRequest(url)
+            }
+
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
+                val url = request?.url ?: return false
+
+                if (url.host == "veritnote.app") {
+                    // Internal link, let WebView handle it.
+                    return false
+                }
+
+                // External link. Notify C++ backend directly.
+                nativeOnExternalLinkNavigation(url.toString())
+
+                // Return true to prevent WebView from loading the URL.
+                return true
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -206,6 +287,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     "readFile" -> {
                         val uriString = request.getJSONObject("payload").getString("uri")
+                        val childFilename = payload.optString("childFilename", null)
                         val content = readFile(uriString)
                         if (content != null) {
                             val data = JSONObject().put("content", content)
@@ -215,10 +297,10 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     "writeFile" -> {
-                        val payload = request.getJSONObject("payload")
                         val uriString = payload.getString("uri")
                         val content = payload.getString("content")
-                        val success = writeFile(uriString, content)
+                        val childFilename = payload.optString("childFilename", null)
+                        val success = writeFile(uriString, content, childFilename)
                         if (success) {
                             sendSuccessResult(callbackId, JSONObject())
                         } else {
@@ -252,12 +334,41 @@ class MainActivity : AppCompatActivity() {
                         val data = JSONObject().put("directories", subdirectories)
                         sendSuccessResult(callbackId, data)
                     }
+                    "openImagePicker" -> {
+                        pendingServiceRequest[action] = callbackId
+                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "image/*" // We only want images
+                        }
+                        imagePickerLauncher.launch(intent)
+                    }
+                    "openExternalLink" -> {
+                        try {
+                            val url = payload.getString("url")
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            startActivity(intent)
+                            // This is fire-and-forget, so we can succeed immediately
+                            sendSuccessResult(callbackId, JSONObject())
+                        } catch (e: Exception) {
+                            sendErrorResult(callbackId, "Failed to open external link.")
+                        }
+                    }
                     "doesItemExist" -> {
                         val parentUriString = payload.getString("parentUri")
                         val name = payload.getString("name")
                         val exists = doesItemExist(parentUriString, name)
                         val data = JSONObject().put("exists", exists)
                         sendSuccessResult(callbackId, data)
+                    }
+                    "getParentUri" -> {
+                        val uriString = payload.getString("uri")
+                        val parentUri = getParentUri(uriString)
+                        if (parentUri != null) {
+                            val data = JSONObject().put("parentUri", parentUri)
+                            sendSuccessResult(callbackId, data)
+                        } else {
+                            sendErrorResult(callbackId, "Could not find parent URI.")
+                        }
                     }
                 }
             } catch (e: org.json.JSONException) {
@@ -360,6 +471,29 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    // [NEW] Launcher for the image picker
+    private val imagePickerLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val callbackId = pendingServiceRequest.remove("openImagePicker") ?: -1
+            if (callbackId == -1) return@registerForActivityResult
+
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    // For image picker, we don't need persistent permissions for viewing.
+                    // If we needed to edit the image later, we would take them here.
+                    // The permission is granted temporarily to our app.
+                    val data = JSONObject().put("uri", uri.toString())
+                    sendSuccessResult(callbackId, data)
+                } ?: run {
+                    sendErrorResult(callbackId, "Failed to get image URI from intent.")
+                }
+            } else {
+                // User cancelled
+                sendErrorResult(callbackId, "User cancelled image selection.")
+            }
+        }
+
+
     // [NEW] Helper function to execute the injection script
     private fun injectWorkspacePath(path: String) {
         // Escape the path string for safe injection into a JS string literal
@@ -395,36 +529,62 @@ class MainActivity : AppCompatActivity() {
         return fileList
     }
 
-    private fun readFile(fileUriString: String): String? {
+    private fun readFile(uriString: String, childFilename: String? = null): String? {
         return try {
-            val fileUri = Uri.parse(fileUriString)
-            val inputStream = contentResolver.openInputStream(fileUri)
-            val reader = BufferedReader(InputStreamReader(inputStream))
-            val stringBuilder = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                stringBuilder.append(line).append('\n')
+            val targetUri = if (childFilename != null) {
+                val parentUri = Uri.parse(uriString)
+                val parentDir = DocumentFile.fromTreeUri(this, parentUri)
+                parentDir?.findFile(childFilename)?.uri ?: return null // Return null if child not found
+            } else {
+                Uri.parse(uriString)
             }
-            inputStream?.close()
-            stringBuilder.toString()
+
+            contentResolver.openInputStream(targetUri)?.use { inputStream ->
+                var bytes = inputStream.readBytes()
+
+                // [CRITICAL CHANGE] 检查并移除 UTF-8 BOM
+                if (bytes.size >= 3 &&
+                    bytes[0] == 0xEF.toByte() &&
+                    bytes[1] == 0xBB.toByte() &&
+                    bytes[2] == 0xBF.toByte()) {
+                    // 如果存在BOM，创建一个不包含BOM的新字节数组
+                    bytes = bytes.copyOfRange(3, bytes.size)
+                }
+
+                return String(bytes, StandardCharsets.UTF_8)
+            }
         } catch (e: Exception) {
-            Log.e("VeritNoteFileOps", "Error reading file: $fileUriString", e)
+            Log.e("VeritNoteFileOps", "Error reading file: $uriString (child: $childFilename)", e)
             null
         }
     }
 
-    private fun writeFile(fileUriString: String, content: String): Boolean {
+    private fun writeFile(uriString: String, content: String, childFilename: String? = null): Boolean {
         return try {
-            val fileUri = Uri.parse(fileUriString)
-            val pfd = contentResolver.openFileDescriptor(fileUri, "w")
-            pfd?.use {
-                FileOutputStream(it.fileDescriptor).use { fos ->
-                    fos.write(content.toByteArray())
+            val targetUri = if (childFilename != null) {
+                // This is a write operation for a config file inside a directory
+                val parentUri = Uri.parse(uriString)
+                val parentDir = DocumentFile.fromTreeUri(this, parentUri)
+
+                // Find the file. If it doesn't exist, create it.
+                val targetFile = parentDir?.findFile(childFilename)
+                    ?: parentDir?.createFile("application/octet-stream", childFilename)
+
+                targetFile?.uri ?: return false // If creation fails, return false
+            } else {
+                // This is a direct write to a page file URI
+                Uri.parse(uriString)
+            }
+
+            // The rest of the write logic is the same
+            contentResolver.openFileDescriptor(targetUri, "wt")?.use { pfd ->
+                FileOutputStream(pfd.fileDescriptor).use { fos ->
+                    fos.write(content.toByteArray(StandardCharsets.UTF_8))
                 }
             }
             true
         } catch (e: Exception) {
-            Log.e("VeritNoteFileOps", "Error writing file: $fileUriString", e)
+            Log.e("VeritNoteFileOps", "Error writing file: $uriString, child: $childFilename", e)
             false
         }
     }
@@ -512,6 +672,17 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("VeritNoteFileOps", "Error checking existence of '$name'", e)
             false
+        }
+    }
+
+    private fun getParentUri(uriString: String): String? {
+        return try {
+            val uri = Uri.parse(uriString)
+            val docFile = DocumentFile.fromSingleUri(this, uri)
+            docFile?.parentFile?.uri?.toString()
+        } catch (e: Exception) {
+            Log.e("VeritNoteFileOps", "Error getting parent URI for $uriString", e)
+            null
         }
     }
 }

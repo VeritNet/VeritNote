@@ -8,6 +8,7 @@
 #include "include/Platform.h"
 #include "resources.h" // For g_resource_map
 #include <android/asset_manager_jni.h>
+#include <future>
 
 // 全局 JavaVM 指针，由 JNI_Bridge.cpp 设置
 extern JavaVM* g_jvm;
@@ -377,6 +378,114 @@ void AndroidBackend::EnsureWorkspaceConfigs(const json& payload) {
         });
 }
 
+// [NEW] Android-specific implementation of ReadJsonFile
+json AndroidBackend::ReadJsonFile(const std::wstring& identifier) {
+    std::wstring uri_str = identifier;
+    std::wstring filename_str;
+
+    // First, try to parse our custom "|" format
+    size_t pipe_separator = identifier.find(L'|');
+    if (pipe_separator != std::wstring::npos) {
+        uri_str = identifier.substr(0, pipe_separator);
+        filename_str = identifier.substr(pipe_separator + 1);
+    }
+    else {
+        // [NEW] If no "|", then check for the malformed URI format from JS
+        size_t last_slash = identifier.find_last_of(L"\\/");
+        // Check if it's not a URI scheme slash (like in content://)
+        if (last_slash != std::wstring::npos && last_slash > 10) {
+            uri_str = identifier.substr(0, last_slash);
+            filename_str = identifier.substr(last_slash + 1);
+        }
+    }
+
+    std::promise<json> promise;
+    std::future<json> future = promise.get_future();
+
+    json request;
+    request["action"] = "readFile";
+    request["payload"]["uri"] = wstring_to_string(uri_str);
+    if (!filename_str.empty()) {
+        request["payload"]["childFilename"] = wstring_to_string(filename_str);
+    }
+
+    RequestPlatformService(request, [&promise](const json& result) {
+        if (result.value("success", false)) {
+            try {
+                // Return empty object if content is empty, to avoid parse error on empty files
+                std::string content = result["data"].value("content", "");
+                promise.set_value(content.empty() ? json::object() : json::parse(content));
+            }
+            catch (const json::parse_error& e) {
+                promise.set_value(json::object()); // Return empty on parse error
+            }
+        }
+        else {
+            promise.set_value(json::object()); // Return empty object on read failure
+        }
+        });
+
+    return future.get(); // Blocks until the promise is set
+}
+
+// [NEW] Android-specific implementation of WriteJsonFile
+void AndroidBackend::WriteJsonFile(const std::wstring& identifier, const json& data) {
+    std::wstring parent_uri_str = identifier;
+    std::wstring filename_str;
+
+    // [NEW] Intelligent parsing for malformed URI from JS
+    // Look for the last backslash or forward slash
+    size_t last_slash = identifier.find_last_of(L"\\/");
+    // Check if it's not a URI scheme slash (like in content://)
+    if (last_slash != std::wstring::npos && last_slash > 10) {
+        // This looks like a path combined by JS. Let's split it.
+        parent_uri_str = identifier.substr(0, last_slash);
+        filename_str = identifier.substr(last_slash + 1);
+    }
+
+    json request;
+    request["action"] = "writeFile";
+    request["payload"]["uri"] = wstring_to_string(parent_uri_str);
+    request["payload"]["content"] = data.dump(2);
+    if (!filename_str.empty()) {
+        request["payload"]["childFilename"] = wstring_to_string(filename_str);
+    }
+
+    // This is a fire-and-forget operation
+    RequestPlatformService(request, [](const json&) {});
+}
+
+std::wstring AndroidBackend::GetParentIdentifier(const std::wstring& identifier) {
+    // Blocking call, similar to ReadJsonFile
+    std::promise<std::wstring> promise;
+    auto future = promise.get_future();
+
+    json request;
+    request["action"] = "getParentUri";
+    request["payload"]["uri"] = wstring_to_string(identifier);
+
+    // [FIX] Add 'this' to the capture list
+    RequestPlatformService(request, [this, &promise](const json& result) {
+        if (result.value("success", false)) {
+            // Now 'this->string_to_wstring' is valid
+            promise.set_value(this->string_to_wstring(result["data"].value("parentUri", "")));
+        } else {
+            promise.set_value(L""); // Return empty on failure
+        }
+    });
+
+    return future.get();
+}
+
+std::wstring AndroidBackend::CombineIdentifier(const std::wstring& parent, const std::wstring& childFilename) {
+    // For Android, a "combined identifier" is not a single URI string.
+    // The most robust way is to pass both parent URI and child filename to the platform service.
+    // However, our ReadJsonFile is already designed to take a single identifier.
+    // So, we will create a special "combined" string format that our services will understand.
+    // Format: "parentUri|childFilename"
+    return parent + L"|" + childFilename;
+}
+
 // [NEW] Implementation of the path injection mechanism
 std::wstring AndroidBackend::GetNextWorkspacePath() const {
     return m_nextWorkspacePath;
@@ -428,6 +537,7 @@ void AndroidBackend::LoadPage(const json& payload) {
             }
             catch (const json::parse_error& e) {
                 response["error"] = "Failed to parse file content.";
+                LOG_DEBUG(content_str.c_str());
             }
         }
         else {
@@ -590,8 +700,48 @@ bool AndroidBackend::LoadResourceData(int resource_id, void*& pData, DWORD& dwSi
     return true;
 }
 
-void AndroidBackend::OpenFileDialog() {}
-void AndroidBackend::OpenExternalLink(const std::wstring& url) {}
+void AndroidBackend::OpenFileDialog() {
+    json request;
+    request["action"] = "openImagePicker";
+
+    RequestPlatformService(request, [this](const json& result) {
+        if (result.value("success", false)) {
+            // Android always returns a content URI for images.
+            // We format it into the special veritnote.app/local-file/ URI,
+            // which the frontend and export logic already understand.
+            std::string content_uri = result["data"].value("uri", "");
+            if (!content_uri.empty()) {
+                std::string encoded_uri;
+                // A simple URL encode for the content URI.
+                // In a real-world scenario, a more robust URL encoder might be needed.
+                for (char c : content_uri) {
+                    if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/' || c == ':') {
+                        encoded_uri += c;
+                    }
+                    else {
+                        std::stringstream ss;
+                        ss << '%' << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)c;
+                        encoded_uri += ss.str();
+                    }
+                }
+
+                std::string finalPathStr = "https://veritnote.app/local-file/" + encoded_uri;
+                SendMessageToJS({ {"action", "fileDialogClosed"}, {"payload", {{"path", finalPathStr}}} });
+            }
+        }
+        // If user cancels, we do nothing, which is the expected behavior.
+        });
+}
+
+void AndroidBackend::OpenExternalLink(const std::wstring& url) {
+    json request;
+    request["action"] = "openExternalLink";
+    request["payload"]["url"] = wstring_to_string(url);
+
+    // This is a fire-and-forget request
+    RequestPlatformService(request, [](const json&) {});
+}
+
 void AndroidBackend::ToggleFullscreen() {}
 void AndroidBackend::MinimizeWindow() {}
 void AndroidBackend::MaximizeWindow() {}

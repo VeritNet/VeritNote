@@ -36,7 +36,6 @@ protected:
     virtual void OpenFileDialog() = 0;
     virtual void OpenWorkspace(const json& payload);
     virtual void OpenWorkspaceDialog() = 0;
-    virtual void OpenExternalLink(const std::wstring& url) = 0;
     virtual void NavigateTo(const std::wstring& url) = 0;
     virtual void ToggleFullscreen() = 0;
     virtual void MinimizeWindow() = 0;
@@ -59,6 +58,11 @@ protected:
 
     virtual void EnsureWorkspaceConfigs(const json& payload) = 0;
 
+    virtual json ReadJsonFile(const std::wstring& identifier) = 0;
+    virtual void WriteJsonFile(const std::wstring& identifier, const json& data) = 0;
+    virtual std::wstring GetParentIdentifier(const std::wstring& identifier) = 0;
+    virtual std::wstring CombineIdentifier(const std::wstring& parent, const std::wstring& childFilename) = 0;
+
     // --- 业务逻辑处理函数 (平台无关) ---
     // 这些函数的实现放在 Backend.cpp 中，因为它们不直接依赖任何平台API。
     void ExportPageAsHtml(const json& payload);
@@ -73,10 +77,6 @@ protected:
     void ResolveFileConfiguration(const json& payload);
 
     bool ExtractResourceToFile(const std::wstring& resourceUrlPath, const std::filesystem::path& destinationPath);
-
-    // Helper (平台无关)
-    json ReadJsonFile(const std::filesystem::path& path);
-    void WriteJsonFile(const std::filesystem::path& path, const json& data);
 
 protected:
     // 工作区根目录是所有后端都需要维护的状态，所以放在基类里。

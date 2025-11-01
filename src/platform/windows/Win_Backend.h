@@ -17,7 +17,6 @@ public:
     void OpenFileDialog() override;
     void OpenWorkspace(const json& payload) override;
     void OpenWorkspaceDialog() override;
-    void OpenExternalLink(const std::wstring& url) override;
     void NavigateTo(const std::wstring& url) override;
     void ToggleFullscreen() override;
     void MinimizeWindow() override;
@@ -38,9 +37,15 @@ public:
     void CreateItem(const json& payload) override;
     void DeleteItem(const json& payload) override;
 
+    json ReadJsonFile(const std::wstring& identifier) override;
+    void WriteJsonFile(const std::wstring& identifier, const json& data) override;
+    std::wstring GetParentIdentifier(const std::wstring& identifier) override;
+    std::wstring CombineIdentifier(const std::wstring& parent, const std::wstring& childFilename) override;
+
     void EnsureWorkspaceConfigs(const json& payload) override;
 
     // --- Windows 平台特有的方法 ---
+    void OpenExternalLink(const std::wstring& url);
     void SetWebView(ICoreWebView2* webview);
     void SetMainWindowHandle(HWND hWnd);
     std::wstring GetNextWorkspacePath() const;

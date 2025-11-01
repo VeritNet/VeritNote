@@ -30,9 +30,13 @@ public:
 
     void EnsureWorkspaceConfigs(const json& payload) override;
 
+    json ReadJsonFile(const std::wstring& identifier) override;
+    void WriteJsonFile(const std::wstring& identifier, const json& data) override;
+    std::wstring GetParentIdentifier(const std::wstring& identifier) override;
+    std::wstring CombineIdentifier(const std::wstring& parent, const std::wstring& childFilename) override;
+
     void SetMainActivityInstance(jobject mainActivityInstance);
     void OpenFileDialog() override;
-    void OpenExternalLink(const std::wstring& url) override;
     void ToggleFullscreen() override;
     void MinimizeWindow() override;
     void MaximizeWindow() override;
@@ -43,7 +47,8 @@ public:
     bool DownloadFile(const std::wstring& url, const std::filesystem::path& destination, std::function<void(int)> onProgress) override;
     bool LoadResourceData(int resource_id, void*& pData, DWORD& dwSize) override;
 
-    // [NEW] Add workspace path injection mechanism
+    // Android
+    void OpenExternalLink(const std::wstring& url);
     std::wstring GetNextWorkspacePath() const;
     void ClearNextWorkspacePath();
 

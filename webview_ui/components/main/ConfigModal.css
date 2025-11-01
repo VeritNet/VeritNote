@@ -5,6 +5,7 @@
     border-radius: 8px;
     box-shadow: 0 8px 24px var(--shadow-primary);
     width: 650px;
+    max-width: 90vw;
     display: flex;
     flex-direction: column;
     max-height: 80vh; /* Limit height */

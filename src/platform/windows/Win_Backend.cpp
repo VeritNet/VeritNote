@@ -418,6 +418,38 @@ void WinBackend::DeleteItem(const json& payload) {
     }
 }
 
+json WinBackend::ReadJsonFile(const std::wstring& identifier) {
+    std::filesystem::path path(identifier);
+    if (!std::filesystem::exists(path)) return json::object();
+    try {
+        std::ifstream file(path);
+        if (!file.is_open()) return json::object();
+        return json::parse(file);
+    }
+    catch (...) {
+        return json::object();
+    }
+}
+
+void WinBackend::WriteJsonFile(const std::wstring& identifier, const json& data) {
+    try {
+        std::filesystem::path path(identifier);
+        std::ofstream file(path);
+        file << data.dump(2);
+    }
+    catch (...) {
+        // Handle error
+    }
+}
+
+std::wstring WinBackend::GetParentIdentifier(const std::wstring& identifier) {
+    return std::filesystem::path(identifier).parent_path().wstring();
+}
+
+std::wstring WinBackend::CombineIdentifier(const std::wstring& parent, const std::wstring& childFilename) {
+    return (std::filesystem::path(parent) / childFilename).wstring();
+}
+
 void WinBackend::EnsureWorkspaceConfigs(const json& payload) {
     if (m_workspaceRoot.empty()) return;
 
