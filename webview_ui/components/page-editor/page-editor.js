@@ -31,9 +31,9 @@ class PageEditor {
         this.hoveredChildrenContainer = null;
 
         // --- Sub-managers for organization ---
-        this.selectionManager = new SelectionManager(this);
+        this.PageSelectionManager = new PageSelectionManager(this);
         // The following will be initialized after HTML is loaded
-        this.referenceManager = null; 
+        this.PageReferenceManager = null; 
         this.popoverManager = null;
     }
 
@@ -51,7 +51,7 @@ class PageEditor {
         
         // NOTE: For now, we define these managers inside the editor. 
         // In a future refactor, they could become separate files too.
-        this.referenceManager = new ReferenceManager(this); 
+        this.PageReferenceManager = new PageReferenceManager(this); 
         this.popoverManager = new PopoverManager(this);
 
         this._registerAllBlocks();
@@ -77,7 +77,7 @@ class PageEditor {
         this.render();
     
         if (this.history.isUndoingOrRedoing) {
-            this.referenceManager.handleHistoryChange(this.filePath, blockDataList);
+            this.PageReferenceManager.handleHistoryChange(this.filePath, blockDataList);
         } else {
             this.history.recordInitialState();
         }
@@ -157,13 +157,13 @@ class PageEditor {
     
     onFocus() {
         if (!this.isReady) return;
-        this.selectionManager._updateVisuals();
+        this.PageSelectionManager._updateVisuals();
         this.updateToolbarState();
     }
     
     destroy() {
-        if (this.referenceManager) {
-            this.referenceManager.destroy();
+        if (this.PageReferenceManager) {
+            this.PageReferenceManager.destroy();
         }
         // Future cleanup logic here
         console.log(`Editor for ${this.filePath} destroyed.`);
@@ -293,7 +293,7 @@ class PageEditor {
             if (targetRow && targetRow.dataset.blockId) {
                 const blockId = targetRow.dataset.blockId;
                 // 1. Update the selection using the selection manager
-                this.selectionManager.set(blockId);
+                this.PageSelectionManager.set(blockId);
                 // 2. Find the block's element in the editor
                 const blockEl = this.elements.editorAreaContainer.querySelector(`.block-container[data-id="${blockId}"]`);
                 // 3. If found, scroll it into view
@@ -378,10 +378,10 @@ class PageEditor {
                 } else if (isMultiSelectKey) {
                     // This is for multi-selecting by clicking the block's body
                     e.preventDefault();
-                    this.selectionManager.toggle(clickedBlockEl.dataset.id);
+                    this.PageSelectionManager.toggle(clickedBlockEl.dataset.id);
                 } else {
                     // This is for single-selecting by clicking the block's body
-                    this.selectionManager.set(clickedBlockEl.dataset.id);
+                    this.PageSelectionManager.set(clickedBlockEl.dataset.id);
                 }
             } else {
                 // This part handles clicking on the editor background, etc.
@@ -389,7 +389,7 @@ class PageEditor {
                     '#sidebar, #right-sidebar, #tab-bar, #floating-toolbar, #popover, #context-menu, #block-toolbar, .block-controls'
                 );
                 if (!clickedUiChrome) {
-                    this.selectionManager.clear();
+                    this.PageSelectionManager.clear();
                 }
             }
         });
@@ -739,7 +739,7 @@ class PageEditor {
     /**
      * Centralized function to notify about any change in the editor's content.
      * It records history, sets the unsaved status, and dispatches detailed events
-     * for features like the ReferenceManager to stay in sync.
+     * for features like the PageReferenceManager to stay in sync.
      *
      * @param {boolean} [recordHistory=true] - If false, a state will not be pushed to the undo stack.
      * @param {string} [actionType='unknown'] - A descriptor for the change (e.g., 'typing', 'delete-block') for history coalescing.
@@ -763,7 +763,7 @@ class PageEditor {
         this.tabManager.setUnsavedStatus(this.filePath, true);
 
         // --- 3. Dispatch Fine-Grained Update Events ---
-        // This is crucial for UI components like the ReferenceManager and potentially
+        // This is crucial for UI components like the PageReferenceManager and potentially
         // the Details Panel to update their views without a full re-render.
         if (blockInstance) {
             let currentBlock = blockInstance;
@@ -819,9 +819,9 @@ class PageEditor {
                 const blockId = blockContainerEl.dataset.id;
                 const isMultiSelectKey = e.ctrlKey || e.metaKey || e.shiftKey;
                 if (isMultiSelectKey) {
-                    this.selectionManager.toggle(blockId);
+                    this.PageSelectionManager.toggle(blockId);
                 } else {
-                    this.selectionManager.set(blockId);
+                    this.PageSelectionManager.set(blockId);
                 }
             }
             return;
@@ -961,7 +961,7 @@ class PageEditor {
         if (!activeTab) return;
         const activeEditor = activeTab.editor;
     
-        if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectionManager.size() > 0) {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.size() > 0) {
             
             // First, check if the user is actively editing text.
             const activeEl = document.activeElement;
@@ -977,9 +977,9 @@ class PageEditor {
             
             e.preventDefault(); // Prevent default browser actions (like navigating back).
             
-            const idsToDelete = this.selectionManager.get();
+            const idsToDelete = this.PageSelectionManager.get();
             this.deleteMultipleBlocks(idsToDelete); // 'this' 就是 activeEditor
-            this.selectionManager.clear();
+            this.PageSelectionManager.clear();
             return; // We've handled the event, so we're done.
         }
     
@@ -1035,7 +1035,7 @@ class PageEditor {
         
         // --- Priority 2: Deleting Selected Blocks ---
         // This logic is transplanted from the old main.js global keydown listener.
-        if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectionManager.size() > 0) {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.size() > 0) {
             // First, check if the user is actively editing text inside an input field or a contenteditable element.
             const activeEl = document.activeElement;
             const isEditingText = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
@@ -1050,9 +1050,9 @@ class PageEditor {
                 // it's safe to assume they intend to delete the selected block(s).
                 e.preventDefault(); // Prevent default browser actions (like navigating back).
                 
-                const idsToDelete = this.selectionManager.get();
+                const idsToDelete = this.PageSelectionManager.get();
                 this.deleteMultipleBlocks(idsToDelete);
-                this.selectionManager.clear();
+                this.PageSelectionManager.clear();
                 return; // We've handled the event, so we're done.
             }
         }
@@ -1280,7 +1280,7 @@ class PageEditor {
         const blockContainer = e.target.closest('.block-container');
         if (blockContainer) {
             const blockId = blockContainer.dataset.id;
-            const isMultiDrag = this.selectionManager && this.selectionManager.size() > 1 && this.selectionManager.has(blockId);
+            const isMultiDrag = this.PageSelectionManager && this.PageSelectionManager.size() > 1 && this.PageSelectionManager.has(blockId);
 
             this.draggedBlock = blockContainer; // Keep this for visual feedback (opacity)
 
@@ -1288,7 +1288,7 @@ class PageEditor {
                 // --- MULTI-DRAG LOGIC ---
                 // Get all selected IDs, but ensure the actually dragged block is first in the list.
                 // This helps in re-ordering them correctly on drop.
-                const selectedIds = this.selectionManager.get();
+                const selectedIds = this.PageSelectionManager.get();
                 const orderedIds = [blockId, ...selectedIds.filter(id => id !== blockId)];
                 
                 e.dataTransfer.setData('application/veritnote-block-ids', JSON.stringify(orderedIds));
@@ -1301,7 +1301,7 @@ class PageEditor {
                 
             } else {
                 // --- SINGLE-DRAG LOGIC (unchanged) ---
-                this.selectionManager.clear(); // Clear selection if starting a single drag
+                this.PageSelectionManager.clear(); // Clear selection if starting a single drag
                 e.dataTransfer.setData('text/plain', blockId);
                 setTimeout(() => blockContainer.style.opacity = '0.5', 0);
             }
@@ -1585,7 +1585,7 @@ _onDragOver(e) {
         // --- Cleanup, render, save ---
         this.draggedBlock = null;
         this.currentDropInfo = null;
-        this.selectionManager.clear();
+        this.PageSelectionManager.clear();
         
         // --- 核心修改：统一事件通知 ---
         // 1. 从 _cleanupData 获取被修改的容器
@@ -2306,7 +2306,7 @@ _onDragOver(e) {
         if (!blockInstance) return;
         
         // 1. Select the current block
-        this.selectionManager.set(blockInstance.id);
+        this.PageSelectionManager.set(blockInstance.id);
         
         // 2. Expand the right sidebar if collapsed
         const appContainer = this.container.closest('.app-container');
@@ -2641,10 +2641,10 @@ _onDragOver(e) {
     * Updates the right sidebar's "Details" panel based on the currently selected blocks.
     */
     updateDetailsPanel() {
-        const editor = this.selectionManager._getEditor();
+        const editor = this.PageSelectionManager._getEditor();
         if (!editor || !this.elements.detailsView) return;
 
-        const selectedIds = this.selectionManager.get();
+        const selectedIds = this.PageSelectionManager.get();
     
         // Clear previous content
         this.elements.detailsView.innerHTML = '';
@@ -2663,6 +2663,18 @@ _onDragOver(e) {
             }
         });
         this.elements.detailsView.innerHTML = contentHtml;
+
+        // After inserting HTML, we must allow the block instances to attach their event listeners
+        selectedIds.forEach(id => {
+            const blockInfo = editor._findBlockInstanceById(editor.blocks, id);
+            if (blockInfo && blockInfo.block) {
+                // Find the specific section for this block within the panel
+                const blockSection = this.elements.detailsView.querySelector(`.details-panel-section[data-block-id="${id}"]`);
+                if (blockSection && typeof blockInfo.block.onDetailsPanelOpen === 'function') {
+                    blockInfo.block.onDetailsPanelOpen(blockSection);
+                }
+            }
+        });
     }
 
     // --- Floating Toolbar Logic ---
@@ -2894,6 +2906,27 @@ _onDragOver(e) {
             }
         }
 
+        // 收集所有块的自定义 CSS
+        let allCustomCSS = '';
+
+        // 定义递归收集函数，因为块可能有子块（如分栏、引用）
+        const collectCSSRecursive = (blocks) => {
+            if (!blocks) return;
+            blocks.forEach(block => {
+                // 调用刚刚在 Block.js 里写的新方法
+                if (typeof block.getCustomCSSString === 'function') {
+                    allCustomCSS += block.getCustomCSSString();
+                }
+                // 递归子块
+                if (block.children && block.children.length > 0) {
+                    collectCSSRecursive(block.children);
+                }
+            });
+        };
+
+        // 从临时编辑器的块列表中收集（因为它们拥有完整的数据）
+        collectCSSRecursive(tempEditor.blocks);
+
         // --- Step 4: Universally Process All Links ---
         // This must be done before delegating to blocks, so blocks receive already-processed links.
         renderedContainer.querySelectorAll('a').forEach(el => {
@@ -2925,6 +2958,11 @@ _onDragOver(e) {
         // --- Step 5 (Export Only): Collect and Inject Block-Specific Scripts ---
         // This is the old logic for highlight.js which is now also handled by a block's getExportScripts.
         if (isForExport) {
+            if (allCustomCSS) {
+                // 将所有样式包裹在 <style> 标签中，并放在最前面
+                finalHtml = `<style>\n/* VeritNote Custom CSS */\n${allCustomCSS}\n</style>\n` + finalHtml;
+            }
+
             const scriptModules = new Set();
         
             // This function traverses the entire block tree to find all unique block types
@@ -3015,7 +3053,7 @@ _onDragOver(e) {
 // --- In-file Helper Classes
 // --- ========================================================== ---
 
-class SelectionManager {
+class PageSelectionManager {
     constructor(editor) { // 接收 editor 实例
         this.selectedBlockIds = new Set();
         this.editor = editor; // 保存 editor 实例的引用
@@ -3079,9 +3117,25 @@ class SelectionManager {
     size() {
         return this.selectedBlockIds.size;
     }
+
+    validateAndRefresh() {
+        // 1. 过滤掉那些在当前 DOM 中已经不存在的 ID
+        // (例如：撤销了“创建新块”的操作，该块ID就不应该继续被选中)
+        const validIds = new Set();
+        this.selectedBlockIds.forEach(id => {
+            // 检查编辑器中是否真的还有这个块的 DOM
+            if (this.editor.container.querySelector(`.block-container[data-id="${id}"]`)) {
+                validIds.add(id);
+            }
+        });
+        this.selectedBlockIds = validIds;
+
+        // 2. 强制重新应用视觉样式（添加 .is-selected 类）并更新细节面板
+        this._updateVisuals();
+    }
 }
 
-class ReferenceManager {
+class PageReferenceManager {
     constructor(editor) {
         this.editor = editor; // The PageEditor instance
 

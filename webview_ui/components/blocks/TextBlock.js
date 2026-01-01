@@ -4,13 +4,44 @@ class TextBlock extends Block {
         super(data, editor);
     }
 
+    static getPropertiesSchema() {
+        return [
+            // 文本专属属性
+            { key: 'color', label: 'Text Color', type: 'color' },
+            { key: 'textAlign', label: 'Alignment', type: 'select', options: ['left', 'center', 'right', 'justify'] },
+            { key: 'fontSize', label: 'Font Size', type: 'text', placeholder: 'e.g. 16px' },
+            { key: 'fontWeight', label: 'Font Weight', type: 'select', options: ['normal', 'bold', '300', '400', '500', '600', '700', '800'] },
+            { key: 'lineHeight', label: 'Line Height', type: 'text', placeholder: 'e.g. 1.5' },
+            { key: 'letterSpacing', label: 'Letter Spacing', type: 'text', placeholder: 'e.g. 0.5px' },
+            { key: 'textDecoration', label: 'Decoration', type: 'select', options: ['none', 'underline', 'line-through', 'overline'] },
+            { key: 'fontFamily', label: 'Font Family', type: 'select', options: ['inherit', 'sans-serif', 'serif', 'monospace', 'cursive'] },
+
+            // 继承通用的盒模型属性
+            ...super.getPropertiesSchema()
+        ];
+    }
+
     _renderContent() {
         super._renderContent();
         this.contentElement.contentEditable = 'true';
         this.contentElement.innerHTML = this.content || '';
+
         if (this.constructor.placeholder) {
             this.contentElement.dataset.placeholder = this.constructor.placeholder;
         }
+
+        // --- 应用文本样式 ---
+        const s = this.contentElement.style;
+        const p = this.properties;
+
+        if (p.color) s.color = p.color;
+        if (p.textAlign) s.textAlign = p.textAlign;
+        if (p.fontSize) s.fontSize = p.fontSize;
+        if (p.fontWeight) s.fontWeight = p.fontWeight;
+        if (p.lineHeight) s.lineHeight = p.lineHeight;
+        if (p.letterSpacing) s.letterSpacing = p.letterSpacing;
+        if (p.textDecoration) s.textDecoration = p.textDecoration;
+        if (p.fontFamily && p.fontFamily !== 'inherit') s.fontFamily = p.fontFamily;
     }
 
     get toolbarButtons() {

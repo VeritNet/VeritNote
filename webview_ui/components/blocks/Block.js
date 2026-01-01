@@ -9,6 +9,12 @@ class Block {
         this.type = data.type;
         this.content = data.content || '';
         this.properties = data.properties || {};
+
+        // Initialize Custom CSS Property
+        if (!this.properties.customCSS) {
+            this.properties.customCSS = [];
+            // Structure: [{ selector: ':hover', rules: [{prop: 'color', val: 'red'}] }]
+        }
         
         this.editor = editor;
         this.element = null;
@@ -79,6 +85,8 @@ class Block {
         this.element.appendChild(this.contentElement);
 
         this._renderChildren();
+
+        this._applyCustomCSS();
 
         return this.element;
     }
@@ -262,6 +270,9 @@ class Block {
         }).join('');
 
 
+        const propertiesHtml = this._renderPropertiesSectionHTML();
+        const customCssHtml = this._renderCustomCSSSectionHTML();
+
         return `
             <div class="details-panel-section" data-block-id="${this.id}">
                 <div class="details-section-header">Block Details</div>
@@ -273,13 +284,303 @@ class Block {
                     <span class="details-property-label">ID</span>
                     <span class="details-property-value is-monospace" title="${this.id}">${this.id}</span>
                 </div>
+
                 <br>
+                <!-- Hierarchy Section -->
                 <div class="details-section-header">Hierarchy</div>
                 <div class="details-hierarchy-view">
                     ${hierarchyHtml}
                 </div>
+
+                <br>
+                <!-- Modular Properties Section -->
+                <div class="details-section-header">Properties</div>
+                <div class="details-properties-view">
+                    ${propertiesHtml}
+                </div>
+
+                <br>
+                <!-- Custom CSS Section -->
+                <div class="details-section-header">Custom CSS</div>
+                <div class="details-custom-css-view">
+                    ${customCssHtml}
+                </div>
             </div>
         `;
+    }
+
+
+    // Methods for Details Panel & CSS
+
+    /**
+     * Returns an array defining the editable properties for this block.
+     * Subclasses should override this.
+     * @returns {Array<{key: string, label: string, type: 'text'|'number'|'color'|'select'|'checkbox', options?: Array}>}
+     */
+    static getPropertiesSchema() {
+        return [
+            // 布局与间距
+            { key: 'padding', label: 'Padding', type: 'text', placeholder: 'e.g. 10px 20px' },
+            { key: 'marginTop', label: 'Margin Top', type: 'text', placeholder: 'e.g. 10px' },
+            { key: 'marginBottom', label: 'Margin Bottom', type: 'text', placeholder: 'e.g. 10px' },
+
+            // 背景与可见性
+            { key: 'backgroundColor', label: 'Background', type: 'color' },
+            { key: 'opacity', label: 'Opacity', type: 'number', placeholder: '0.0 - 1.0' },
+
+            // 边框设置
+            { key: 'borderWidth', label: 'Border Width', type: 'text', placeholder: 'e.g. 1px' },
+            { key: 'borderStyle', label: 'Border Style', type: 'select', options: ['none', 'solid', 'dashed', 'dotted', 'double'] },
+            { key: 'borderColor', label: 'Border Color', type: 'color' },
+            { key: 'borderRadius', label: 'Radius', type: 'text', placeholder: 'e.g. 4px' },
+
+            // 高级效果
+            { key: 'boxShadow', label: 'Shadow', type: 'text', placeholder: 'e.g. 0 2px 4px rgba(0,0,0,0.1)' }
+        ];
+    }
+
+    _renderPropertiesSectionHTML() {
+        const schema = this.constructor.getPropertiesSchema();
+        if (!schema || schema.length === 0) return '<div class="empty-details-placeholder">No properties available.</div>';
+
+        return schema.map(field => {
+            const value = this.properties[field.key] || '';
+            let inputHtml = '';
+
+            if (field.type === 'select') {
+                const optionsHtml = field.options.map(opt =>
+                    `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
+                ).join('');
+                inputHtml = `<select class="details-input-field" data-prop-key="${field.key}">${optionsHtml}</select>`;
+            } else if (field.type === 'checkbox') {
+                inputHtml = `<input type="checkbox" class="details-input-field" data-prop-key="${field.key}" ${value ? 'checked' : ''}>`;
+            } else {
+                inputHtml = `<input type="${field.type}" class="details-input-field" data-prop-key="${field.key}" value="${value}" placeholder="${field.placeholder || ''}">`;
+            }
+
+            return `
+                <div class="details-input-row">
+                    <span class="details-input-label">${field.label}</span>
+                    ${inputHtml}
+                </div>
+            `;
+        }).join('');
+    }
+
+    _renderCustomCSSSectionHTML() {
+        let html = '<div class="custom-css-container" id="css-rules-container">';
+
+        this.properties.customCSS.forEach((blockRule, index) => {
+            let propsHtml = blockRule.rules.map((rule, rIndex) => `
+                <div class="css-property-row">
+                    <input type="text" class="details-input-field css-key" value="${rule.prop}" placeholder="prop" data-group="${index}" data-rule="${rIndex}">
+                    <span style="color:var(--text-secondary)">:</span>
+                    <input type="text" class="details-input-field css-val" value="${rule.val}" placeholder="value" data-group="${index}" data-rule="${rIndex}">
+                    <button class="css-btn css-btn-delete" data-action="delete-rule" data-group="${index}" data-rule="${rIndex}">×</button>
+                </div>
+            `).join('');
+
+            html += `
+                <div class="css-rule-block">
+                    <div class="css-selector-row">
+                        <span class="css-selector-prefix">#block-${this.id.substr(0, 4)}...</span>
+                        <input type="text" class="details-input-field css-selector" value="${blockRule.selector}" placeholder=":hover, .inner-class" data-group="${index}">
+                        <button class="css-btn css-btn-delete" data-action="delete-group" data-group="${index}">🗑️</button>
+                    </div>
+                    <div class="css-properties-list">
+                        ${propsHtml}
+                        <button class="css-btn css-btn-add" data-action="add-rule" data-group="${index}">+ Add Property</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `<button class="popover-button" id="add-css-group-btn" style="margin-top:0">+ Add CSS Block</button>`;
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * Called by PageEditor after the details panel HTML is inserted into the DOM.
+     * This attaches event listeners to the inputs.
+     * @param {HTMLElement} container - The details panel container.
+     */
+    onDetailsPanelOpen(container) {
+        // 1. Handle Regular Properties
+        const inputs = container.querySelectorAll('.details-properties-view .details-input-field');
+        inputs.forEach(input => {
+            input.addEventListener('change', (e) => {
+                const key = e.target.dataset.propKey;
+                const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+
+                this.properties[key] = value;
+
+                const genericProperties = [
+                    'backgroundColor', 'opacity',
+                    'padding', 'marginTop', 'marginBottom',
+                    'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
+                    'boxShadow'
+                ];
+
+                if (genericProperties.includes(key)) {
+                    this._applyGenericStyles();
+                } else {
+                    this._renderContent();
+                }
+
+                this.editor.emitChange(true, 'property-change', this);
+            });
+        });
+
+        // 2. Handle Custom CSS Interaction (Delegated)
+        const cssContainer = container.querySelector('.details-custom-css-view');
+        if (cssContainer) {
+            cssContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.dataset.action === 'add-css-group-btn' || target.id === 'add-css-group-btn') {
+                    this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
+                    this._refreshDetailsPanel();
+                }
+                else if (target.dataset.action === 'delete-group') {
+                    const idx = parseInt(target.dataset.group);
+                    this.properties.customCSS.splice(idx, 1);
+                    this._refreshDetailsPanel();
+                }
+                else if (target.dataset.action === 'add-rule') {
+                    const idx = parseInt(target.dataset.group);
+                    this.properties.customCSS[idx].rules.push({ prop: '', val: '' });
+                    this._refreshDetailsPanel();
+                }
+                else if (target.dataset.action === 'delete-rule') {
+                    const gIdx = parseInt(target.dataset.group);
+                    const rIdx = parseInt(target.dataset.rule);
+                    this.properties.customCSS[gIdx].rules.splice(rIdx, 1);
+                    this._refreshDetailsPanel();
+                }
+            });
+
+            cssContainer.addEventListener('input', (e) => {
+                const target = e.target;
+                if (target.classList.contains('css-selector')) {
+                    const idx = parseInt(target.dataset.group);
+                    this.properties.customCSS[idx].selector = target.value;
+                    this._applyCustomCSS();
+                    // Debounce save? relying on blur or next action for history usually better, but for CSS visual feedback we update immediately.
+                }
+                else if (target.classList.contains('css-key')) {
+                    const gIdx = parseInt(target.dataset.group);
+                    const rIdx = parseInt(target.dataset.rule);
+                    this.properties.customCSS[gIdx].rules[rIdx].prop = target.value;
+                    this._applyCustomCSS();
+                }
+                else if (target.classList.contains('css-val')) {
+                    const gIdx = parseInt(target.dataset.group);
+                    const rIdx = parseInt(target.dataset.rule);
+                    this.properties.customCSS[gIdx].rules[rIdx].val = target.value;
+                    this._applyCustomCSS();
+                }
+            });
+
+            // Save history on change (blur)
+            cssContainer.addEventListener('change', () => {
+                this.editor.emitChange(true, 'css-edit', this);
+            });
+        }
+    }
+
+    _refreshDetailsPanel() {
+        this._applyCustomCSS();
+        this.editor.emitChange(false, 'css-ui-update', this); // Don't record history for every UI click
+        this.editor.updateDetailsPanel(); // Force re-render of panel
+    }
+
+    _applyGenericStyles() {
+        if (!this.element) return;
+
+        const s = this.element.style;
+        const p = this.properties;
+
+        // 布局
+        if (p.padding) s.padding = p.padding;
+        if (p.marginTop) s.marginTop = p.marginTop;
+        if (p.marginBottom) s.marginBottom = p.marginBottom;
+
+        // 背景与可见性
+        if (p.backgroundColor) s.backgroundColor = p.backgroundColor;
+        if (p.opacity) s.opacity = p.opacity;
+
+        // 边框
+        if (p.borderWidth) s.borderWidth = p.borderWidth;
+        if (p.borderStyle) s.borderStyle = p.borderStyle;
+        if (p.borderColor) s.borderColor = p.borderColor;
+        if (p.borderRadius) s.borderRadius = p.borderRadius;
+
+        // 阴影
+        if (p.boxShadow) s.boxShadow = p.boxShadow;
+    }
+
+    _applyCustomCSS() {
+        // 1. Remove existing style element for this block if it exists
+        let styleTag = document.getElementById(`style-block-${this.id}`);
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = `style-block-${this.id}`;
+            document.head.appendChild(styleTag);
+        }
+
+        // 2. Generate CSS String
+        let cssString = '';
+        if (this.properties.customCSS && this.properties.customCSS.length > 0) {
+            this.properties.customCSS.forEach(group => {
+                // Ensure the selector targets this specific block ID
+                const selector = `.block-container[data-id="${this.id}"] ${group.selector}`;
+                const rules = group.rules
+                    .filter(r => r.prop && r.val)
+                    .map(r => `${r.prop}: ${r.val} !important;`)
+                    .join(' ');
+
+                if (rules) {
+                    cssString += `${selector} { ${rules} } \n`;
+                }
+            });
+        }
+
+        // 3. Apply Generic Styles via inline (handled in _applyGenericStyles) or here.
+        // Let's call generic applier here to ensure render correctness.
+        this._applyGenericStyles();
+
+        // 4. Update Style Tag
+        styleTag.textContent = cssString;
+    }
+
+    /**
+     * 生成当前块及其自定义属性对应的 CSS 字符串，用于导出。
+     */
+    getCustomCSSString() {
+        let cssString = '';
+
+        // 1. 处理 Custom CSS 面板中的规则 (如 :hover 等)
+        if (this.properties.customCSS && this.properties.customCSS.length > 0) {
+            this.properties.customCSS.forEach(group => {
+                // 确保选择器依然能选中这个块
+                // 注意：导出时 .block-container 和 data-id 都会保留，所以这个选择器是有效的
+                const selector = `.block-container[data-id="${this.id}"] ${group.selector}`;
+
+                const rules = group.rules
+                    .filter(r => r.prop && r.val)
+                    .map(r => `${r.prop}: ${r.val} !important;`)
+                    .join(' ');
+
+                if (rules) {
+                    cssString += `${selector} { ${rules} } \n`;
+                }
+            });
+        }
+
+        // 注意：通用的 _applyGenericStyles (背景、边距等) 是直接写在 element.style 上的，
+        // 它们会作为 inline style 自动包含在 innerHTML 中，所以这里不需要重复处理。
+
+        return cssString;
     }
 
 

@@ -132,6 +132,10 @@
         content: '📄';
         font-size: 12px;
     }
+    .tree-node.page > .icon.graph-icon::before {
+        content: '📈';
+        font-size: 12px;
+    }
 
 .tree-node-children {
     padding-left: var(--spacing-m);

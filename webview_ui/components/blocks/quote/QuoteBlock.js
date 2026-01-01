@@ -33,6 +33,37 @@ class QuoteBlock extends Block {
         };
     }
 
+    static getPropertiesSchema() {
+        return [
+            { key: 'referenceLink', label: 'Ref Link', type: 'text' },
+            { key: 'clickLink', label: 'Click URL', type: 'text' },
+
+            // 引用条样式
+            { key: 'borderLeftWidth', label: 'Bar Width', type: 'text', placeholder: '3px' },
+            { key: 'borderLeftColor', label: 'Bar Color', type: 'color' },
+
+            // 继承通用
+            ...super.getPropertiesSchema()
+        ];
+    }
+
+    _applyGenericStyles() {
+        super._applyGenericStyles(); // 应用基础样式
+
+        // 叠加 Quote 特有的样式
+        const s = this.contentElement.style; // 注意 Quote 的样式是加在 contentElement 上的
+        const p = this.properties;
+
+        if (p.borderLeftWidth) s.borderLeftWidth = p.borderLeftWidth;
+        if (p.borderLeftColor) s.borderLeftColor = p.borderLeftColor;
+
+        // 如果是 plain 样式，可能要强制去掉 border
+        if (p.style === 'plain') {
+            s.borderLeft = 'none';
+            s.paddingLeft = '0';
+        }
+    }
+
     // --- 4. Rendering Logic ---
     _renderContent() {
         this.contentElement.dataset.style = this.properties.style;

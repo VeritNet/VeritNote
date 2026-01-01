@@ -121,13 +121,19 @@ class HistoryManager {
     _applySnapshot(snapshot) {
         if (!snapshot) return;
         const pageContent = JSON.parse(snapshot);
-        
+
         // 1. 用快照中的数据替换编辑器当前的 blocks 数组
         this.editor.blocks = pageContent.map(data => this.editor.createBlockInstance(data)).filter(Boolean);
         // 2. 确保所有根级块的 parent 属性为 null
         this.editor.blocks.forEach(block => block.parent = null);
         // 3. 调用编辑器的 render 方法，用新的 blocks 数组完全重构 DOM
         this.editor.render();
+
+        // DOM 重绘后，原来的元素没了，需要根据 ID 重新把 .is-selected 加回去
+        // 并且强制刷新细节面板，让它读取新的 block 实例数据
+        if (this.editor.PageSelectionManager) {
+            this.editor.PageSelectionManager.validateAndRefresh();
+        }
 
         if (this.editor.referenceManager) {
             const allBlockData = this.editor.getBlocksForSaving();
@@ -138,7 +144,7 @@ class HistoryManager {
         window.dispatchEvent(new CustomEvent('history:applied', {
             detail: {
                 filePath: this.editor.currentPagePath,
-                allBlockData: this.editor.getBlocksForSaving() // 发送完整的最新状态
+                allBlockData: this.editor.getBlocksForSaving()
             }
         }));
     }

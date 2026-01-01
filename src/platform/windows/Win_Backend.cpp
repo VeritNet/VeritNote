@@ -224,6 +224,7 @@ void WinBackend::ListWorkspace(const json& payload) {
     json response;
     response["action"] = "workspaceListed";
 
+    // 递归函数 scan_dir 保持不变
     std::function<json(const std::filesystem::path&)> scan_dir =
         [&](const std::filesystem::path& dir_path) -> json {
         json tree_node;
@@ -233,39 +234,54 @@ void WinBackend::ListWorkspace(const json& payload) {
         tree_node["children"] = json::array();
 
         for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
+            // --- 目录处理（保持不变）---
             if (entry.is_directory()) {
-                if (entry.path().filename() == "build") {
+                if (entry.path().filename() == "build") { // 忽略 build 文件夹
                     continue;
                 }
                 tree_node["children"].push_back(scan_dir(entry.path()));
             }
-            else if (entry.is_regular_file() && entry.path().extension() == ".veritnote") {
-                json file_node;
-                file_node["name"] = entry.path().stem().string();
-                file_node["path"] = entry.path().string();
-                file_node["type"] = "page";
-                tree_node["children"].push_back(file_node);
+            // --- 文件处理 ---
+            else if (entry.is_regular_file()) {
+                // --- START OF MODIFICATION ---
+
+                // 1. 获取文件扩展名
+                std::string extension = entry.path().extension().string();
+
+                // 2. 根据不同的扩展名创建不同类型的节点
+                if (extension == ".veritnote") {
+                    json file_node;
+                    // 使用 filename() 获取带扩展名的全名，因为前端会处理它
+                    file_node["name"] = entry.path().filename().string();
+                    file_node["path"] = entry.path().string();
+                    file_node["type"] = "page";
+                    tree_node["children"].push_back(file_node);
+                }
+                else if (extension == ".veritnotegraph") { // 新增对 .veritnotegraph 文件的处理
+                    json file_node;
+                    file_node["name"] = entry.path().filename().string();
+                    file_node["path"] = entry.path().string();
+                    file_node["type"] = "graph"; // 设置正确的类型
+                    tree_node["children"].push_back(file_node);
+                }
+
+                // --- END OF MODIFICATION ---
             }
         }
         return tree_node;
         };
 
+    // --- 后续的 try-catch 块和发送消息的逻辑保持不变 ---
     try {
         if (!m_workspaceRoot.empty()) {
             response["payload"] = scan_dir(m_workspaceRoot);
 
-            // 【核心修改】检查工作区是否为空
+            // 检查工作区是否为空并提取欢迎文件的逻辑保持不变
             if (response["payload"]["children"].empty()) {
-                // 如果为空，从资源中提取示例文件
                 std::filesystem::path destFilePath = std::filesystem::path(m_workspaceRoot) / "welcome.veritnote";
-
-                // v--- 使用新的正确方法 ---v
-                // 我们调用 ExtractResourceToFile，它会从EXE内部找到资源并写入到目标路径
                 if (ExtractResourceToFile(L"/welcome.veritnote", destFilePath)) {
-                    // 【关键】提取成功后，重新扫描工作区以包含新文件
                     response["payload"] = scan_dir(m_workspaceRoot);
                 }
-                // 如果提取失败，我们就不再重新扫描，前端会看到一个空的工作区，这也是合理的行为
             }
         }
         else {
@@ -276,7 +292,7 @@ void WinBackend::ListWorkspace(const json& payload) {
         response["error"] = e.what();
     }
 
-    // ... 后续的 Debug 输出和 SendMessageToJS 保持不变 ...
+    // Debug 输出和发送消息的逻辑保持不变
     std::string debug_json_string = response.dump(2);
     LOG_DEBUG("--- C++ Backend --- \n");
     LOG_DEBUG("Sending to JS: \n");
@@ -377,29 +393,46 @@ void WinBackend::CreateItem(const json& payload) {
 
         std::filesystem::path fullPath = std::filesystem::path(parentPathStr) / name;
 
+        // --- 文件夹类型的处理（保持不变）---
         if (type == "folder") {
-            fullPath.replace_extension(""); // 确保没有扩展名
+            fullPath.replace_extension(""); // 确保文件夹没有扩展名
             std::filesystem::create_directory(fullPath);
         }
-        else { // page
-            fullPath.replace_extension(".veritnote");
-            // 创建一个符合新格式的 JSON 对象
-            json newPageContent;
-            newPageContent["config"] = json::object({
-                {"page", json::object()} // 可以创建一个空的 page config
-                });
-            newPageContent["blocks"] = json::array();
+        // --- START OF MODIFICATION ---
+        // --- 文件类型的处理（现在包含 page 和 graph）---
+        else if (type == "page" || type == "graph") {
 
+            // 1. 根据类型设置正确的文件扩展名
+            if (type == "page") {
+                fullPath.replace_extension(".veritnote");
+            }
+            else { // type == "graph"
+                fullPath.replace_extension(".veritnotegraph");
+            }
+
+            // 2. 创建所有文件类型通用的默认 JSON 结构
+            // 注意：我们仍然创建一个空的 "page" config 对象。
+            // 这是为了与前端现有的配置解析系统 (resolveFileConfiguration, computeFinalConfig) 保持兼容。
+            // 前端可以平稳地处理这种情况，而无需为 graph 单独创建一套配置逻辑。
+            json newFileContent;
+            newFileContent["config"] = json::object({
+                {"page", json::object()}
+                });
+            newFileContent["blocks"] = json::array();
+
+            // 3. 将 JSON 内容写入文件
             std::ofstream file(fullPath);
-            // 使用 dump(2) 写入格式化的 JSON
-            file << newPageContent.dump(2);
+            file << newFileContent.dump(2); // 使用 dump(2) 写入格式化的 JSON，便于调试
             file.close();
         }
-        // 通知前端更新文件树
+        // --- END OF MODIFICATION ---
+
+        // 通知前端更新文件树（保持不变）
         SendMessageToJS({ {"action", "workspaceUpdated"} });
     }
     catch (const std::exception& e) {
-        // 错误处理
+        // 可以在这里添加更详细的错误日志
+        // 例如：OutputDebugStringA(("CreateItem failed: " + std::string(e.what())).c_str());
     }
 }
 

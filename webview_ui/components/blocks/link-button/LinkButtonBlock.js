@@ -14,11 +14,44 @@
         }
     }
 
+    static getPropertiesSchema() {
+        return [
+            { key: 'url', label: 'Target URL', type: 'text' },
+
+            // 按钮专属外观
+            { key: 'display', label: 'Display', type: 'select', options: ['inline-block', 'block'] },
+            { key: 'btnColor', label: 'Text Color', type: 'color' },
+            { key: 'btnBgColor', label: 'Button Color', type: 'color' },
+            { key: 'padding', label: 'Inner Padding', type: 'text', placeholder: '8px 16px' }, // 覆盖基类的 padding
+            { key: 'fontSize', label: 'Font Size', type: 'text', placeholder: '14px' },
+            { key: 'fontWeight', label: 'Font Weight', type: 'select', options: ['normal', 'bold'] },
+            { key: 'cursor', label: 'Cursor', type: 'select', options: ['pointer', 'default', 'not-allowed'] },
+
+            // 继承通用 (用于外边距等)
+            ...super.getPropertiesSchema()
+        ];
+    }
+
     _renderContent() {
-        this.contentElement.contentEditable = 'true';
-        // When rendering, ensure content is just the text, not a nested <a> tag.
-        const textContent = this.content || 'Edit Button Text';
-        this.contentElement.innerHTML = `<a href="${this.properties.url || '#'}">${textContent}</a>`;
+        // 1. 外层容器不再可编辑
+        this.contentElement.contentEditable = 'false';
+
+        const textContent = this.content || 'Button';
+
+        // 构建样式
+        const p = this.properties;
+        let style = '';
+        if (p.btnColor) style += `color: ${p.btnColor};`;
+        if (p.btnBgColor) style += `background-color: ${p.btnBgColor};`;
+        if (p.padding) style += `padding: ${p.padding};`;
+        if (p.fontSize) style += `font-size: ${p.fontSize};`;
+        if (p.fontWeight) style += `font-weight: ${p.fontWeight};`;
+        if (p.display) style += `display: ${p.display}; width: ${p.display === 'block' ? '100%' : 'auto'}; text-align: center;`;
+        if (p.cursor) style += `cursor: ${p.cursor};`;
+
+        // 2. 将 contentEditable 加在 a 标签上，并强制 display: inline-block 确保行为正常
+        // 注意：我们需要防止点击 a 标签跳转，这通常由编辑器拦截，但 contentEditable 为 true 时浏览器通常不会跳转
+        this.contentElement.innerHTML = `<a href="${p.url || '#'}" style="${style}" contenteditable="true">${textContent}</a>`;
     }
 
     get toolbarButtons() {

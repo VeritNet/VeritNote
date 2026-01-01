@@ -20,18 +20,51 @@ class CalloutBlock extends ContainerBlock {
         }
     }
 
+    static getPropertiesSchema() {
+        return [
+            { key: 'icon', label: 'Icon Emoji', type: 'text', placeholder: '💡' },
+
+            // Callout 特有布局
+            { key: 'iconSize', label: 'Icon Size', type: 'text', placeholder: '1.2em' },
+            { key: 'layout', label: 'Layout', type: 'select', options: ['row', 'row-reverse', 'column'] },
+
+            // 继承通用
+            ...super.getPropertiesSchema()
+        ];
+    }
+
     _renderContent() {
-        // The main content element for a callout is a flex container
+        const p = this.properties;
+        const icon = p.icon || '💡';
+
+        // 应用布局方向
+        const flexDirection = p.layout || 'row';
+        const alignItems = flexDirection === 'column' ? 'flex-start' : 'flex-start';
+
+        this.contentElement.style.flexDirection = flexDirection;
+        this.contentElement.style.alignItems = alignItems;
+
+        // 保存现有的子元素
+        const fragment = document.createDocumentFragment();
+        // 如果 childrenContainer 已经存在且有子节点，把它们移到 fragment 中暂存
+        if (this.childrenContainer && this.childrenContainer.childNodes.length > 0) {
+            while (this.childrenContainer.firstChild) {
+                fragment.appendChild(this.childrenContainer.firstChild);
+            }
+        }
+
+        // 重置 HTML 结构
         this.contentElement.innerHTML = `
-            <div class="callout-icon">💡</div>
+            <div class="callout-icon" style="font-size: ${p.iconSize || '1.2em'}">${icon}</div>
             <div class="callout-content-wrapper"></div>
         `;
-        // Important: Re-assign the childrenContainer to the new wrapper
+
+        // 重新获取容器引用
         this.childrenContainer = this.contentElement.querySelector('.callout-content-wrapper');
-    
-        // --- 新增 ---
-        // 遵循新标准，为子块容器添加专用类
         this.childrenContainer.classList.add('block-children-container');
+
+        // 恢复子元素
+        this.childrenContainer.appendChild(fragment);
     }
 
     // Callout content itself is not editable, its children are.

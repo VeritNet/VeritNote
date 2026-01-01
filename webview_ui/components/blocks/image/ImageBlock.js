@@ -31,10 +31,42 @@ class ImageBlock extends Block {
         };
     }
 
+    static getPropertiesSchema() {
+        return [
+            // 核心属性
+            { key: 'src', label: 'Image Source', type: 'text' },
+            { key: 'href', label: 'Link URL', type: 'text' },
+            { key: 'alt', label: 'Alt Text', type: 'text', placeholder: 'Description for accessibility' },
+
+            // 尺寸与适应
+            { key: 'width', label: 'Width', type: 'text', placeholder: '100% or 300px' },
+            { key: 'height', label: 'Height', type: 'text', placeholder: 'auto or 200px' },
+            { key: 'objectFit', label: 'Object Fit', type: 'select', options: ['fill', 'contain', 'cover', 'none', 'scale-down'] },
+
+            // 滤镜特效 (非常实用)
+            { key: 'filter', label: 'Filter', type: 'text', placeholder: 'grayscale(100%) blur(2px)' },
+
+            // 继承通用
+            ...super.getPropertiesSchema()
+        ];
+    }
+
     _renderContent() {
-        // --- REFACTORED: Only render the image, never the <a> tag in the editor ---
-        if (this.properties.src) {
-            this.contentElement.innerHTML = `<img src="${this.properties.src}" alt="image">`;
+        const p = this.properties;
+
+        // 构建样式字符串
+        let style = `display: block;`;
+        if (p.width) style += `width: ${p.width};`;
+        if (p.height) style += `height: ${p.height};`;
+        if (p.objectFit) style += `object-fit: ${p.objectFit};`;
+        if (p.filter) style += `filter: ${p.filter};`;
+
+        // 注意：圆角等样式应该应用在 img 标签上，而不是外层 wrapper，因为 wrapper 可能是全宽的
+        if (p.borderRadius) style += `border-radius: ${p.borderRadius};`;
+
+        if (p.src) {
+            const alt = p.alt || 'image';
+            this.contentElement.innerHTML = `<img src="${p.src}" alt="${alt}" style="${style}">`;
         } else {
             this.contentElement.innerHTML = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
         }

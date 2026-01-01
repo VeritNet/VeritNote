@@ -105,6 +105,8 @@ window.initializeMainComponent = () => {
             let editorType = 'default';
             if (path.endsWith('.veritnote')) {
                 editorType = 'pageEditor';
+            } else if (path.endsWith('.veritnotegraph')) {
+                editorType = 'graphEditor';
             }
 
             if (editorType === 'default') {
@@ -122,8 +124,9 @@ window.initializeMainComponent = () => {
 
             let tabInstance = null;
             if (editorType === 'pageEditor') {
-                // Pass the now-guaranteed finalConfig to the new PageEditor instance
                 tabInstance = new PageEditor(wrapper, path, this, finalConfig);
+            } else if (editorType === 'graphEditor') {
+                tabInstance = new GraphEditor(wrapper, path, this, finalConfig);
             }
             
             if (!tabInstance) return;
@@ -464,6 +467,12 @@ window.initializeMainComponent = () => {
                 <span class="name">${node.name.replace('.veritnote','')}</span>
                 <button class="item-settings-btn" data-type="page" title="Page Settings">${settingsIconSvg}</button>
              </div>`;
+        } else if (node.type === 'graph') {
+            html += `<div class="tree-node page" data-path="${node.path}">
+                <span class="icon graph-icon"></span>
+                <span class="name">${node.name.replace('.veritnotegraph','')}</span>
+                <button class="item-settings-btn" data-type="graph" title="Graph Settings">${settingsIconSvg}</button>
+            </div>`;
         }
         return html;
     }
@@ -490,6 +499,7 @@ window.initializeMainComponent = () => {
         if (!parentPath && sidebar.dataset.workspaceData) { parentPath = JSON.parse(sidebar.dataset.workspaceData).path; }
         switch (action) {
             case 'newPage': { const name = prompt("Page Name", "MyPage"); if (name) { ipc.createItem(parentPath, name, 'page'); } break; }
+            case 'newGraph': { const name = prompt("Graph Name", "MyGraph"); if (name) { ipc.createItem(parentPath, name, 'graph'); } break; }
             case 'newFolder': { const name = prompt("Folder Name", "MyFolder"); if (name) { ipc.createItem(parentPath, name, 'folder'); } break; }
             case 'delete': { if (confirm(`Delete "${targetPath}"?`)) { ipc.deleteItem(targetPath); } break; }
         }

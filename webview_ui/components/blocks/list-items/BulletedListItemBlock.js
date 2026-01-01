@@ -20,6 +20,14 @@ class BulletedListItemBlock extends TextBlock {
         this.isContainer = true; 
     }
 
+    static getPropertiesSchema() {
+        return [
+            { key: 'listStyleType', label: 'Bullet Style', type: 'select', options: ['disc', 'circle', 'square', 'none'] },
+            { key: 'markerColor', label: 'Bullet Color', type: 'color' },
+            ...super.getPropertiesSchema() // 继承 TextBlock 的属性
+        ];
+    }
+
     // --- 3. 自定义渲染 ---
     render() {
         this.element = this._createWrapperElement();

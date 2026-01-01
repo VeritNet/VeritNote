@@ -47,7 +47,7 @@ class PopoverManager {
 
         if (document.body.classList.contains('is-linking-block')) {
             document.body.classList.remove('is-linking-block');
-            this.editor.referenceManager.enableLinkingMode(false);
+            this.editor.PageReferenceManager.enableLinkingMode(false);
             this.editor.switchRightSidebarView(this.previousRightSidebarView);
         }
 
@@ -142,7 +142,7 @@ class PopoverManager {
                 this.wasSidebarForcedOpen = this.editor.container.closest('.app-container').classList.contains('right-sidebar-collapsed');
                 if (this.wasSidebarForcedOpen) this.editor.setRightSidebarCollapsed(false);
                 
-                this.editor.referenceManager.enableLinkingMode(true, (refData) => {
+                this.editor.PageReferenceManager.enableLinkingMode(true, (refData) => {
                     const relativeFilePath = window.makePathRelativeToWorkspace(refData.filePath);
                     const link = `${relativeFilePath}#${refData.blockData.id}`;
                     if (this.currentPopoverCallback) this.currentPopoverCallback(link);
@@ -158,7 +158,7 @@ class PopoverManager {
                 
                 if (document.body.classList.contains('is-linking-block')) {
                     document.body.classList.remove('is-linking-block');
-                    this.editor.referenceManager.enableLinkingMode(false);
+                    this.editor.PageReferenceManager.enableLinkingMode(false);
                     this.editor.switchRightSidebarView(this.previousRightSidebarView); // Restore view
                     if (this.wasSidebarForcedOpen) {
                         this.editor.setRightSidebarCollapsed(true);
@@ -176,7 +176,7 @@ class PopoverManager {
         popoverInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.currentPopoverCallback) this.currentPopoverCallback(popoverInput.value); this.hide(); } });
         searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && this.currentPopoverCallback) { const relativePath = window.makePathRelativeToWorkspace(item.dataset.path); this.currentPopoverCallback(relativePath); this.hide(); } });
 
-        const initialMode = existingValue && existingValue.includes('#') ? 'block' : 'page';
+        const initialMode = existingValue && existingValue.indexOf('#') > -1 && existingValue.split('#')[1].length > 0 ? 'block' : 'page';
         setActiveMode(initialMode);
 
         this._positionAndShow(targetElement);
@@ -279,7 +279,7 @@ class PopoverManager {
                 this.wasSidebarForcedOpen = this.editor.container.closest('.app-container').classList.contains('right-sidebar-collapsed');
                 if (this.wasSidebarForcedOpen) this.editor.setRightSidebarCollapsed(false);
                 
-                this.editor.referenceManager.enableLinkingMode(true, (refData) => {
+                this.editor.PageReferenceManager.enableLinkingMode(true, (refData) => {
                     const relativeFilePath = window.makePathRelativeToWorkspace(refData.filePath);
                     const link = `${relativeFilePath}#${refData.blockData.id}`;
                     if (this.currentPopoverCallback) this.currentPopoverCallback(link);
@@ -293,7 +293,7 @@ class PopoverManager {
         
                 // --- REVISED: Let hidePopover handle all cleanup ---
                 document.body.classList.remove('is-linking-block');
-                this.editor.referenceManager.enableLinkingMode(false);
+                this.editor.PageReferenceManager.enableLinkingMode(false);
                 if (this.wasSidebarForcedOpen) {
                     this.editor.setRightSidebarCollapsed(true);
                     this.wasSidebarForcedOpen = false; // Reset the flag.
@@ -307,7 +307,7 @@ class PopoverManager {
         
         searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && this.currentPopoverCallback) { this.currentPopoverCallback(item.dataset.path); this.hide(); } });
 
-        const initialMode = existingValue && existingValue.includes('#') ? 'block' : 'page';
+        const initialMode = existingValue && existingValue.indexOf('#') > -1 && existingValue.split('#')[1].length > 0 ? 'block' : 'page';
         setActiveMode(initialMode);
 
         this._positionAndShow(options.targetElement);

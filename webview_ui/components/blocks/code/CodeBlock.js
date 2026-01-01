@@ -34,6 +34,21 @@ class CodeBlock extends Block {
         ].sort();
     }
 
+    static getPropertiesSchema() {
+        return [
+            { key: 'language', label: 'Language', type: 'text' }, // 只读展示或手动输入
+
+            // 代码显示设置
+            { key: 'fontSize', label: 'Font Size', type: 'text', placeholder: '14px' },
+            { key: 'tabSize', label: 'Tab Size', type: 'number', placeholder: '4' },
+            { key: 'wordWrap', label: 'Word Wrap', type: 'checkbox' },
+            { key: 'showLineNumbers', label: 'Line Numbers', type: 'checkbox' }, // 仅作预留，需配合 CSS counter 实现
+
+            // 继承通用
+            ...super.getPropertiesSchema()
+        ];
+    }
+
     render() {
         // The main wrapper is still a .block-container
         this.element = this._createWrapperElement();
@@ -62,6 +77,31 @@ class CodeBlock extends Block {
         this.inputElement.addEventListener('scroll', () => this.syncScroll());
 
         return this.element;
+
+        this._applyCodeStyles();
+        return this.element;
+    }
+
+    _applyCodeStyles() {
+        const p = this.properties;
+        const pre = this.contentElement.querySelector('pre');
+        const textArea = this.contentElement.querySelector('textarea');
+
+        if (pre && textArea) {
+            const size = p.fontSize || '14px';
+            pre.style.fontSize = size;
+            textArea.style.fontSize = size;
+
+            const tab = p.tabSize || 4;
+            pre.style.tabSize = tab;
+            textArea.style.tabSize = tab;
+
+            const wrap = p.wordWrap ? 'pre-wrap' : 'pre';
+            pre.style.whiteSpace = wrap;
+            // 注意：textarea 必须保持 nowrap 以避免光标错位，或者需要极其复杂的同步逻辑
+            // 这里我们只改变显示的 pre 的换行。如果是编辑模式，用户体验可能略有割裂，
+            // 但为了光标对齐，通常 textarea 保持 pre。
+        }
     }
     
     onInput() {
