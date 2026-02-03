@@ -860,6 +860,11 @@ class PageEditor {
         if (e.ctrlKey || e.metaKey || e.shiftKey) {
             return;
         }
+
+        // --- 排除列布局宽度调整器 ---
+        if (e.target.closest('.column-resizer')) {
+            return;
+        }
     
         // --- 优先级 5 (默认行为): 背景点击或单选 ---
         const clickedBlockContainer = e.target.closest('.block-container');

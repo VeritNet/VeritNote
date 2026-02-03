@@ -58,9 +58,13 @@ class TodoListItemBlock extends TextBlock {
         this.textElement.innerHTML = this.content || '';
         this.textElement.dataset.placeholder = this.constructor.placeholder;
 
+        this._renderContent();
+
         this.element.appendChild(this.contentElement);
 
         this._renderChildren();
+
+        this._applyCustomCSS();
         
         // --- 事件监听 ---
         // 监听 checkbox 的状态变化
@@ -74,6 +78,33 @@ class TodoListItemBlock extends TextBlock {
         this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
         return this.element;
+    }
+
+    _renderContent() {
+        this._applyListItemStyles();
+    }
+
+    _applyListItemStyles() {
+        const s = this.contentElement.style;
+        const p = this.properties;
+
+        // 应用 TextBlock 定义的所有通用文本样式
+        // 这些样式会从 contentElement 继承到 text-area 和 bullet point
+        if (p.color) s.color = p.color;
+        if (p.fontSize) s.fontSize = p.fontSize;
+        if (p.fontWeight) s.fontWeight = p.fontWeight;
+        if (p.lineHeight) s.lineHeight = p.lineHeight;
+        if (p.letterSpacing) s.letterSpacing = p.letterSpacing;
+        if (p.fontFamily && p.fontFamily !== 'inherit') s.fontFamily = p.fontFamily;
+
+        // 对齐方式特殊处理：通常列表项还是左对齐好看，但如果用户非要改...
+        // 这里的 textAlign 会影响 wrapper，导致 bullet 和 text 一起居中/右对齐
+        if (p.textAlign) s.textAlign = p.textAlign;
+
+        // Text Decoration 通常只应用于文字，不应用于图标
+        if (p.textDecoration) {
+            if (this.textElement) this.textElement.style.textDecoration = p.textDecoration;
+        }
     }
 
     // --- 4. 辅助方法 ---

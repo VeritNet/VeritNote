@@ -65,6 +65,7 @@ class TableBlock extends Block {
         // 初始化属性
         this.properties.hasHeaderRow = data.properties?.hasHeaderRow || false;
         this.properties.colWidths = data.properties?.colWidths || [];
+        this.properties.tableWidthScale = data.properties?.tableWidthScale || 1;
 
         // 如果是新表格，创建默认的 2x2 结构
         if (this.children.length === 0) {
@@ -80,16 +81,44 @@ class TableBlock extends Block {
         }
     }
 
+    static getPropertiesSchema() {
+        return [
+            // 表格展示比例属性
+            {
+                key: 'tableWidthScale',
+                label: 'Table View Scale',
+                type: 'number',
+                placeholder: '(0.0, 1.0] (Default 1)',
+                min: 0.1,
+                max: 1.0
+            },
+
+            // 继承父类属性
+            ...super.getPropertiesSchema()
+        ];
+    }
+
     render() {
         this.element = this._createWrapperElement();
         this.contentElement = this._createContentElement();
 
         // 创建表格的滚动容器和内部网格
+        // 1. 计算宽度样式
+        // 限制范围在 (0, 1] 之间，防止除以 0 或过大
+        let scale = parseFloat(this.properties.tableWidthScale);
+        if (isNaN(scale) || scale <= 0 || scale > 1) scale = 1;
+
+        // e.g. 如果 scale 是 0.5，那么宽度就是 100% / 0.5 = 200%
+        const totalWidthStyle = scale === 1 ? '100%' : `${(1 / scale) * 100}%`;
+
+        // 2. 调整 HTML 结构
+        // 关键改变：将 <div class="table-controls-top"></div> 移到了 <div class="table-scroll-wrapper"> 内部
+        // 这样顶部控件就会随表格内容一起滚动
         this.contentElement.innerHTML = `
-            <div class="table-controls-top"></div>
             <div class="table-controls-left"></div>
+            <div class="table-controls-top" style="min-width: ${totalWidthStyle}"></div>
             <div class="table-scroll-wrapper">
-                <div class="table-grid-wrapper"></div>
+                <div class="table-grid-wrapper" style="min-width: ${totalWidthStyle}"></div>
             </div>
             <button class="table-add-col-btn" title="Add column">+</button>
             <button class="table-add-row-btn" title="Add row">+</button>
@@ -98,6 +127,13 @@ class TableBlock extends Block {
         this.gridWrapper = this.contentElement.querySelector('.table-grid-wrapper');
         this.topControls = this.contentElement.querySelector('.table-controls-top');
         this.leftControls = this.contentElement.querySelector('.table-controls-left');
+
+        // --- 初始化时修正顶部控制条的位置 ---
+        this.contentElement.style.paddingTop = '0px'; 
+        this.topControls.style.position = 'relative';
+        this.topControls.style.left = '0';
+        this.topControls.style.right = 'auto';
+        this.topControls.style.top = '0';
         
         // 设置网格布局
         const colCount = this.properties.colWidths.length;
@@ -195,6 +231,33 @@ class TableBlock extends Block {
     });
 
         return this.element;
+    }
+
+    _renderContent() {
+        if (!this.gridWrapper || !this.topControls) return;
+
+        // 1. 计算宽度样式
+        let scale = parseFloat(this.properties.tableWidthScale);
+        if (isNaN(scale) || scale <= 0 || scale > 1) scale = 1;
+        const totalWidthStyle = scale === 1 ? '100%' : `${(1 / scale) * 100}%`;
+
+        // 2. 更新表格网格的宽度
+        this.gridWrapper.style.minWidth = totalWidthStyle;
+
+        // 3. 关键修复：更新顶部控制条的样式
+        this.topControls.style.minWidth = totalWidthStyle;
+
+        // 强制重置定位，防止 CSS 中的 left: 32px 导致错位
+        // 因为现在它在滚动容器内部，必须和 gridWrapper 左对齐
+        this.topControls.style.position = 'relative';
+        this.topControls.style.left = '0';
+        this.topControls.style.right = 'auto';
+        this.topControls.style.top = '0';
+
+        // 4. (保险起见) 重新应用列宽比例，强制浏览器重绘子元素位置
+        const gridTemplateColumns = this.properties.colWidths.map(w => `${w * 100}%`).join(' ');
+        this.gridWrapper.style.gridTemplateColumns = gridTemplateColumns;
+        this.topControls.style.gridTemplateColumns = gridTemplateColumns;
     }
 
     // --- 表格操作方法 ---

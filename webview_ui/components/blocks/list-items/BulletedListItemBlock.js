@@ -20,14 +20,6 @@ class BulletedListItemBlock extends TextBlock {
         this.isContainer = true; 
     }
 
-    static getPropertiesSchema() {
-        return [
-            { key: 'listStyleType', label: 'Bullet Style', type: 'select', options: ['disc', 'circle', 'square', 'none'] },
-            { key: 'markerColor', label: 'Bullet Color', type: 'color' },
-            ...super.getPropertiesSchema() // 继承 TextBlock 的属性
-        ];
-    }
-
     // --- 3. 自定义渲染 ---
     render() {
         this.element = this._createWrapperElement();
@@ -53,12 +45,43 @@ class BulletedListItemBlock extends TextBlock {
         this.textElement.dataset.placeholder = this.constructor.placeholder;
         this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
+        this._renderContent();
+
         this.element.appendChild(this.contentElement);
 
         // 调用基类的 _renderChildren 方法，它会自动将子块渲染到 this.childrenContainer 中
         this._renderChildren();
 
+        this._applyCustomCSS();
+
         return this.element;
+    }
+
+    _renderContent() {
+        this._applyListItemStyles();
+    }
+
+    _applyListItemStyles() {
+        const s = this.contentElement.style;
+        const p = this.properties;
+
+        // 应用 TextBlock 定义的所有通用文本样式
+        // 这些样式会从 contentElement 继承到 text-area 和 bullet point
+        if (p.color) s.color = p.color;
+        if (p.fontSize) s.fontSize = p.fontSize;
+        if (p.fontWeight) s.fontWeight = p.fontWeight;
+        if (p.lineHeight) s.lineHeight = p.lineHeight;
+        if (p.letterSpacing) s.letterSpacing = p.letterSpacing;
+        if (p.fontFamily && p.fontFamily !== 'inherit') s.fontFamily = p.fontFamily;
+
+        // 对齐方式特殊处理：通常列表项还是左对齐好看，但如果用户非要改...
+        // 这里的 textAlign 会影响 wrapper，导致 bullet 和 text 一起居中/右对齐
+        if (p.textAlign) s.textAlign = p.textAlign;
+
+        // Text Decoration 通常只应用于文字，不应用于图标
+        if (p.textDecoration) {
+            if (this.textElement) this.textElement.style.textDecoration = p.textDecoration;
+        }
     }
 
     // --- 4. 覆盖关键方法以指向正确的元素 ---
