@@ -1,5 +1,5 @@
 ﻿// js/blocks/CalloutBlock.js
-class CalloutBlock extends ContainerBlock {
+class CalloutBlock extends Block {
     static type = 'callout';
     static icon = '💡';
     static label = 'Callout';
@@ -33,38 +33,53 @@ class CalloutBlock extends ContainerBlock {
         ];
     }
 
+    render() {
+        this.element = this._createWrapperElement();
+        this.contentElement = this._createContentElement();
+
+        // 1. 建立永久性的 HTML 结构 (不再在 update 中销毁)
+        // 注意：这里手动加上了 block-children-container 类
+        this.contentElement.innerHTML = `
+            <div class="callout-icon"></div>
+            <div class="callout-content-wrapper block-children-container"></div>
+        `;
+
+        // 2. 获取关键元素的引用，供后续使用
+        this.iconElement = this.contentElement.querySelector('.callout-icon');
+        this.childrenContainer = this.contentElement.querySelector('.callout-content-wrapper');
+
+        // 3. 应用动态属性 (图标、布局、颜色)
+        this._renderContent();
+
+        this.element.appendChild(this.contentElement);
+
+        // 4. 渲染子元素
+        // 由于上面已经正确设置了 this.childrenContainer，这里直接调用即可
+        this._renderChildren();
+
+        this._applyCustomCSS();
+
+        return this.element;
+    }
+
     _renderContent() {
         const p = this.properties;
-        const icon = p.icon || '💡';
 
-        // 应用布局方向
+        // 1. 更新图标
+        if (this.iconElement) {
+            this.iconElement.textContent = p.icon || '💡';
+            this.iconElement.style.fontSize = p.iconSize || '1.2em';
+        }
+
+        // 2. 更新布局样式
         const flexDirection = p.layout || 'row';
         const alignItems = flexDirection === 'column' ? 'flex-start' : 'flex-start';
 
+        // 确保 contentElement 启用 Flex 布局
+        this.contentElement.style.display = 'flex';
         this.contentElement.style.flexDirection = flexDirection;
         this.contentElement.style.alignItems = alignItems;
-
-        // 保存现有的子元素
-        const fragment = document.createDocumentFragment();
-        // 如果 childrenContainer 已经存在且有子节点，把它们移到 fragment 中暂存
-        if (this.childrenContainer && this.childrenContainer.childNodes.length > 0) {
-            while (this.childrenContainer.firstChild) {
-                fragment.appendChild(this.childrenContainer.firstChild);
-            }
-        }
-
-        // 重置 HTML 结构
-        this.contentElement.innerHTML = `
-            <div class="callout-icon" style="font-size: ${p.iconSize || '1.2em'}">${icon}</div>
-            <div class="callout-content-wrapper"></div>
-        `;
-
-        // 重新获取容器引用
-        this.childrenContainer = this.contentElement.querySelector('.callout-content-wrapper');
-        this.childrenContainer.classList.add('block-children-container');
-
-        // 恢复子元素
-        this.childrenContainer.appendChild(fragment);
+        this.contentElement.style.gap = '8px'; // 给图标和内容之间一点默认间距
     }
 
     // Callout content itself is not editable, its children are.

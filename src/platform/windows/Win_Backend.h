@@ -32,8 +32,10 @@ public:
     bool UrlDecode(const std::string& encoded, std::string& decoded) const override;
 
     void ListWorkspace(const json& payload) override;
-    void LoadPage(const json& payload) override;
-    void SavePage(const json& payload) override;
+
+    std::string ReadFileContent(const std::wstring& path) override;
+    bool WriteFileContent(const std::wstring& path, const std::string& content) override;
+
     void CreateItem(const json& payload) override;
     void DeleteItem(const json& payload) override;
 

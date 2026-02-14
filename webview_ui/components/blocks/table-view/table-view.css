@@ -1,0 +1,55 @@
+/* Table View Specific Styles */
+
+.vn-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background-color: var(--bg-primary);
+}
+
+    .vn-table th, .vn-table td {
+        border: 1px solid var(--border-primary);
+        padding: 6px 10px;
+        text-align: left;
+    }
+
+    .vn-table th {
+        background-color: var(--bg-secondary);
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .vn-table tr:nth-child(even) {
+        background-color: rgba(128, 128, 128, 0.03);
+    }
+
+    .vn-table tr:hover {
+        background-color: rgba(86, 156, 214, 0.05);
+    }
+
+/* Scrollbar for the table container */
+.table-view-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-view-container::-webkit-scrollbar-thumb {
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+/* Details Panel Config UI */
+.data-columns-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.column-config-item {
+    background-color: var(--bg-accent);
+}

@@ -16,7 +16,7 @@ class PageEditor {
         // --- Core Editor State (from old Editor class) ---
         this.blockRegistry = new Map();
         this.blocks = [];
-        this.history = new HistoryManager(this);
+        this.history = new PageHistoryManager(this);
         this.activeCommandBlock = null;
         this.draggedBlock = null;
         this.currentDropInfo = null;
@@ -25,7 +25,6 @@ class PageEditor {
         this.currentSelection = null;
         this.richTextEditingState = { isActive: false, blockId: null, savedRange: null };
         this.elements.commandMenuSelectedIndex = 0;
-        this.allNotes = []; // For link popover search
 
          // --- Property to track the currently hovered container's children-container element ---
         this.hoveredChildrenContainer = null;
@@ -403,130 +402,31 @@ class PageEditor {
                 this.popoverManager.hide();
             }
         });
-        
-        window.addEventListener('noteListReceived', (e) => {
-            this.allNotes = e.detail.payload;
-            const popoverElement = this.elements.popover;
-            const anySearchResults = popoverElement.querySelector('.popover-search-results');
-            const anySearchInput = popoverElement.querySelector('#link-popover-input'); // only one type has an input
-            if (popoverElement.style.display === 'block' && anySearchResults) {
-                const query = anySearchInput ? anySearchInput.value : '';
-                this.updateSearchResults(query, anySearchResults);
-            }
-        });
-
-        window.addEventListener('quoteContentLoaded', (e) => {
-            const { quoteBlockId, content, error } = e.detail.payload;
-
-            const parts = quoteBlockId.split('::');
-            const isUpdateRequest = parts.length === 2;
-            let targetTab, targetBlockId;
-
-            if (isUpdateRequest) {
-                const [tabId, blockId] = parts;
-                targetTab = Array.from(this.tabManager.tabs.values()).find(t => t.id === tabId);
-                targetBlockId = blockId;
-            } else {
-                targetTab = this.tabManager.getActiveTab();
-                targetBlockId = quoteBlockId;
-            }
-
-            if (!targetTab || !targetTab.instance) {
-                return;
-            }
-            const targetEditor = targetTab.instance;
-
-            if (error) {
-                console.error(`Error loading quote content for block ${targetBlockId} in tab ${targetTab.path}:`, error);
-            }
-            
-            // --- Make content handling robust ---
-            const renderContentToDom = (container) => {
-                container.innerHTML = ''; 
-                
-                // This logic is now robust against different content formats
-                let blocksToRender = [];
-                if (Array.isArray(content)) {
-                    blocksToRender = content;
-                } else if (content && typeof content === 'object' && Array.isArray(content.blocks)) {
-                    // This handles the case where the old C++ code might send the full page object
-                    blocksToRender = content.blocks;
-                }
-
-                if (!blocksToRender || blocksToRender.length === 0) {
-                    container.innerHTML = '<div class="quote-error-placeholder">Referenced content could not be found.</div>';
-                } else {
-                    const blockInstances = blocksToRender.map(data => targetEditor.createBlockInstance(data)).filter(Boolean);
-                    blockInstances.forEach(block => {
-                        container.appendChild(block.render());
-                    });
-                }
-            };
-
-            if (targetEditor.mode === 'preview') {
-                const quoteElement = targetEditor.elements.previewView.querySelector(`.block-container[data-id="${targetBlockId}"]`);
-                if (quoteElement) {
-                    const previewContainer = quoteElement.querySelector('.quote-preview-container');
-                    if (previewContainer) {
-                        renderContentToDom(previewContainer);
-                    }
-                }
-            } else {
-                const blockInstance = targetEditor._findBlockInstanceById(targetEditor.blocks, targetBlockId)?.block;
-                if (blockInstance && typeof blockInstance.renderQuotedContent === 'function') {
-                    
-                    // --- Also apply the fix here for consistency ---
-                    let blocksToRender = [];
-                    if (Array.isArray(content)) {
-                        blocksToRender = content;
-                    } else if (content && typeof content === 'object' && Array.isArray(content.blocks)) {
-                        blocksToRender = content.blocks;
-                    }
-                    
-                    const blockInstances = blocksToRender.map(data => targetEditor.createBlockInstance(data)).filter(Boolean);
-                    const blockElements = blockInstances.map(instance => instance.render());
-                    blockInstance.renderQuotedContent(blockElements);
-                }
-            }
-        });
 
 
         window.addEventListener('page:saved', (e) => {
-    const savedPath = e.detail.path;
-    if (!savedPath) return;
+            const savedPath = e.detail.path;
+            if (!savedPath) return;
 
-    // 遍历所有打开的标签页
-    this.tabManager.tabs.forEach(tab => {
-        // 如果当前标签页的编辑器实例存在
-        if (tab.instance && tab.instance.blocks) {
-            // 递归查找所有QuoteBlock实例
-            const findQuotesRecursive = (blocks) => {
-                blocks.forEach(blockInstance => {
-                    if (blockInstance.type === 'quote' && blockInstance.properties.referenceLink) {
-                        const referenceLink = blockInstance.properties.referenceLink;
-                        const referencedPagePath = window.resolveWorkspacePath(referenceLink.split('#')[0]);
-
-                        // 如果这个引用块确实引用了刚刚被保存的文件
-                        if (savedPath === referencedPagePath) {
-                            console.log(`Found a quote block (${blockInstance.id}) in tab "${tab.path}" that needs updating.`);
-
-                            const [pathPart, blockIdPart] = referenceLink.split('#');
-                            const absolutePath = window.resolveWorkspacePath(pathPart);
-                            const absoluteReferenceLink = blockIdPart ? `${absolutePath}#${blockIdPart}` : absolutePath;
-                            
-                            // 使用 "tab.id::block.id" 格式发送请求，确保响应能被正确路由
-                            ipc.fetchQuoteContent(`${tab.id}::${blockInstance.id}`, absoluteReferenceLink);
-                        }
+            // 遍历当前编辑器中的所有块
+            const notifyBlocksRecursive = (blocks) => {
+                blocks.forEach(block => {
+                    if (block.type === 'quote' && typeof block.onPageSaved === 'function') {
+                        block.onPageSaved(savedPath);
                     }
-                    if (blockInstance.children && blockInstance.children.length > 0) {
-                        findQuotesRecursive(blockInstance.children);
+                    if (block.children && block.children.length > 0) {
+                        notifyBlocksRecursive(block.children);
                     }
                 });
             };
-            findQuotesRecursive(tab.instance.blocks);
-        }
-    });
-});
+
+            // 对所有打开的 Tab 进行通知
+            this.tabManager.tabs.forEach(tab => {
+                if (tab.instance && tab.instance.blocks) {
+                    notifyBlocksRecursive(tab.instance.blocks);
+                }
+            });
+        });
     }
 
     // --- ========================================================== ---
@@ -551,7 +451,8 @@ class PageEditor {
             QuoteBlock,
             TableBlock,
             TableRowBlock,
-            TableCellBlock
+            TableCellBlock,
+            TableViewBlock
         ];
         
         ALL_BLOCK_CLASSES.forEach(blockClass => this.registerBlock(blockClass));
@@ -732,8 +633,49 @@ class PageEditor {
 
         ipc.savePage(this.filePath, blocksToSave, this.fileConfig); 
     
-        this.tabManager.setUnsavedStatus(this.filePath, false);
-        window.dispatchEvent(new CustomEvent('page:saved', { detail: { path: this.filePath } }));
+        if (this.elements.saveBtn) {
+            this.elements.saveBtn.style.opacity = '0.5';
+            this.elements.saveBtn.style.pointerEvents = 'none';
+        }
+    }
+
+    onPageSaved(payload) {
+        // 恢复保存按钮状态
+        if (this.elements.saveBtn) {
+            this.elements.saveBtn.style.opacity = '1';
+            this.elements.saveBtn.style.pointerEvents = 'auto';
+        }
+
+        if (payload.path !== this.filePath) return;
+
+        if (payload.success) {
+            // 1. 成功：清除未保存的小圆点
+            this.tabManager.setUnsavedStatus(this.filePath, false);
+
+            // 2. 成功：派发内部事件，通知引用管理器 (ReferenceManager) 更新
+            // 注意：这个 'page:saved' 是前端内部使用的事件，与 C++ 发来的 'pageSaved' 区分开
+            window.dispatchEvent(new CustomEvent('page:saved', { detail: { path: this.filePath } }));
+
+            console.log(`Page "${this.filePath}" saved successfully.`);
+        } else {
+            // 3. 失败：报错
+            console.error(`Failed to save page "${this.filePath}":`, payload.error);
+            alert(`Failed to save page: ${payload.error || 'Unknown error'}`);
+            // 保持未保存状态，让用户可以重试
+        }
+    }
+
+    /**
+     * 接收来自 IPC 的Data(CSV)数据加载响应，并广播给等待的 Block
+     */
+    onDataLoaded(payload) {
+        // payload 结构: { path: string, content: string }
+
+        // 派发一个自定义事件，DataBlock 会监听这个事件
+        // 使用 window 派发确保 Block 能收到，携带 path 以便区分是谁请求的
+        window.dispatchEvent(new CustomEvent('veritnote:data-loaded', {
+            detail: payload
+        }));
     }
     
     /**
@@ -828,31 +770,28 @@ class PageEditor {
         }
     
         // --- 优先级 2: 检查点击目标是否是容器的背景或其激活的留白区 ---
-        // The target will be the container itself if its background is clicked,
-        // or if its ::after pseudo-element is clicked.
-        if (e.target.matches('.block-children-container.show-add-area, .callout-content-wrapper.show-add-area, .table-cell-content')) {
-            // Find the closest parent element with a data-id, which represents the block instance
-            const containerElement = e.target.closest('[data-id]');
-            if (containerElement) {
-                const containerInstance = this._findBlockInstanceAndParent(containerElement.dataset.id)?.block;
-                
-                // Ensure it's a container and NOT a column (columns have their own logic)
-                if (containerInstance && containerInstance.isContainer && containerInstance.type !== 'column') {
-                    this._appendNewBlockToContainer(containerInstance);
+        // 找到最近的拥有 ID 的元素
+        const targetEl = e.target.closest('[data-id]');
+
+        if (targetEl) {
+            const blockInstance = this._findBlockInstanceAndParent(targetEl.dataset.id)?.block;
+            // 只当点击了特定的“添加区域” (CSS控制的padding区) 时才触发
+            // 或者当容器为空时点击容器体
+            if (blockInstance && blockInstance.childrenContainer) {
+                // 如果是 Column，保留特殊逻辑
+                if (blockInstance.type === 'column') {
+                    this._appendNewBlockToContainer(blockInstance);
                     return;
                 }
-            }
-        }
-    
-        // --- 优先级 3: Column 的特殊点击逻辑 (保持不变) ---
-        // 只有当上面的逻辑没有命中时，才会检查 Column。
-        // 这就解决了 List 干扰 Column 的问题。
-        if (e.target.matches('.block-content[data-type="column"]')) {
-            const columnId = e.target.dataset.id;
-            const columnInstance = this._findBlockInstanceAndParent(columnId)?.block;
-            if (columnInstance) {
-                this._appendNewBlockToContainer(columnInstance);
-                return;
+
+                // 通用容器逻辑 (包括 TableCell, Callout, ListItems)
+                // 检查点击目标是否直接是 childrenContainer (即点击了空白处)
+                // 或者点击了标记为 show-add-area 的区域
+                if (e.target === blockInstance.childrenContainer ||
+                    e.target.matches('.show-add-area')) {
+                    this._appendNewBlockToContainer(blockInstance);
+                    return;
+                }
             }
         }
     
@@ -1330,7 +1269,7 @@ class PageEditor {
         this.hoveredChildrenContainer = null;
     
         // Activate the new one, if it's a valid container.
-        if (containerBlockInstance && containerBlockInstance.isContainer && containerBlockInstance.childrenContainer) {
+        if (containerBlockInstance && containerBlockInstance.childrenContainer) {
             const childrenContainer = containerBlockInstance.childrenContainer;
             
             // The class to add depends on whether we are dragging or not.
@@ -1343,116 +1282,136 @@ class PageEditor {
         }
     }
 
-_onDragOver(e) {
-    e.preventDefault();
-    
-    // --- Part 1: Handle external zones (Delete, Right Sidebar) ---
-    // This logic is self-contained and correct.
-    // ... (keep the existing logic for delete zone and right sidebar here) ...
-    const deleteZone = this.elements.deleteDropZone;
-    if (deleteZone && deleteZone.contains(e.target)) {
-        deleteZone.classList.add('is-active');
-        e.dataTransfer.dropEffect = 'move'; 
-        this._cleanupDragIndicators();
-        this._setActiveContainerAddArea(null);
-        this.currentDropInfo = { targetId: 'DELETE_ZONE', position: 'inside' };
-        return;
-    } else if (deleteZone) {
-        deleteZone.classList.remove('is-active');
+    // 判断一个块是否允许在其左右两侧创建分栏
+    // 逻辑：如果一个块的父级没有交互容器(childrenContainer为null)，说明该块是父级不可分割的结构（如Row是Table的结构），
+    // 此时不允许破坏结构创建分栏。
+    _canAcceptSideDrop(blockInstance) {
+        // 1. 如果没有父块，说明是根级别块，允许。
+        if (!blockInstance.parent) return true;
+
+        // 2. 特例：如果父块是 'columns'。
+        // 虽然 ColumnsBlock 的 childrenContainer 也是 null (我们在上一步修改中设定的)，
+        // 但我们允许在 Column 旁边拖放以添加新列。
+        if (blockInstance.parent.type === 'columns') return true;
+
+        // 3. 核心判断：如果父块拥有有效的 childrenContainer，说明当前块只是容器里的一个普通内容块。
+        // 此时允许在它旁边创建分栏。
+        if (blockInstance.parent.childrenContainer) return true;
+
+        // 4. 否则（父块存在，且父块 childrenContainer 为 null，且父块不是 columns），
+        // 说明当前块是严格的结构块（例如：Table 中的 Row，或 Row 中的 Cell）。
+        // 此时拒绝左右拖放。
+        return false;
     }
-    if (e.target.closest('#right-sidebar')) {
-        this._cleanupDragIndicators();
-        this._setActiveContainerAddArea(null);
-        this.currentDropInfo = null;
-        const referencesView = document.getElementById('references-view');
-        if (referencesView && referencesView.classList.contains('active')) {
-            e.dataTransfer.dropEffect = 'copy';
-            window.dispatchEvent(new CustomEvent('block:dragover:right-sidebar')); 
+
+    _onDragOver(e) {
+        e.preventDefault();
+
+        this._cleanupDragIndicators(false); 
+
+        // 1. 基础变量准备
+        // 我们需要找到当前鼠标下的“最深层”的块 (可能是子块，也可能是父块本身)
+        let directTargetEl = e.target.closest('[data-id]');
+
+        if (!directTargetEl) {
+            this.currentDropInfo = null;
+            return;
+        }
+
+        const directBlockInstance = this._findBlockInstanceById(this.blocks, directTargetEl.dataset.id)?.block;
+        if (!directBlockInstance) return;
+
+        // ============================================================
+        // 逻辑层级 1: 视觉反馈 - 激活所有父级容器 (蓝色虚线框)
+        // ============================================================
+        // 只要鼠标在这个块的范围内（无论是在 Header 还是 Child 上），
+        // 这个块如果是容器，就应该显示虚线框。同时它的所有父级容器也应该显示。
+
+        let ancestorEl = directTargetEl;
+        while (ancestorEl && ancestorEl !== this.elements.editorAreaContainer) {
+            // 如果是 block-container 或 table-cell
+            if (ancestorEl.dataset && ancestorEl.dataset.id) {
+                const ancestorInst = this._findBlockInstanceById(this.blocks, ancestorEl.dataset.id)?.block;
+                // 只有当它是容器时才激活
+                if (ancestorInst && ancestorInst.childrenContainer) {
+                    ancestorInst.childrenContainer.classList.add('is-drag-active');
+                }
+            }
+            ancestorEl = ancestorEl.parentElement;
+        }
+
+        // ============================================================
+        // 逻辑层级 2: 判定落点 (Position Logic)
+        // ============================================================
+
+        let finalTargetId = directBlockInstance.id;
+        let position = 'after'; // 默认值
+
+        // 我们需要判断鼠标到底在哪个“区域”：
+        // A. 某块的 childrenContainer 的“空白区” (无子块覆盖，或子块间隙)
+        // B. 某块的“非容器区域” (如 Header, Icon)
+
+        // 检查 1: 鼠标是否直接悬停在某个 childrenContainer 上？
+        // (这种情况通常发生在容器有 padding，或者鼠标在子块之间的缝隙)
+        if (e.target.classList.contains('block-children-container') ||
+            e.target.classList.contains('callout-content-wrapper')) {
+
+            // 找到了对应的容器块实例
+            // 注意：e.target 是 childrenContainer，它的 parentElement 通常是 contentElement 或 blockElement
+            const containerBlockEl = e.target.closest('[data-id]');
+            const containerInst = this._findBlockInstanceById(this.blocks, containerBlockEl.dataset.id)?.block;
+
+            if (containerInst) {
+                // 命中容器空白区 -> 放入容器
+                position = 'inside_last';
+                finalTargetId = containerInst.id;
+
+                // 视觉更新：虚线变实线
+                e.target.classList.remove('is-drag-active');
+                e.target.classList.add('is-drop-target-solid');
+
+                this.currentDropInfo = { targetId: finalTargetId, position: position };
+                return; // 判定结束
+            }
+        }
+
+        // 检查 2: 鼠标悬停在某个具体的块 (directBlockInstance) 上
+        // 这时有几种情况：
+        // 2.1 这个块是某个容器的子块 -> 与该子块发生关系 (Before/After/Left/Right)
+        // 2.2 这个块本身就是容器，且鼠标在它的 Header 上 -> 与该块发生关系 (Before/After...)
+
+        // 我们复用之前的 _canAcceptSideDrop 和坐标计算逻辑，
+        // 但这次是针对 directBlockInstance (最深层的那个块)
+
+        const rect = directTargetEl.getBoundingClientRect();
+        const yMidpoint = rect.top + rect.height / 2;
+        const xZone = rect.width * 0.15; // 左右分栏触发区
+
+        const allowSideDrop = this._canAcceptSideDrop(directBlockInstance);
+
+        if (allowSideDrop && e.clientX < rect.left + xZone) {
+            position = 'left';
+        } else if (allowSideDrop && e.clientX > rect.right - xZone) {
+            position = 'right';
+        } else if (e.clientY < yMidpoint) {
+            position = 'before';
         } else {
-            e.dataTransfer.dropEffect = 'none';
+            position = 'after';
         }
-        return;
-    }
 
-    // --- Part 2: Handle dragging over the main editor area ---
-    
-    // *** NEW: Precise Target Identification Logic ***
-    let targetEl = null;
-    let targetBlockInstance = null;
-    
-    // Priority 1: Check for the most specific container first - a table cell.
-    const cellEl = e.target.closest('.table-cell-content');
-    if (cellEl) {
-        targetEl = cellEl; // The cell itself is our logical target element
-        targetBlockInstance = this._findBlockInstanceById(this.blocks, cellEl.dataset.id)?.block;
-    } else {
-        // Priority 2: If not a cell, check for a standard block container.
-        const containerEl = e.target.closest('.block-container');
-        if (containerEl) {
-            targetEl = containerEl;
-            targetBlockInstance = this._findBlockInstanceById(this.blocks, containerEl.dataset.id)?.block;
+        // 视觉更新：绘制指示线 (蓝色条)
+        // 这一步由 _showHorizontalIndicator / _showVerticalIndicator 完成
+        if (position === 'left' || position === 'right') {
+            this._showVerticalIndicator(directTargetEl, position);
+        } else {
+            this._showHorizontalIndicator(directTargetEl, position);
         }
+
+        // 此时，虽然我们在操作子块，但父级容器的 .is-drag-active (虚线) 依然保留着 (因为我们在开头做了遍历添加)
+        // 这完美符合需求：容器显示蓝色虚线提示范围，内部子块显示位置关系指示条。
+
+        this.currentDropInfo = { targetId: finalTargetId, position: position };
     }
-    
-    // If no valid target found, or over a ghost, clean up and exit.
-    if (!targetEl || !targetBlockInstance || targetEl.classList.contains('is-dragging-ghost')) {
-        this._cleanupDragIndicators();
-        this._setActiveContainerAddArea(null);
-        this.currentDropInfo = null;
-        return;
-    }
-
-    // --- At this point, we have a guaranteed, precise targetEl and targetBlockInstance ---
-
-    // 1. Determine the base drop position.
-    const rect = targetEl.getBoundingClientRect();
-    const yMidpoint = rect.top + rect.height / 2;
-    const xZone = rect.width * 0.15;
-
-    let position = 'after'; // Default
-    if (targetBlockInstance.type !== 'tableCell' && e.clientX < rect.left + xZone) {
-        // Column creation only works for non-cell blocks
-        position = 'left';
-    } else if (targetBlockInstance.type !== 'tableCell' && e.clientX > rect.right - xZone) {
-        position = 'right';
-    } else if (e.clientY < yMidpoint) {
-        position = 'before';
-    }
-    
-    // 2. SPECIAL CASE: Override to 'inside_last' if it's a container
-    //    and the mouse is not in the top/bottom edge zones.
-    const isContainer = targetBlockInstance.isContainer;
-    const verticalBuffer = Math.min(rect.height * 0.3, 20); // Use a slightly larger buffer
-
-    if (isContainer && e.clientY > rect.top + verticalBuffer && e.clientY < rect.bottom - verticalBuffer) {
-        position = 'inside_last';
-    }
-
-    // 3. Update data state.
-    this.currentDropInfo = { targetId: targetEl.dataset.id, position: position };
-
-    // 4. Update UI based on the final determined position.
-    this._cleanupDragIndicators();
-
-    switch (position) {
-        case 'before':
-        case 'after':
-            this._setActiveContainerAddArea(null);
-            this._showHorizontalIndicator(targetEl, position);
-            break;
-        case 'left':
-        case 'right':
-            this._setActiveContainerAddArea(null);
-            this._showVerticalIndicator(targetEl, position);
-            break;
-        case 'inside_last':
-            this._setActiveContainerAddArea(targetBlockInstance);
-            break;
-        default:
-            this._setActiveContainerAddArea(null);
-            break;
-    }
-}
 
     _onDragLeave(e) {  }
 
@@ -1575,10 +1534,11 @@ _onDragOver(e) {
             }
     
             case 'inside_last':
-                if (targetBlockInstance.isContainer) {
+                if (targetBlockInstance.childrenContainer) {
                     targetBlockInstance.children.push(...finalRemovedBlocks);
-                    const containerElement = targetBlockInstance.childrenContainer || targetBlockInstance.contentElement;
-                    
+
+                    const containerElement = targetBlockInstance.childrenContainer;
+
                     finalRemovedBlocks.forEach(block => {
                         const newEl = block.render();
                         containerElement.appendChild(newEl);
@@ -1612,8 +1572,7 @@ _onDragOver(e) {
         });
     
         // (b) 添加拖放的目标父容器
-        if (position === 'inside_last' && targetBlockInstance.isContainer) {
-            // 如果是拖入容器内部，目标容器就是 targetBlockInstance 本身
+        if (position === 'inside_last' && targetBlockInstance.childrenContainer) {
             affectedParents.add(targetBlockInstance);
         } else if (toParentInstance) {
             // 否则，目标容器是目标块的父级
@@ -1787,14 +1746,16 @@ _onDragOver(e) {
      */
     _cleanupDragIndicators(keepContainerIndicators = false) {
         this.container.querySelectorAll('.drop-indicator, .drop-indicator-vertical, .quadrant-overlay').forEach(el => el.remove());
-        
+
         if (!keepContainerIndicators) {
-            if (this.hoveredChildrenContainer) {
-                 this.hoveredChildrenContainer.classList.remove('show-add-area', 'is-drop-target-child');
-            }
-            this.container.querySelectorAll('.is-drop-target').forEach(el => {
-                el.classList.remove('is-drop-target');
+            // 移除所有相关的类
+            this.container.querySelectorAll('.is-drop-target, .is-drag-active, .is-drop-target-solid').forEach(el => {
+                el.classList.remove('is-drop-target', 'is-drag-active', 'is-drop-target-solid');
             });
+
+            // 移除 hover 的 + 号
+            this.container.querySelectorAll('.show-add-area').forEach(el => el.classList.remove('show-add-area'));
+            this.hoveredChildrenContainer = null;
         }
     }
 
@@ -1845,7 +1806,8 @@ _onDragOver(e) {
     }
 
     _showHorizontalIndicator(targetEl, position) {
-        this._cleanupDragIndicators(); // Clean up here to ensure only one indicator exists
+        this.container.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+
         const indicator = document.createElement('div');
         indicator.className = 'drop-indicator';
         
@@ -1871,6 +1833,8 @@ _onDragOver(e) {
     }
 
     _showVerticalIndicator(targetEl, position) {
+        this.container.querySelectorAll('.drop-indicator-vertical').forEach(el => el.remove());
+
         const indicator = document.createElement('div');
         indicator.className = 'drop-indicator-vertical';
         indicator.style.height = `${targetEl.offsetHeight}px`;
@@ -2066,20 +2030,13 @@ _onDragOver(e) {
                 parentDomElement.insertBefore(newEl, targetBlockInstance.element.nextSibling);
                 break;
             case 'inside_last':
-                if (targetBlockInstance.isContainer) {
+                if (targetBlockInstance.childrenContainer) {
                     targetBlockInstance.children.push(blockToInsert);
-                    // 这里的逻辑是正确的，因为它是在容器内部追加
-                    const targetContainerEl = targetBlockInstance.childrenContainer || targetBlockInstance.contentElement;
-                    if(targetContainerEl) {
-                        targetContainerEl.appendChild(newEl);
-                    } else {
-                        // Fallback: 如果找不到特定的子容器，就追加到 block 元素自身
-                        targetBlockInstance.element.appendChild(newEl);
-                    }
+                    targetBlockInstance.childrenContainer.appendChild(newEl);
                 } else {
-                    // Fallback: 如果拖放到非容器内部，行为同 'after'
+                    // Fallback: 理论上 _onDragOver 不会让这种情况发生，但为了健壮性，
+                    // 如果被误判为容器但实际上没容器，则回退到 'after' 行为
                     toParentArray.splice(toIndex + 1, 0, blockToInsert);
-                    // 使用正确的父节点
                     parentDomElement.insertBefore(newEl, targetBlockInstance.element.nextSibling);
                 }
                 break;
@@ -2097,7 +2054,7 @@ _onDragOver(e) {
     
     // --- Block Toolbar Handlers ---
     _onBlockMouseOver(e) {
-        // --- Part 1: Block Toolbar Logic (existing) ---
+        // --- Part 1: Block Toolbar Logic ---
         const targetEl = e.target.closest('.block-container');
         if (targetEl && targetEl !== this.activeToolbarBlock?.element) {
             clearTimeout(this.toolbarHideTimeout);
@@ -2106,14 +2063,47 @@ _onDragOver(e) {
                 this._showBlockToolbar(blockInstance);
             }
         }
-    
-        // --- Part 2: MODIFIED Add Area Logic ---
-        const hoveredBlockEl = e.target.closest('.block-container, .table-cell-content');
-        if (hoveredBlockEl) {
-            const blockInstance = this._findBlockInstanceById(this.blocks, hoveredBlockEl.dataset.id)?.block;
-            // Use the new helper method to handle activation.
-            this._setActiveContainerAddArea(blockInstance);
+
+        // --- Part 2: Container Add Area Logic ---
+        // 逻辑：鼠标悬浮进入带有容器区的块 -> 容器区显示+号
+        // 利用 closest 找到当前悬浮的块。如果它是容器，就激活它的添加区。
+        // 由于 DOM 事件冒泡，如果我们悬浮在子块上，e.target.closest 会先找到子块。
+        // 为了实现“套娃显示”，需要向上遍历所有父容器并激活它们。
+
+        // 1. 收集当前鼠标下的所有祖先容器 ID
+        const activeContainerIds = new Set();
+        let curr = e.target;
+        while (curr && curr !== this.elements.editorAreaContainer) {
+            if (curr.classList.contains('block-children-container') ||
+                (curr.dataset && curr.dataset.id && this._findBlockInstanceById(this.blocks, curr.dataset.id)?.block?.childrenContainer)) {
+
+                // 这是一个容器相关的元素，记录下来
+                // 注意：如果 curr 是 childrenContainer 本身，我们需要找它的 Block 实例
+                // 如果 curr 是 Block 元素，直接找实例
+                let blockId = curr.dataset.id;
+                if (!blockId && curr.parentElement) blockId = curr.parentElement.closest('[data-id]')?.dataset.id;
+
+                if (blockId) activeContainerIds.add(blockId);
+            }
+            curr = curr.parentElement;
         }
+
+        // 2. 清理：移除所有不在 activeContainerIds 里的 .show-add-area
+        this.container.querySelectorAll('.show-add-area').forEach(el => {
+            // 找到这个容器所属的 blockId
+            const parentBlock = el.closest('[data-id]');
+            if (parentBlock && !activeContainerIds.has(parentBlock.dataset.id)) {
+                el.classList.remove('show-add-area');
+            }
+        });
+
+        // 3. 添加：给当前路径上的容器添加 .show-add-area
+        activeContainerIds.forEach(id => {
+            const blockInstance = this._findBlockInstanceById(this.blocks, id)?.block;
+            if (blockInstance && blockInstance.childrenContainer) {
+                blockInstance.childrenContainer.classList.add('show-add-area');
+            }
+        });
     }
 
     _onBlockMouseOut(e) {
@@ -2126,14 +2116,6 @@ _onDragOver(e) {
                 this._hideBlockToolbar();
             }
         }, 300);
-    
-        // --- Part 2: MODIFIED Add Area Logic ---
-        // Check if the mouse has moved to an element that is NOT a descendant of the hovered block.
-        const currentHoveredBlockEl = this.hoveredChildrenContainer?.closest('.block-container, .table-cell-content');
-        if (currentHoveredBlockEl && !currentHoveredBlockEl.contains(e.relatedTarget)) {
-            // Deactivate by calling the helper with null.
-            this._setActiveContainerAddArea(null);
-        }
     }
 
     _showBlockToolbar(blockInstance) {
@@ -2326,8 +2308,75 @@ _onDragOver(e) {
     // --- ========================================================== ---
     // --- 5. UI Logic
     // --- ========================================================== ---
-    
+
     // --- Mode Switching & Toolbar State ---
+
+
+    /**
+     * 预加载所有 QuoteBlock 的内容，用于预览或导出
+     * @returns {Promise<Map>} 引用链接 -> 块数据数组 的映射
+     */
+    async _preloadQuoteContents(blocks) {
+        const quoteContentCache = new Map();
+        const pendingRequests = [];
+
+        const collectQuotes = (blockList) => {
+            blockList.forEach(block => {
+                if (block.type === 'quote' && block.properties.referenceLink) {
+                    const refLink = block.properties.referenceLink;
+                    // 避免重复请求
+                    if (!quoteContentCache.has(refLink)) {
+                        // 创建一个 Promise 来处理单个请求
+                        const requestPromise = new Promise((resolve) => {
+                            const [pathPart, blockId] = refLink.split('#');
+                            const absolutePath = window.resolveWorkspacePath(pathPart);
+                            const absoluteRefLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
+
+                            // 定义一次性监听器
+                            const listener = (e) => {
+                                const payload = e.detail.payload || e.detail;
+                                // 使用 absoluteRefLink 作为唯一标识可能不够，最好后端回传请求时的 refLink
+                                // 这里简化逻辑：假设后端按顺序返回或者通过 quoteBlockId 匹配
+                                // 由于 ipc 是全局的，这里用 quoteBlockId 匹配最稳妥
+                                if (payload.quoteBlockId === `preload-${refLink}`) { // 使用特殊 ID
+                                    window.removeEventListener('quoteContentFetched', listener);
+                                    if (!payload.error && payload.content) {
+                                        quoteContentCache.set(refLink, payload.content);
+                                    }
+                                    resolve();
+                                }
+                            };
+
+                            // 超时处理
+                            setTimeout(() => {
+                                window.removeEventListener('quoteContentFetched', listener);
+                                resolve(); // 超时也 resolve，以免阻塞整个流程
+                            }, 5000);
+
+                            window.addEventListener('quoteContentFetched', listener);
+                            // 发送请求，使用特殊 ID 标识这是预加载
+                            ipc.fetchQuoteContent(`preload-${refLink}`, absoluteRefLink);
+                        });
+                        pendingRequests.push(requestPromise);
+                        // 占位，防止重复添加
+                        quoteContentCache.set(refLink, null);
+                    }
+                }
+                if (block.children) {
+                    collectQuotes(block.children);
+                }
+            });
+        };
+
+        collectQuotes(blocks);
+
+        if (pendingRequests.length > 0) {
+            await Promise.all(pendingRequests);
+        }
+
+        return quoteContentCache;
+    }
+
     /**
      * Switches the editor between 'edit' and 'preview' modes.
      * It handles rendering the preview HTML, swapping view visibility,
@@ -2381,8 +2430,14 @@ _onDragOver(e) {
             }
     
         } else { // preview
-            // 'getSanitizedHtml' returns the *inner* content for the .editor-view
-            this.elements.previewView.innerHTML = await this.getSanitizedHtml(false);
+            // 在生成 HTML 前，预加载引用内容
+            const quoteContentCache = await this._preloadQuoteContents(this.blocks);
+
+            // 将 cache 传递给 getSanitizedHtml
+            // 注意：我们需要修改 getSanitizedHtml 签名或通过 context 对象传递
+            this.elements.previewView.innerHTML = await this.getSanitizedHtml(false, {
+                quoteContentCache
+            });
             
             editScrollContainer.style.display = 'none';
             previewScrollContainer.style.display = 'flex'; // Use 'flex' to match the CSS
@@ -2472,12 +2527,13 @@ _onDragOver(e) {
      * @param {HTMLElement} container - The DOM element to fill with search results.
      */
     updateSearchResults(query, container) {
-        if (!container) return; // Safety check
-        
-        // Ensure you are using the class property `this.allNotes`
-        container.innerHTML = this.allNotes 
+        if (!container) return;
+        // 直接调用全局函数获取最新的页面列表
+        const allPages = window.getAllPageFiles ? window.getAllPageFiles() : [];
+
+        container.innerHTML = allPages
             .filter(note => note.name.toLowerCase().includes(query.toLowerCase()))
-            .map(note => `<div class="search-result-item" data-path="${note.path}" title="${note.path}">📄 ${note.name}</div>`)
+            .map(note => `<div class="search-result-item" data-path="${note.path}" title="${note.path}">📄 ${note.name.replace('.veritnote', '')}</div>`)
             .join('');
     }
 
@@ -2873,6 +2929,8 @@ _onDragOver(e) {
         const cleanContainer = document.createElement('div');
         // Create a temporary, lightweight editor instance solely for rendering.
         const tempEditor = new PageEditor(cleanContainer, this.filePath, null);
+
+        tempEditor.quoteContentCache = quoteContentCache; 
 
         tempEditor.elements.editorAreaContainer = document.createElement('div');
         tempEditor.elements.editorAreaContainer.id = 'editor-area-container';
@@ -3320,6 +3378,8 @@ class PageReferenceManager {
             if (refData) {
                 e.dataTransfer.setData('application/veritnote-reference-item', JSON.stringify(refData));
             }
+
+            document.body.classList.add('is-dragging-block');
             
             // This is for reordering within the reference panel itself
             e.dataTransfer.setData('application/veritnote-reference-reorder', blockId);
@@ -3335,6 +3395,8 @@ class PageReferenceManager {
         }
         this.draggedItem = null;
         this.cleanupDropIndicator();
+
+        document.body.classList.remove('is-dragging-block');
     }
 
     // --- Interaction and State Management ---

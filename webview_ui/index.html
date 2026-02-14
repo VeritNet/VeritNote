@@ -6,16 +6,16 @@
     <title>VeritNote</title>
 
     <script>
-        (function() {
-        const ua = navigator.userAgent.toLowerCase();
-        const html = document.documentElement;
-        if (ua.includes('android')) {
-        window.currentOS = 'android';
-        html.className += ' os-android';
-        } else {
-        window.currentOS = 'windows';
-        html.className += ' os-windows';
-        }
+        (function () {
+            const ua = navigator.userAgent.toLowerCase();
+            const html = document.documentElement;
+            if (ua.includes('android')) {
+                window.currentOS = 'android';
+                html.className += ' os-android';
+            } else {
+                window.currentOS = 'windows';
+                html.className += ' os-windows';
+            }
         })();
     </script>
 
@@ -31,10 +31,13 @@
     <link rel="stylesheet" href="components/main/main.css">
 
     <link rel="stylesheet" href="page-theme.css">
+
+
     <link rel="stylesheet" href="components/page-editor/page-editor.css">
+    <link rel="stylesheet" href="components/data-editor/data-editor.css">
 
-    <link rel="stylesheet" href="components/graph-editor/graph-editor.css">
 
+    <!-- <link rel="stylesheet" href="components/graph-editor/graph-editor.css"> -->
     <!-- 3. Load block-specific styles -->
     <!-- Shared -->
     <link rel="stylesheet" href="components/blocks/shared/block-core.css">
@@ -48,6 +51,7 @@
     <link rel="stylesheet" href="components/blocks/list-items/list-item-shared.css">
     <link rel="stylesheet" href="components/blocks/quote/quote.css">
     <link rel="stylesheet" href="components/blocks/table/table.css">
+    <link rel="stylesheet" href="components/blocks/table-view/table-view.css">
 
 </head>
 <body>
@@ -69,7 +73,7 @@
     <!-- Load Block Base Classes FIRST -->
     <script src="components/blocks/Block.js"></script>
     <script src="components/blocks/TextBlock.js"></script>
-    <script src="components/blocks/ContainerBlock.js"></script>
+    <script src="components/blocks/DataBlock.js"></script>
 
     <!-- Load All Concrete Block Implementations -->
     <script src="components/blocks/paragraph/ParagraphBlock.js"></script>
@@ -87,30 +91,33 @@
     <script src="components/blocks/list-items/ToggleListItemBlock.js"></script>
     <script src="components/blocks/quote/QuoteBlock.js"></script>
     <script src="components/blocks/table/TableBlock.js"></script>
+    <script src="components/blocks/table-view/TableViewBlock.js"></script>
+
 
     <script src="components/page-editor/page-editor.js"></script>
+    <script src="components/data-editor/data-editor.js"></script>
 
-    <script src="components/graph-editor/graph-editor.js"></script>
 
+    <!-- <script src="components/graph-editor/graph-editor.js"></script> -->
     <!-- Vendor Scripts -->
     <script src="vendor/highlight/highlight.min.js"></script>
 
     <script>
         // Main application entry point
         document.addEventListener('DOMContentLoaded', async () => {
-        const appRoot = document.getElementById('app-root');
+            const appRoot = document.getElementById('app-root');
 
-        // Fetch and inject the main HTML structure
-        const response = await fetch('components/main/main.html');
-        appRoot.innerHTML = await response.text();
+            // Fetch and inject the main HTML structure
+            const response = await fetch('components/main/main.html');
+            appRoot.innerHTML = await response.text();
 
-        // After the HTML is injected, the DOM is ready for the main script.
-        // We check if the initialization function exists on the window object and then call it.
-        if (window.initializeMainComponent) {
-        window.initializeMainComponent();
-        } else {
-        console.error("Main component initialization function not found!");
-        }
+            // After the HTML is injected, the DOM is ready for the main script.
+            // We check if the initialization function exists on the window object and then call it.
+            if (window.initializeMainComponent) {
+                window.initializeMainComponent();
+            } else {
+                console.error("Main component initialization function not found!");
+            }
         });
     </script>
 </body>

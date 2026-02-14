@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include <string>
-#include <filesystem>
 #include "nlohmann/json.hpp"
 
 #if defined(WIN32) || defined(_WIN32)
@@ -51,8 +50,10 @@ protected:
     virtual bool UrlDecode(const std::string& encoded, std::string& decoded) const = 0;
 
     virtual void ListWorkspace(const json& payload) = 0;
-    virtual void LoadPage(const json& payload) = 0;
-    virtual void SavePage(const json& payload) = 0;
+
+    virtual std::string ReadFileContent(const std::wstring& path) = 0;
+    virtual bool WriteFileContent(const std::wstring& path, const std::string& content) = 0;
+
     virtual void CreateItem(const json& payload) = 0;
     virtual void DeleteItem(const json& payload) = 0;
 
@@ -66,15 +67,21 @@ protected:
     // --- 业务逻辑处理函数 (平台无关) ---
     // 这些函数的实现放在 Backend.cpp 中，因为它们不直接依赖任何平台API。
     void ExportPageAsHtml(const json& payload);
-    void RequestNoteList();
     void PrepareExportLibs(const json& payload);
     void ProcessExportImages(const json& payload);
-    void FetchQuoteContent(const json& payload);
     void GoToDashboard();
     void CancelExport();
     void ReadConfigFile(const json& payload);
     void WriteConfigFile(const json& payload);
     void ResolveFileConfiguration(const json& payload);
+    // Page
+    void LoadPage(const json& payload);
+    void SavePage(const json& payload);
+    void FetchQuoteContent(const json& payload);
+    void FetchDataContent(const json& payload);
+    // Data
+    void LoadData(const json& payload);
+    void SaveData(const json& payload);
 
     bool ExtractResourceToFile(const std::wstring& resourceUrlPath, const std::filesystem::path& destinationPath);
 

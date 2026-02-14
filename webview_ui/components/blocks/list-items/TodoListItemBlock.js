@@ -17,9 +17,6 @@ class TodoListItemBlock extends TextBlock {
             this.properties = {};
         }
         this.properties.checked = data.properties?.checked || false;
-    
-        // --- 新增: 声明它是一个容器块 ---
-        this.isContainer = true;
     }
 
     // --- 3. 自定义渲染 ---

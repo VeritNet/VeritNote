@@ -14,10 +14,6 @@ class BulletedListItemBlock extends TextBlock {
     constructor(data, editor) {
         // 首先，调用 TextBlock 的构造函数
         super(data, editor);
-        
-        // 关键！手动“混入”容器块的特性
-        // 这让编辑器知道它可以容纳子块，并应用容器的点击逻辑
-        this.isContainer = true; 
     }
 
     // --- 3. 自定义渲染 ---

@@ -19,9 +19,6 @@ class NumberedListItemBlock extends TextBlock {
             this.properties = {};
         }
         this.properties.number = data.properties?.number || 1;
-
-        // It can contain child blocks (for indentation)
-        this.isContainer = true;
     }
 
     // --- 3. Custom Rendering ---

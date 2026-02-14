@@ -2,7 +2,7 @@
 
 // --- 内部块：TableCellBlock ---
 // 每个单元格都是一个功能齐全的容器块
-class TableCellBlock extends ContainerBlock {
+class TableCellBlock extends Block {
     static type = 'tableCell';
     static canBeToggled = false; // 用户不能通过'/'命令直接创建单元格
 
@@ -12,7 +12,7 @@ class TableCellBlock extends ContainerBlock {
         this.element.className = 'table-cell-content';
         this.element.dataset.id = this.id;
 
-        // 关键：单元格内部必须有一个 children 容器
+        // Cell 内部有唯一的容器
         this.childrenContainer = document.createElement('div');
         this.childrenContainer.className = 'block-children-container';
         this.element.appendChild(this.childrenContainer);
@@ -41,8 +41,7 @@ class TableRowBlock extends Block {
         this.element.className = 'table-row-content';
         this.element.dataset.id = this.id;
         
-        this.childrenContainer = this.element;
-        this._renderChildren();
+        this._renderChildren(this.element);
 
         return this.element;
     }
@@ -60,8 +59,6 @@ class TableBlock extends Block {
 
     constructor(data, editor) {
         super(data, editor);
-        this.isContainer = true;
-
         // 初始化属性
         this.properties.hasHeaderRow = data.properties?.hasHeaderRow || false;
         this.properties.colWidths = data.properties?.colWidths || [];
@@ -142,11 +139,8 @@ class TableBlock extends Block {
         this.topControls.style.gridTemplateColumns = gridTemplateColumns;
 
         // 渲染行和单元格
+        this._renderChildren(this.gridWrapper);
         this.children.forEach((row, rowIndex) => {
-            // 渲染行本身
-            const rowEl = row.render();
-            this.gridWrapper.appendChild(rowEl);
-            
             // 渲染左侧的行删除按钮
             // 为每个按钮创建一个包装器，以便控制其高度和布局
             const deleteBtnWrapper = document.createElement('div');

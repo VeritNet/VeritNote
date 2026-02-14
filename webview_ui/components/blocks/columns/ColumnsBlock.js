@@ -5,16 +5,14 @@ class ColumnsBlock extends Block {
     
     constructor(data, editor) {
         super(data, editor);
-        this.isContainer = true;
     }
 
     render() {
         // 原始的、无包装器的渲染方法
         this.element = this._createContentElement();
         this.contentElement = this.element;
-        this.childrenContainer = this.element;
         
-        this._renderChildren();
+        this._renderChildren(this.contentElement);
         
         return this.element;
     }

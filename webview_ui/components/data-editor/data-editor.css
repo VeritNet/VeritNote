@@ -1,0 +1,51 @@
+/* components/data-editor/data-editor.css */
+
+.data-editor-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.data-editor-toolbar {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border-primary);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background-color: var(--bg-secondary);
+}
+
+.data-editor-content {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.data-editor-textarea {
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+    padding: 10px;
+    font-family: var(--font-family-monospace);
+    font-size: 14px;
+    resize: none;
+    outline: none;
+}
+
+    .data-editor-textarea:focus {
+        border-color: var(--text-accent);
+    }
+
+/* 简单的保存状态提示 */
+.data-save-status {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: auto;
+}

@@ -200,10 +200,21 @@ void AndroidBackend::ListWorkspace(const json& payload) {
                 json file_node;
                 std::string name = file_item.value("name", "");
                 // Remove extension for display name if it's a veritnote file
-                std::string ext = ".veritnote";
-                if (name.size() > ext.size() && name.substr(name.size() - ext.size()) == ext) {
-                    file_node["name"] = name.substr(0, name.size() - ext.size());
+                std::string extPage = ".veritnote";
+                std::string extGraph = ".veritnotegraph";
+                std::string extData = ".csv";
+                if (name.size() > extPage.size() && name.substr(name.size() - extPage.size()) == extPage) {
+                    // Veritnote Page logic (existing)
+                    file_node["name"] = name.substr(0, name.size() - extPage.size());
                     file_node["type"] = "page";
+				}
+				else if (name.size() > extGraph.size() && name.substr(name.size() - extGraph.size()) == extGraph) {
+					file_node["name"] = name.substr(0, name.size() - extGraph.size());
+					file_node["type"] = "graph";
+				}
+                else if (name.size() > extData.size() && name.substr(name.size() - extData.size()) == extData) {
+					file_node["name"] = name.substr(0, name.size() - extData.size());
+					file_node["type"] = "data";
                 }
                 else {
                     file_node["name"] = name;
@@ -212,8 +223,8 @@ void AndroidBackend::ListWorkspace(const json& payload) {
 
                 file_node["path"] = file_item.value("uri", ""); // Use the URI as the path
 
-                // Only add folders and veritnote files
-                if (file_node["type"] == "page" || file_node["type"] == "folder") {
+                // Only add folders and VeritNote files
+				if (file_node["type"] == "page" || file_node["type"] == "graph" || file_node["type"] == "data" || file_node["type"] == "folder") {
                     if (file_node["type"] == "folder") {
                         // For now, folders are empty shells. Recursive loading can be a future feature.
                         file_node["children"] = json::array();
@@ -278,7 +289,19 @@ void AndroidBackend::CreateItem(const json& payload) {
     if (parentPathUri.empty() || name.empty() || type.empty()) return;
 
     bool isDirectory = (type == "folder");
-    std::string finalName = isDirectory ? name : name + ".veritnote";
+    std::string finalName = name;
+    if (isDirectory) {
+        finalName = name;
+    }
+    else if (type == "page") {
+        finalName = name + ".veritnote";
+    }
+    else if (type == "graph") {
+        finalName = name + ".veritnotegraph";
+    }
+    else if (type == "data") {
+        finalName = name + ".csv";
+	}
 
     json request;
     request["action"] = "createItem";
@@ -286,21 +309,32 @@ void AndroidBackend::CreateItem(const json& payload) {
     request["payload"]["name"] = finalName;
     request["payload"]["isDirectory"] = isDirectory;
 
-    RequestPlatformService(request, [this, isDirectory](const json& result) {
+    RequestPlatformService(request, [this, isDirectory, type](const json& result) {
         if (result.value("success", false) && !isDirectory) {
             // If we created a file, write initial empty content to it.
             std::string new_file_uri = result["data"].value("uri", "");
-            json newPageContent;
-            newPageContent["config"] = json::object({ {"page", json::object()} });
-            newPageContent["blocks"] = json::array();
 
-            json write_request;
-            write_request["action"] = "writeFile";
-            write_request["payload"]["uri"] = new_file_uri;
-            write_request["payload"]["content"] = newPageContent.dump(2);
-            RequestPlatformService(write_request, [this](const json&) {
-                SendMessageToJS({ {"action", "workspaceUpdated"} });
+            if (type == "page") {
+                json newPageContent;
+                newPageContent["config"] = json::object({ {"page", json::object()} });
+                newPageContent["blocks"] = json::array();
+
+                json write_request;
+                write_request["action"] = "writeFile";
+                write_request["payload"]["uri"] = new_file_uri;
+                write_request["payload"]["content"] = newPageContent.dump(2);
+                RequestPlatformService(write_request, [this](const json&) {
+                    SendMessageToJS({ {"action", "workspaceUpdated"} });
                 });
+            } else if (type == "data") {
+                json write_request;
+                write_request["action"] = "writeFile";
+                write_request["payload"]["uri"] = new_file_uri;
+                write_request["payload"]["content"] = "";
+                RequestPlatformService(write_request, [this](const json&) {
+                     SendMessageToJS({ {"action", "workspaceUpdated"} });
+                });
+            }
         }
         else {
             // For folders, or if creation failed, just update.
@@ -508,73 +542,44 @@ void AndroidBackend::OpenWorkspace(const json& payload) {
     Backend::OpenWorkspace(payload);
 }
 
-// [NEW] Android-specific implementation of LoadPage
-void AndroidBackend::LoadPage(const json& payload) {
-    std::string path_uri_str = payload.value("path", "");
-    if (path_uri_str.empty()) return;
+
+// 原子读取
+std::string AndroidBackend::ReadFileContent(const std::wstring& path) {
+    std::promise<std::string> promise;
+    auto future = promise.get_future();
 
     json request;
     request["action"] = "readFile";
-    request["payload"]["uri"] = path_uri_str;
+    request["payload"]["uri"] = wstring_to_string(path);
 
-    RequestPlatformService(request, [this, payload](const json& result) {
-        json response;
-        response["action"] = "pageLoaded";
-        response["payload"] = payload; // Echo the original payload
-
+    RequestPlatformService(request, [&promise](const json& result) {
         if (result.value("success", false)) {
-            std::string content_str = result["data"].value("content", "[]");
-            try {
-                json pageJson = json::parse(content_str);
-                if (pageJson.is_array()) {
-                    response["payload"]["content"] = pageJson;
-                    response["payload"]["config"] = json::object();
-                }
-                else {
-                    response["payload"]["content"] = pageJson.value("blocks", json::array());
-                    response["payload"]["config"] = pageJson.value("config", json::object());
-                }
-            }
-            catch (const json::parse_error& e) {
-                response["error"] = "Failed to parse file content.";
-                LOG_DEBUG(content_str.c_str());
-            }
+            promise.set_value(result["data"].value("content", ""));
         }
         else {
-            response["error"] = result.value("error", "Failed to read file.");
+            // Log error?
+            promise.set_value("");
         }
-        SendMessageToJS(response);
         });
+
+    return future.get();
 }
 
-// [NEW] Android-specific implementation of SavePage
-void AndroidBackend::SavePage(const json& payload) {
-    std::string path_uri_str = payload.value("path", "");
-    if (path_uri_str.empty()) return;
-
-    json blocks = payload.value("blocks", json::array());
-    json config = payload.value("config", json::object());
-
-    json fileContent;
-    fileContent["config"] = config;
-    fileContent["blocks"] = blocks;
-    std::string content_to_write = fileContent.dump(2);
+// 原子写入
+bool AndroidBackend::WriteFileContent(const std::wstring& path, const std::string& content) {
+    std::promise<bool> promise;
+    auto future = promise.get_future();
 
     json request;
     request["action"] = "writeFile";
-    request["payload"]["uri"] = path_uri_str;
-    request["payload"]["content"] = content_to_write;
+    request["payload"]["uri"] = wstring_to_string(path);
+    request["payload"]["content"] = content;
 
-    RequestPlatformService(request, [this, path_uri_str](const json& result) {
-        json response;
-        response["action"] = "pageSaved";
-        response["payload"]["path"] = path_uri_str;
-        response["payload"]["success"] = result.value("success", false);
-        if (!result.value("success", false)) {
-            response["error"] = result.value("error", "Failed to write file.");
-        }
-        SendMessageToJS(response);
+    RequestPlatformService(request, [&promise](const json& result) {
+        promise.set_value(result.value("success", false));
         });
+
+    return future.get();
 }
 
 

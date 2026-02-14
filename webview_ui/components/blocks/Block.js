@@ -19,7 +19,7 @@ class Block {
         this.editor = editor;
         this.element = null;
         this.contentElement = null;
-        this.childrenContainer = null;
+        this.childrenContainer = null; //如果为null，则不是容器块，一个容器块只能有一个容器区
         
         // *** FIX: GUARANTEE that this.children is always an array. ***
         const childrenData = data.children || [];
@@ -77,8 +77,6 @@ class Block {
     render() {
         this.element = this._createWrapperElement();
         this.contentElement = this._createContentElement();
-        
-        this.childrenContainer = this.element;
 
         this._renderContent();
         
@@ -132,14 +130,17 @@ class Block {
 
     /**
      * Renders child blocks and appends them to the correct container.
+     * @param {HTMLElement} [targetContainer] - 指定渲染的目标容器区。如果不传，则默认尝试渲染到交互容器(childrenContainer)。
      * @private
      */
-    _renderChildren() {
-        if (this.children.length > 0) {
+    _renderChildren(targetContainer = null) {
+        // 渲染目标：优先使用传入的 target，否则使用交互容器 childrenContainer
+        const destination = targetContainer || this.childrenContainer;
+
+        if (destination && this.children.length > 0) {
             this.children.forEach(childInstance => {
-                // The parent property is now set in the constructor, but we can ensure it here too.
-                childInstance.parent = this; 
-                this.childrenContainer.appendChild(childInstance.render());
+                childInstance.parent = this;
+                destination.appendChild(childInstance.render());
             });
         }
     }
@@ -270,6 +271,8 @@ class Block {
         }).join('');
 
 
+        const customContentHtml = this.renderDetailsPanel_custom();
+
         const propertiesHtml = this._renderPropertiesSectionHTML();
         const customCssHtml = this._renderCustomCSSSectionHTML();
 
@@ -292,9 +295,20 @@ class Block {
                     ${hierarchyHtml}
                 </div>
 
+                
+                ${customContentHtml ? `
+                    <br>
+                    ${customContentHtml}
+                ` : ''}
+
                 <br>
                 <!-- Modular Properties Section -->
-                <div class="details-section-header">Properties</div>
+                <div class="details-section-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Properties</span>
+                    <button class="details-reset-btn" title="Reset all properties to default" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:12px;">
+                        ↺ Reset
+                    </button>
+                </div>
                 <div class="details-properties-view">
                     ${propertiesHtml}
                 </div>
@@ -307,6 +321,15 @@ class Block {
                 </div>
             </div>
         `;
+    }
+
+    /**
+     * Subclasses can override this to inject custom HTML into the details panel.
+     * Returned HTML will be placed between Hierarchy and Properties sections.
+     * @returns {string} HTML string or empty string.
+     */
+    renderDetailsPanel_custom() {
+        return '';
     }
 
 
@@ -406,6 +429,40 @@ class Block {
      * @param {HTMLElement} container - The details panel container.
      */
     onDetailsPanelOpen(container) {
+        this.onDetailsPanelOpen_custom(container);
+
+        // 0. 处理重置按钮点击事件
+        const resetBtn = container.querySelector('.details-reset-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!confirm('Reset all visual properties for this block?')) return;
+
+                // 安全重置：只删除在 Schema 中定义的属性键值
+                // 这样不会误删 Table 的 colWidths 或其他内部状态
+                const schema = this.constructor.getPropertiesSchema();
+                schema.forEach(field => {
+                    delete this.properties[field.key];
+                });
+
+                // 立即生效
+                this._renderContent();   // 刷新块内容（如文字颜色）
+                this._applyGenericStyles(); // 刷新通用样式（如背景、边距）
+                // 某些属性（如边距）被删除后，_applyGenericStyles 不会自动移除内联样式，
+                // 因为它通常只负责"设置存在的属性"。
+                // 所以更彻底的做法是先清空 style 再重新应用。
+                if (this.element) {
+                    this.element.removeAttribute('style');
+                    // 重新应用可能存在的非 Schema 样式（如果有的话，通常没有）
+                    this._applyGenericStyles();
+                }
+
+                // 通知编辑器保存并刷新面板
+                this.editor.emitChange(true, 'reset-props', this);
+                this.editor.updateDetailsPanel(); // 刷新面板以清空输入框
+            });
+        }
+
         // 1. Handle Regular Properties
         const inputs = container.querySelectorAll('.details-properties-view .details-input-field');
         inputs.forEach(input => {
@@ -486,6 +543,14 @@ class Block {
                 this.editor.emitChange(true, 'css-edit', this);
             });
         }
+    }
+
+    /**
+     * Subclasses can override this to attach event listeners to their custom HTML.
+     * @param {HTMLElement} container - The details panel container.
+     */
+    onDetailsPanelOpen_custom(container) {
+        // Default: do nothing
     }
 
     _refreshDetailsPanel() {

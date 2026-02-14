@@ -18,9 +18,6 @@ class ToggleListItemBlock extends TextBlock {
         }
         // The core state property: isCollapsed
         this.properties.isCollapsed = data.properties?.isCollapsed || false;
-    
-        // It's a container block that can hold other blocks
-        this.isContainer = true;
     }
 
     // --- 3. Custom Rendering ---

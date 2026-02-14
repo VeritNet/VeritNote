@@ -1,5 +1,5 @@
-﻿// js/HistoryManager.js
-class HistoryManager {
+﻿// page-editor/HistoryManager.js
+class PageHistoryManager {
     constructor(editor, maxStackSize = 100) {
         this.editor = editor;
         this.maxStackSize = maxStackSize;

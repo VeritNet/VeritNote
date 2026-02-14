@@ -67,38 +67,112 @@ class QuoteBlock extends Block {
     // --- 4. Rendering Logic ---
     _renderContent() {
         this.contentElement.dataset.style = this.properties.style;
-
-        // --- SIMPLIFIED: No <a> tag or click listeners in the editor view ---
         this.contentElement.innerHTML = `<div class="quote-preview-container"></div>`;
-        
         this.previewContainer = this.contentElement.querySelector('.quote-preview-container');
 
         if (this.properties.referenceLink) {
-            this.previewContainer.innerHTML = '<div class="quote-loading-placeholder">Loading reference...</div>';
-    
-            const [pathPart, blockId] = this.properties.referenceLink.split('#');
-            const absolutePath = window.resolveWorkspacePath(pathPart);
-            const absoluteReferenceLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
-    
-            ipc.fetchQuoteContent(this.id, absoluteReferenceLink); // 使用解析后的绝对路径
+            // 检查编辑器实例是否有预加载的缓存 (用于预览模式)
+            if (this.editor.quoteContentCache && this.editor.quoteContentCache.has(this.properties.referenceLink)) {
+                const cachedContent = this.editor.quoteContentCache.get(this.properties.referenceLink);
+                if (cachedContent) {
+                    this.renderQuotedContent(cachedContent);
+                } else {
+                    this.renderError("Referenced content could not be loaded.");
+                }
+            } else {
+                // 如果没有缓存，则执行正常的异步加载 (用于编辑模式)
+                this.loadQuoteContent();
+            }
         } else {
             this.previewContainer.innerHTML = `<div class="quote-empty-placeholder">Click “ to set a reference</div>`;
         }
     }
 
-    renderQuotedContent(blockElements) {
-        const previewContainer = this.contentElement.querySelector('.quote-preview-container');
-        if (!previewContainer) return;
+    loadQuoteContent() {
+        if (!this.properties.referenceLink) return;
 
-        previewContainer.innerHTML = ''; // 清空 "Loading..." 或旧内容
+        this.previewContainer.innerHTML = '<div class="quote-loading-placeholder">Loading reference...</div>';
 
-        if (!blockElements || blockElements.length === 0) {
-            previewContainer.innerHTML = '<div class="quote-error-placeholder">Referenced content could not be found.</div>';
-        } else {
-            // 逐个追加由 page-editor.js 渲染好的 DOM 元素
-            blockElements.forEach(el => {
-                previewContainer.appendChild(el);
-            });
+        const [pathPart, blockId] = this.properties.referenceLink.split('#');
+        const absolutePath = window.resolveWorkspacePath(pathPart);
+        const absoluteReferenceLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
+
+        // 定义一次性事件监听器
+        const listener = (e) => {
+            const payload = e.detail.payload || e.detail; // 兼容不同的 IPC 封装
+
+            // 检查是否是当前块的请求
+            if (payload.quoteBlockId === this.id) {
+                window.removeEventListener('quoteContentFetched', listener);
+
+                if (payload.error) {
+                    this.renderError(payload.error);
+                } else {
+                    this.renderQuotedContent(payload.content);
+                }
+            }
+        };
+
+        // 设置超时保护
+        setTimeout(() => {
+            window.removeEventListener('quoteContentFetched', listener);
+            if (this.previewContainer.innerHTML.includes('Loading')) {
+                // 仅当还在 Loading 状态时显示超时，避免覆盖已加载内容
+                // this.renderError("Request timeout"); 
+            }
+        }, 10000); // Quote 加载可能较慢，给 10秒
+
+        // 监听 IPC 广播的事件
+        window.addEventListener('quoteContentFetched', listener);
+
+        // 发起请求，传入 this.id 作为请求标识
+        ipc.fetchQuoteContent(this.id, absoluteReferenceLink);
+    }
+
+    renderQuotedContent(blockDataList) {
+        if (!this.previewContainer) return;
+        this.previewContainer.innerHTML = '';
+
+        if (!blockDataList || blockDataList.length === 0) {
+            this.renderError("Referenced content could not be found or is empty.");
+            return;
+        }
+
+        // 使用编辑器实例创建块并渲染
+        const blockInstances = blockDataList.map(data => this.editor.createBlockInstance(data)).filter(Boolean);
+        blockInstances.forEach(instance => {
+            // 渲染并添加到容器
+            const el = instance.render();
+
+            // 移除一些交互控件，使引用内容只读
+            el.querySelectorAll('.block-controls').forEach(c => c.remove());
+            el.querySelectorAll('[contentEditable]').forEach(c => c.removeAttribute('contentEditable'));
+
+            this.previewContainer.appendChild(el);
+        });
+
+        this._cachedContent = blockDataList;
+    }
+
+    renderError(msg) {
+        if (this.previewContainer) {
+            this.previewContainer.innerHTML = `<div class="quote-error-placeholder">${msg}</div>`;
+        }
+    }
+
+    /**
+     * 响应页面保存事件，检查是否需要刷新
+     */
+    onPageSaved(savedPath) {
+        if (!this.properties.referenceLink) return;
+
+        const [pathPart] = this.properties.referenceLink.split('#');
+        const referencedPagePath = window.resolveWorkspacePath(pathPart);
+
+        // 如果保存的页面正是当前引用的页面，则重新加载
+        if (savedPath === referencedPagePath) {
+            console.log(`QuoteBlock ${this.id}: Referenced page saved, refreshing...`);
+            this.loadQuoteContent();
         }
     }
 

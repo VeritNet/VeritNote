@@ -19,6 +19,6 @@ const DEFAULT_PAGE_CONFIG = {
 // const DEFAULT_GRAPH_CONFIG = { ... };
 
 window.DEFAULT_CONFIG = {
-    page: DEFAULT_PAGE_CONFIG
+    page: DEFAULT_PAGE_CONFIG,
     // graph: DEFAULT_GRAPH_CONFIG
 };

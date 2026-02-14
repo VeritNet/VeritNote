@@ -2,7 +2,6 @@
 #include <codecvt>
 #include <locale>
 #include <vector>
-#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -85,12 +84,22 @@ void Backend::HandleWebMessage(const std::string& message) {
         else if (action == "listWorkspace") {
             ListWorkspace(payload);
         }
+
+        // Page
         else if (action == "loadPage") {
             LoadPage(payload);
         }
         else if (action == "savePage") {
             SavePage(payload);
         }
+		// Data
+        else if (action == "loadData") {
+            LoadData(payload);
+        }
+        else if (action == "saveData") {
+            SaveData(payload);
+        }
+
         else if (action == "exportPageAsHtml") {
             ExportPageAsHtml(payload);
         }
@@ -99,9 +108,6 @@ void Backend::HandleWebMessage(const std::string& message) {
         }
         else if (action == "deleteItem") {
             DeleteItem(payload);
-        }
-        else if (action == "requestNoteList") {
-            RequestNoteList();
         }
         else if (action == "openFileDialog") {
             OpenFileDialog();
@@ -144,6 +150,9 @@ void Backend::HandleWebMessage(const std::string& message) {
         }
         else if (action == "fetchQuoteContent") {
             FetchQuoteContent(payload);
+        }
+        else if (action == "fetchDataContent") {
+            FetchDataContent(payload);
         }
         else if (action == "ensureWorkspaceConfigs") {
             EnsureWorkspaceConfigs(payload);
@@ -198,35 +207,6 @@ void Backend::ExportPageAsHtml(const json& payload) {
     }
 }
 
-void Backend::RequestNoteList() {
-    json noteList = json::array();
-
-    // 递归扫描函数
-    std::function<void(const std::filesystem::path&)> scan =
-        [&](const std::filesystem::path& dir_path) {
-        for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
-            if (entry.is_directory()) {
-                scan(entry.path());
-            }
-            else if (entry.is_regular_file() && entry.path().extension() == ".veritnote") {
-                noteList.push_back({
-                    {"name", entry.path().stem().string()},
-                    {"path", entry.path().string()}
-                    });
-            }
-        }
-        };
-
-    try {
-        if (!m_workspaceRoot.empty()) {
-            scan(m_workspaceRoot);
-        }
-        SendMessageToJS({ {"action", "noteListReceived"}, {"payload", noteList} });
-    }
-    catch (const std::exception& e) {
-        // Error handling
-    }
-}
 
 
 void Backend::PrepareExportLibs(const json& payload) {
@@ -435,9 +415,103 @@ void Backend::CancelExport() {
 }
 
 
+// LoadPage：通用实现
+void Backend::LoadPage(const json& payload) {
+    std::string path_str = payload.value("path", "");
+    std::wstring path = this->string_to_wstring(path_str);
+    bool fromPreview = payload.value("fromPreview", false);
+    std::string blockIdToFocus = "";
+    if (payload.contains("blockIdToFocus") && payload["blockIdToFocus"].is_string()) {
+        blockIdToFocus = payload["blockIdToFocus"].get<std::string>();
+    }
+
+    json response;
+    response["action"] = "pageLoaded";
+    response["payload"]["path"] = path_str;
+    response["payload"]["fromPreview"] = fromPreview;
+    if (!blockIdToFocus.empty()) response["payload"]["blockIdToFocus"] = blockIdToFocus;
+
+    std::string content = ReadFileContent(path);
+    if (!content.empty()) {
+        try {
+            json pageJson = json::parse(content);
+            if (pageJson.is_array()) {
+                response["payload"]["content"] = pageJson;
+                response["payload"]["config"] = json::object();
+            }
+            else {
+                response["payload"]["content"] = pageJson.value("blocks", json::array());
+                response["payload"]["config"] = pageJson.value("config", json::object());
+            }
+        }
+        catch (const std::exception& e) {
+            response["error"] = std::string("JSON Parse Error: ") + e.what();
+        }
+    }
+    else {
+        response["error"] = "Failed to read file or file is empty.";
+    }
+    SendMessageToJS(response);
+}
+
+// SavePage：通用实现
+void Backend::SavePage(const json& payload) {
+    std::string path_str = payload.value("path", "");
+    std::wstring path = this->string_to_wstring(path_str);
+    json blocks = payload.value("blocks", json::array());
+    json config = payload.value("config", json::object());
+
+    json fileContent;
+    fileContent["config"] = config;
+    fileContent["blocks"] = blocks;
+
+    bool success = WriteFileContent(path, fileContent.dump(2));
+
+    json response;
+    response["action"] = "pageSaved";
+    response["payload"]["path"] = path_str;
+    response["payload"]["success"] = success;
+    if (!success) response["error"] = "Failed to write file.";
+
+    SendMessageToJS(response);
+}
+
+// LoadData：通用实现 (给 DataEditor 用的)
+void Backend::LoadData(const json& payload) {
+    std::string path_str = payload.value("path", "");
+    std::wstring path = this->string_to_wstring(path_str);
+
+    json response;
+    response["action"] = "dataLoaded";
+    response["payload"]["path"] = path_str;
+
+    std::string content = ReadFileContent(path);
+    response["payload"]["content"] = content;
+
+    SendMessageToJS(response);
+}
+
+// SaveData：通用实现
+void Backend::SaveData(const json& payload) {
+    std::string path_str = payload.value("path", "");
+    std::wstring path = this->string_to_wstring(path_str);
+    std::string content = payload.value("content", "");
+
+    bool success = WriteFileContent(path, content);
+
+    json response;
+    response["action"] = "dataSaved";
+    response["payload"]["path"] = path_str;
+    response["payload"]["success"] = success;
+    if (!success) response["error"] = "Failed to write file.";
+
+    SendMessageToJS(response);
+}
+
+
 void Backend::FetchQuoteContent(const json& payload) {
     json response;
-    response["action"] = "quoteContentLoaded";
+    response["action"] = "quoteContentFetched";
 
     try {
         std::string quoteBlockId = payload.at("quoteBlockId").get<std::string>();
@@ -456,13 +530,9 @@ void Backend::FetchQuoteContent(const json& payload) {
             filePathStr = referenceLink;
         }
 
-        std::filesystem::path filePath(filePathStr);
-        std::ifstream file(filePath);
-        if (!file.is_open()) {
-            throw std::runtime_error("Referenced file not found: " + filePathStr);
-        }
+        std::string content = ReadFileContent(this->string_to_wstring(filePathStr));
 
-        json pageJson = json::parse(file); // This can be an array (old) or an object (new)
+        json pageJson = json::parse(content); // This can be an array (old) or an object (new)
 
         // --- START OF FIX ---
 
@@ -517,6 +587,23 @@ void Backend::FetchQuoteContent(const json& payload) {
     catch (const std::exception& e) {
         response["payload"]["error"] = e.what();
     }
+
+    SendMessageToJS(response);
+}
+
+void Backend::FetchDataContent(const json& payload) {
+    std::string path_str = payload.value("path", "");
+    std::string dataBlockId = payload.value("dataBlockId", "");
+
+    json response;
+    response["action"] = "dataContentFetched";
+    response["payload"]["path"] = path_str;
+    response["payload"]["dataBlockId"] = dataBlockId;
+
+    // 直接使用前端传来的路径（前端已处理好绝对路径）
+    std::string content = ReadFileContent(this->string_to_wstring(path_str));
+
+    response["payload"]["content"] = content;
 
     SendMessageToJS(response);
 }

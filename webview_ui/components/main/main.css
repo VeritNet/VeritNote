@@ -128,15 +128,6 @@
         transform: rotate(90deg);
     }
 
-    .tree-node.page > .icon::before {
-        content: '📄';
-        font-size: 12px;
-    }
-    .tree-node.page > .icon.graph-icon::before {
-        content: '📈';
-        font-size: 12px;
-    }
-
 .tree-node-children {
     padding-left: var(--spacing-m);
 }

@@ -107,6 +107,8 @@ window.initializeMainComponent = () => {
                 editorType = 'pageEditor';
             } else if (path.endsWith('.veritnotegraph')) {
                 editorType = 'graphEditor';
+            } else if (path.endsWith('.csv')) {
+                editorType = 'dataEditor';
             }
 
             if (editorType === 'default') {
@@ -127,6 +129,8 @@ window.initializeMainComponent = () => {
                 tabInstance = new PageEditor(wrapper, path, this, finalConfig);
             } else if (editorType === 'graphEditor') {
                 tabInstance = new GraphEditor(wrapper, path, this, finalConfig);
+            } else if (editorType === 'dataEditor') {
+                tabInstance = new DataEditor(wrapper, path, this);
             }
             
             if (!tabInstance) return;
@@ -263,7 +267,8 @@ window.initializeMainComponent = () => {
         }
         updateSidebarActiveState();
     });
-    
+
+
     // This listener now dispatches events to the relevant tab.
     window.addEventListener('pageLoaded', (e) => {
         const pageData = e.detail.payload;
@@ -277,6 +282,31 @@ window.initializeMainComponent = () => {
             tab.instance.onPageContentLoaded(pageData); 
         }
     });
+    window.addEventListener('pageSaved', (e) => {
+        const payload = e.detail.payload;
+        const tab = tabManager.tabs.get(payload.path);
+        if (tab && tab.instance && tab.instance.onPageSaved) {
+            tab.instance.onPageSaved(payload);
+        }
+    });
+
+    window.addEventListener('dataLoaded', (e) => {
+        console.log(e.detail.payload);
+        const payload = e.detail.payload;
+        const tab = tabManager.tabs.get(payload.path);
+        if (tab && tab.instance && tab.instance.onDataLoaded) {
+            tab.instance.onDataLoaded(payload);
+            console.log(tab);
+        }
+    });
+    window.addEventListener('dataSaved', (e) => {
+        const payload = e.detail.payload;
+        const tab = tabManager.tabs.get(payload.path);
+        if (tab && tab.instance && tab.instance.onDataSaved) {
+            tab.instance.onDataSaved(payload);
+        }
+    });
+
 
     window.addEventListener('workspaceUpdated', (e) => {
         const payload = e.detail.payload || e.detail;
@@ -288,7 +318,6 @@ window.initializeMainComponent = () => {
             tabManager.closeTab(path);
         }
         ipc.listWorkspace();
-        // ipc.requestNoteList(); // This should be triggered by editors that need it.
     });
     
     // --- Event Listeners (for Main component) ---
@@ -445,6 +474,67 @@ window.initializeMainComponent = () => {
     });
 
     // --- Helper Functions, Context Menu (for Main component) ---
+
+    /**
+     * 递归遍历树节点，收集指定类型的所有文件
+     */
+    function collectFilesByType(node, type, collection) {
+        if (!node) return;
+
+        // 如果当前节点匹配类型，加入列表
+        // 注意：我们的树节点结构是 { name, path, type, children? }
+        if (node.type === type) {
+            collection.push({
+                name: node.name,
+                path: node.path
+            });
+        }
+
+        // 如果有子节点，递归查找
+        if (node.children && node.children.length > 0) {
+            node.children.forEach(child => collectFilesByType(child, type, collection));
+        }
+    }
+
+    /**
+     * 获取当前工作区的所有 Page (.veritnote) 文件
+     * @returns {Array<{name: string, path: string}>}
+     */
+    window.getAllPageFiles = function () {
+        const workspaceDataStr = sidebar.dataset.workspaceData;
+        if (!workspaceDataStr) return [];
+
+        try {
+            const rootNode = JSON.parse(workspaceDataStr);
+            const results = [];
+            collectFilesByType(rootNode, 'page', results);
+            return results;
+        } catch (e) {
+            console.error("Failed to parse workspace tree for page search:", e);
+            return [];
+        }
+    };
+
+    /**
+     * 获取当前工作区的所有 Data (.csv) 文件
+     * @returns {Array<{name: string, path: string}>}
+     */
+    window.getAllDataFiles = function () {
+        const workspaceDataStr = sidebar.dataset.workspaceData;
+        if (!workspaceDataStr) return [];
+
+        try {
+            const rootNode = JSON.parse(workspaceDataStr);
+            const results = [];
+            collectFilesByType(rootNode, 'data', results);
+            return results;
+        } catch (e) {
+            console.error("Failed to parse workspace tree for data search:", e);
+            return [];
+        }
+    };
+
+
     function renderWorkspaceTree(node) {
         if (!node) return '';
         let html = '';
@@ -462,17 +552,25 @@ window.initializeMainComponent = () => {
                 html += '</div>';
             }
         } else if (node.type === 'page') {
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
             html += `<div class="tree-node page" data-path="${node.path}">
-                <span class="icon"></span>
-                <span class="name">${node.name.replace('.veritnote','')}</span>
+                <span style="font-size: 12px;">${iconSvg}</span>
+                <span class="name">${node.name.replace('.veritnote', '')}</span>
                 <button class="item-settings-btn" data-type="page" title="Page Settings">${settingsIconSvg}</button>
              </div>`;
         } else if (node.type === 'graph') {
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L7 10h10l-5-8z"/><circle cx="7" cy="17" r="4"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>`;
             html += `<div class="tree-node page" data-path="${node.path}">
-                <span class="icon graph-icon"></span>
-                <span class="name">${node.name.replace('.veritnotegraph','')}</span>
+                <span style="font-size: 12px;">${iconSvg}</span>
+                <span class="name">${node.name.replace('.veritnotegraph', '')}</span>
                 <button class="item-settings-btn" data-type="graph" title="Graph Settings">${settingsIconSvg}</button>
             </div>`;
+        } else if (node.type === 'data') {
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
+            html += `<div class="tree-node page" data-path="${node.path}">
+                <span class="icon">${iconSvg}</span>
+                <span class="name">${node.name}</span> 
+             </div>`;
         }
         return html;
     }
@@ -500,6 +598,7 @@ window.initializeMainComponent = () => {
         switch (action) {
             case 'newPage': { const name = prompt("Page Name", "MyPage"); if (name) { ipc.createItem(parentPath, name, 'page'); } break; }
             case 'newGraph': { const name = prompt("Graph Name", "MyGraph"); if (name) { ipc.createItem(parentPath, name, 'graph'); } break; }
+            case 'newData': { const name = prompt("Data Name", "MyData"); if (name) { ipc.createItem(parentPath, name, 'data'); } break; }
             case 'newFolder': { const name = prompt("Folder Name", "MyFolder"); if (name) { ipc.createItem(parentPath, name, 'folder'); } break; }
             case 'delete': { if (confirm(`Delete "${targetPath}"?`)) { ipc.deleteItem(targetPath); } break; }
         }

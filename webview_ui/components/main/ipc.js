@@ -54,13 +54,23 @@ const ipc = {
         ipc.send('listWorkspace');
     },
 
+
+    // Page
     loadPage: (path, blockIdToFocus = null, fromPreview = false) => {
         ipc.send('loadPage', { path, fromPreview, blockIdToFocus });
     },
-
     savePage: (path, blocks, config) => {
         ipc.send('savePage', { path, blocks, config });
     },
+
+    // Data
+    loadData: (path) => {
+        ipc.send('loadData', { path });
+    },
+    saveData: (path, content) => {
+        ipc.send('saveData', { path, content });
+    },
+
 
     startExport: () => {
         ipc.send('exportPages');
@@ -73,10 +83,6 @@ const ipc = {
     },
     deleteItem: (path) => {
         ipc.send('deleteItem', { path });
-    },
-
-    requestNoteList: () => {
-        ipc.send('requestNoteList');
     },
 
     openFileDialog: () => {
@@ -93,6 +99,10 @@ const ipc = {
 
     fetchQuoteContent: (requestIdentifier, referenceLink) => {
         ipc.send('fetchQuoteContent', { quoteBlockId: requestIdentifier, referenceLink });
+    },
+
+    fetchDataContent: (requestIdentifier, path) => {
+        ipc.send('fetchDataContent', { dataBlockId: requestIdentifier, path });
     },
 
     openWorkspaceDialog: () => {

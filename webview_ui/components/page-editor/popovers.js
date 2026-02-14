@@ -154,7 +154,7 @@ class PopoverManager {
                 pageContent.style.display = 'block';
                 popoverInput.value = existingValue || '';
                 popoverInput.focus();
-                if (this.editor.allNotes.length === 0) ipc.requestNoteList(); else this.editor.updateSearchResults(popoverInput.value, searchResults);
+                this.editor.updateSearchResults(popoverInput.value, searchResults);
                 
                 if (document.body.classList.contains('is-linking-block')) {
                     document.body.classList.remove('is-linking-block');
@@ -178,6 +178,80 @@ class PopoverManager {
 
         const initialMode = existingValue && existingValue.indexOf('#') > -1 && existingValue.split('#')[1].length > 0 ? 'block' : 'page';
         setActiveMode(initialMode);
+
+        this._positionAndShow(targetElement);
+    }
+
+    showDataFilePicker(options) {
+        this.hide();
+        const { targetElement, existingValue, callback } = options;
+        this.currentPopoverCallback = callback;
+
+        this.popover.innerHTML = `
+            <div class="popover-content">
+                <input type="text" id="data-popover-input" placeholder="Search file or enter path..." style="width:100%; margin-bottom:8px;">
+                <div id="data-popover-list" class="popover-search-results" style="max-height: 200px;"></div>
+            </div>
+        `;
+
+        const input = this.popover.querySelector('#data-popover-input');
+        const listContainer = this.popover.querySelector('#data-popover-list');
+
+        // 预填现有值
+        if (existingValue) {
+            input.value = existingValue;
+        }
+
+        const allDataFiles = window.getAllDataFiles ? window.getAllDataFiles() : [];
+
+        const renderList = (filter = '') => {
+            const lowerFilter = filter.toLowerCase();
+            const filtered = allDataFiles.filter(f => f.name.toLowerCase().includes(lowerFilter));
+
+            if (filtered.length === 0) {
+                // 如果没有搜索结果，且有输入内容，提示按回车使用
+                if (filter) {
+                    listContainer.innerHTML = `<div class="empty-details-placeholder" style="padding:5px; font-size:12px;">No files found. Press Enter to use "${filter}"</div>`;
+                } else {
+                    listContainer.innerHTML = '<div class="empty-details-placeholder" style="padding:5px;">Type to search...</div>';
+                }
+                return;
+            }
+
+            listContainer.innerHTML = filtered.map(f => `
+                <div class="search-result-item" data-path="${f.path}">
+                    📄 ${f.name} <span style="color:var(--text-secondary); font-size:10px;">(${f.path})</span>
+                </div>
+            `).join('');
+        };
+
+        // Input 事件：过滤列表
+        input.addEventListener('input', () => renderList(input.value));
+
+        // Keydown 事件：回车直接使用当前输入值（无论是本地路径还是 URL）
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.currentPopoverCallback) {
+                    this.currentPopoverCallback(input.value);
+                    this.hide();
+                }
+            }
+        });
+
+        // Click 事件：从列表中选择
+        listContainer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const item = e.target.closest('.search-result-item');
+            if (item && this.currentPopoverCallback) {
+                const relativePath = window.makePathRelativeToWorkspace ? window.makePathRelativeToWorkspace(item.dataset.path) : item.dataset.path;
+                this.currentPopoverCallback(relativePath);
+                this.hide();
+            }
+        });
+
+        renderList(input.value); // 初始渲染
+        input.focus();
 
         this._positionAndShow(targetElement);
     }
@@ -289,7 +363,7 @@ class PopoverManager {
             } else { // 'page'
                 blockContent.style.display = 'none';
                 pageContent.style.display = 'block';
-                if (this.editor.allNotes.length === 0) ipc.requestNoteList(); else this.editor.updateSearchResults('', searchResults);
+                this.editor.updateSearchResults('', searchResults);
         
                 // --- REVISED: Let hidePopover handle all cleanup ---
                 document.body.classList.remove('is-linking-block');

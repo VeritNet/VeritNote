@@ -6,6 +6,7 @@
 #include <shellapi.h>
 #include <urlmon.h>
 #include <fstream>
+#include <filesystem>
 #include <sstream>
 #include <include/Platform.h>
 
@@ -257,11 +258,18 @@ void WinBackend::ListWorkspace(const json& payload) {
                     file_node["type"] = "page";
                     tree_node["children"].push_back(file_node);
                 }
-                else if (extension == ".veritnotegraph") { // 新增对 .veritnotegraph 文件的处理
+                else if (extension == ".veritnotegraph") {
                     json file_node;
                     file_node["name"] = entry.path().filename().string();
                     file_node["path"] = entry.path().string();
-                    file_node["type"] = "graph"; // 设置正确的类型
+                    file_node["type"] = "graph";
+                    tree_node["children"].push_back(file_node);
+                }
+                else if (extension == ".csv") {
+                    json file_node;
+                    file_node["name"] = entry.path().filename().string();
+                    file_node["path"] = entry.path().string();
+                    file_node["type"] = "data";
                     tree_node["children"].push_back(file_node);
                 }
 
@@ -302,86 +310,24 @@ void WinBackend::ListWorkspace(const json& payload) {
     SendMessageToJS(response);
 }
 
-void WinBackend::LoadPage(const json& payload) {
-    std::string path_str = payload.value("path", "");
-    std::filesystem::path pagePath(path_str);
 
-    bool fromPreview = payload.value("fromPreview", false);
-
-    // ** THE CORE FIX: A safer way to extract an optional string value **
-    std::string blockIdToFocus = ""; // Initialize with a default empty string
-    if (payload.contains("blockIdToFocus") && payload["blockIdToFocus"].is_string()) {
-        blockIdToFocus = payload["blockIdToFocus"].get<std::string>();
+// 原子读取
+std::string WinBackend::ReadFileContent(const std::wstring& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (file.is_open()) {
+        return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     }
-
-    json response;
-    response["action"] = "pageLoaded";
-    response["payload"]["path"] = path_str;
-    response["payload"]["fromPreview"] = fromPreview;
-
-    if (!blockIdToFocus.empty()) {
-        response["payload"]["blockIdToFocus"] = blockIdToFocus;
-    }
-
-    try {
-        std::ifstream file(pagePath);
-        if (file.is_open()) {
-            json pageJson = json::parse(file);
-
-            if (pageJson.is_array()) { // Handle old format for backward compatibility
-                response["payload"]["content"] = pageJson;
-                response["payload"]["config"] = json::object(); // No config in old format
-            }
-            else { // New object format
-                response["payload"]["content"] = pageJson.value("blocks", json::array());
-                response["payload"]["config"] = pageJson.value("config", json::object());
-            }
-
-        }
-        else {
-            response["error"] = "Failed to open file.";
-        }
-    }
-    catch (const std::exception& e) {
-        response["error"] = e.what();
-    }
-
-    SendMessageToJS(response);
+    return ""; // 或者抛出异常，视具体错误处理策略而定
 }
 
-void WinBackend::SavePage(const json& payload) {
-    std::string path_str = payload.value("path", "");
-    json blocks = payload.value("blocks", json::array());
-    json config = payload.value("config", json::object());
-
-    json fileContent;
-    fileContent["config"] = config;
-    fileContent["blocks"] = blocks;
-
-    std::filesystem::path pagePath(path_str);
-
-    json response;
-    response["action"] = "pageSaved";
-    response["payload"]["path"] = path_str;
-
-    try {
-        std::ofstream file(pagePath);
-        if (file.is_open()) {
-            // 使用 dump(2) 进行格式化输出，美观
-            file << fileContent.dump(2);
-            response["payload"]["success"] = true;
-        }
-        else {
-            response["error"] = "Failed to open file for writing.";
-            response["payload"]["success"] = false;
-        }
+// 原子写入
+bool WinBackend::WriteFileContent(const std::wstring& path, const std::string& content) {
+    std::ofstream file(path, std::ios::binary);
+    if (file.is_open()) {
+        file << content;
+        return true;
     }
-    catch (const std::exception& e) {
-        response["error"] = e.what();
-        response["payload"]["success"] = false;
-    }
-
-    SendMessageToJS(response);
+    return false;
 }
 
 
@@ -399,31 +345,37 @@ void WinBackend::CreateItem(const json& payload) {
             std::filesystem::create_directory(fullPath);
         }
         // --- START OF MODIFICATION ---
-        // --- 文件类型的处理（现在包含 page 和 graph）---
-        else if (type == "page" || type == "graph") {
+        // --- 文件类型的处理 ---
+        else if (type == "page" || type == "graph" || type == "data") {
 
-            // 1. 根据类型设置正确的文件扩展名
+            // 1. 根据类型设置扩展名
             if (type == "page") {
                 fullPath.replace_extension(".veritnote");
             }
-            else { // type == "graph"
+            else if (type == "graph") {
                 fullPath.replace_extension(".veritnotegraph");
             }
+            else if (type == "data") {
+                fullPath.replace_extension(".csv");
+            }
 
-            // 2. 创建所有文件类型通用的默认 JSON 结构
-            // 注意：我们仍然创建一个空的 "page" config 对象。
-            // 这是为了与前端现有的配置解析系统 (resolveFileConfiguration, computeFinalConfig) 保持兼容。
-            // 前端可以平稳地处理这种情况，而无需为 graph 单独创建一套配置逻辑。
-            json newFileContent;
-            newFileContent["config"] = json::object({
-                {"page", json::object()}
-                });
-            newFileContent["blocks"] = json::array();
+            // 2. 内容初始化
+            if (type == "data") {
+                // CSV 创建空文件即可
+                std::ofstream file(fullPath);
+                file << "";
+                file.close();
+            }
+            else if (type == "page" || type == "graph") {
+                // Page 和 Graph 的 JSON 初始化逻辑保持原样
+                json newFileContent;
+                newFileContent["config"] = json::object({ {"page", json::object()} });
+                newFileContent["blocks"] = json::array();
 
-            // 3. 将 JSON 内容写入文件
-            std::ofstream file(fullPath);
-            file << newFileContent.dump(2); // 使用 dump(2) 写入格式化的 JSON，便于调试
-            file.close();
+                std::ofstream file(fullPath);
+                file << newFileContent.dump(2);
+                file.close();
+            }
         }
         // --- END OF MODIFICATION ---
 

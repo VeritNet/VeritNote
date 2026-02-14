@@ -1,5 +1,5 @@
 ﻿// js/blocks/ColumnBlock.js
-class ColumnBlock extends ContainerBlock {
+class ColumnBlock extends Block {
     static type = 'column';
     static canBeToggled = false;
     
