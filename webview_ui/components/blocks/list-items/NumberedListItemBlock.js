@@ -52,7 +52,6 @@ class NumberedListItemBlock extends TextBlock {
         this.textElement.contentEditable = 'true';
         this.textElement.innerHTML = this.content || '';
         this.textElement.dataset.placeholder = this.constructor.placeholder;
-        this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
         this._renderContent();
 
@@ -139,7 +138,7 @@ class NumberedListItemBlock extends TextBlock {
                 if (!isNaN(newStartNum)) {
                     this.properties.number = newStartNum;
                     this.numberElement.textContent = this.properties.number;
-                    this.editor.emitChange(true, 'set-list-number', this);
+                    this.BAPI_PE.emitChange(true, 'set-list-number', this);
                 }
             }
         }
@@ -148,36 +147,30 @@ class NumberedListItemBlock extends TextBlock {
     // --- 6. Override keyboard events for list behavior ---
     onKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault(); 
+            e.preventDefault();
+            if (e.shiftKey) return;
             this.syncContentFromDOM(); // Save current state before creating new block
+            const newNumberedListItem = this.BAPI_PE.insertNewBlockAfter(this, 'numberedListItem');
+            const newNumber = (this.properties.number || 0) + 1;
+            newNumberedListItem.properties.number = newNumber;
+            newNumberedListItem.numberElement.textContent = newNumberedListItem.properties.number;
+            newNumberedListItem.BAPI_PE.emitChange(true, 'set-list-number', newNumberedListItem);
+        }
 
-            // Find this block's position to insert the new one after it
-            const info = this.editor._findBlockInstanceAndParent(this.id);
-            if (info) {
-                const { parentArray, index } = info;
-                const newNumber = (this.properties.number || 0) + 1;
-
-                // Create a new numbered list item instance with the incremented number
-                const newBlockInstance = this.editor.createBlockInstance({
-                    type: 'numberedListItem',
-                    content: '',
-                    properties: { number: newNumber }
-                });
-
-                if (newBlockInstance) {
-                    // Insert the new block into the correct array at the correct position
-                    parentArray.splice(index + 1, 0, newBlockInstance);
-                    
-                    // Re-render the editor and focus the new block
-                    this.editor.render();
-                    newBlockInstance.focus();
-                    this.editor.emitChange(true, 'insert-block', this);
-                }
+        if ((e.key === 'Backspace' || e.key === 'Delete') &&
+            (this.textElement.innerHTML === '' || this.textElement.innerHTML === '<br>')) {
+            e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
+            // 找到前一个块，以便删除后聚焦
+            let blockToFocus = this.BAPI_PE._findBlockToFocusAfterTextBlockDeleted(this.id);
+            // 调用编辑器的核心删除方法
+            this.BAPI_PE.deleteBlock(this);
+            // 如果找到了前一个块，就将光标聚焦到它上面
+            if (blockToFocus) {
+                blockToFocus.focus();
             }
             return;
         }
-
-        // For all other keys, use the default TextBlock behavior
-        super.onKeyDown(e);
     }
 }
+
+window['registerBlock'](NumberedListItemBlock);

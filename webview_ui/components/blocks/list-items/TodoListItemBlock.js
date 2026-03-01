@@ -68,11 +68,8 @@ class TodoListItemBlock extends TextBlock {
         this.checkbox.addEventListener('change', () => {
             this.properties.checked = this.checkbox.checked;
             this.updateCheckedStateStyle();
-            this.editor.emitChange(true, 'toggle-todo', this); // 通知编辑器内容已更改
+            this.BAPI_PE.emitChange(true, 'toggle-todo', this); // 通知编辑器内容已更改
         });
-
-        // 为文本区手动绑定 onKeyDown
-        this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
         return this.element;
     }
@@ -138,12 +135,23 @@ class TodoListItemBlock extends TextBlock {
             if (e.shiftKey) return;
             this.syncContentFromDOM();
             // 按下回车时，创建一个新的、未勾选的 to-do 项
-            this.editor.insertNewBlockAfter(this, 'todoListItem');
+            this.BAPI_PE.insertNewBlockAfter(this, 'todoListItem');
             return;
         }
-        
-        // 复用 TextBlock 的空块删除等逻辑
-        super.onKeyDown(e);
+
+        if ((e.key === 'Backspace' || e.key === 'Delete') &&
+            (this.textElement.innerHTML === '' || this.textElement.innerHTML === '<br>')) {
+            e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
+            // 找到前一个块，以便删除后聚焦
+            let blockToFocus = this.BAPI_PE._findBlockToFocusAfterTextBlockDeleted(this.id);
+            // 调用编辑器的核心删除方法
+            this.BAPI_PE.deleteBlock(this);
+            // 如果找到了前一个块，就将光标聚焦到它上面
+            if (blockToFocus) {
+                blockToFocus.focus();
+            }
+            return;
+        }
     }
 
 
@@ -202,3 +210,5 @@ class TodoListItemBlock extends TextBlock {
         `;
     }
 }
+
+window['registerBlock'](TodoListItemBlock);

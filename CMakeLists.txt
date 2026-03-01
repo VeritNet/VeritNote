@@ -6,6 +6,8 @@ project(VeritNote LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(CLOSURE_OPTIMIZATION "Enable Advanced JS Optimization" OFF) 
+
 add_definitions(-D_UNICODE -DUNICODE)
 
 
@@ -49,26 +51,23 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     endif()
     message(STATUS "Found Node.js executable: ${NODE_EXECUTABLE}")
 
-    # 2. 查找主机上的UglifyJS
-    find_file(UGLIFYJS_DEFAULT_SCRIPT_PATH
-        NAMES uglifyjs # 脚本名通常就是 uglifyjs
+    # 2. 查找主机上的 Google Closure Compiler
+    find_file(CLOSURE_COMPILER_DEFAULT_SCRIPT_PATH
+        NAMES cli.js # Closure Compiler 的 npm 全局入口文件通常是 cli.js
         PATHS
-            "$ENV{APPDATA}/npm/node_modules/uglify-js/bin" # 全局安装 (Windows)
+            "$ENV{APPDATA}/npm/node_modules/google-closure-compiler" # Windows 全局安装路径
         NO_CMAKE_FIND_ROOT_PATH
         NO_DEFAULT_PATH
     )
-    # 注意：我们保留了set和if的逻辑，但让find_file更精确
-    set(VERITNOTE_UGLIFYJS_SCRIPT_PATH "${UGLIFYJS_DEFAULT_SCRIPT_PATH}"
-        CACHE FILEPATH "Path to the main uglifyjs script file.")
-    if(NOT VERITNOTE_UGLIFYJS_SCRIPT_PATH) # <-- 【关键修改】检查变量是否为空
-        # 如果 find_file 没找到，UGLIFYJS_DEFAULT_SCRIPT_PATH 会是空
-        # 我们需要明确处理这种情况
-        message(FATAL_ERROR "Could not find uglifyjs script automatically. Searched in common global npm locations. Please run 'npm install -g uglify-js' or specify its location manually using the CMake variable VERITNOTE_UGLIFYJS_SCRIPT_PATH.")
-    elseif(NOT EXISTS "${VERITNOTE_UGLIFYJS_SCRIPT_PATH}")
-        # 这个检查用于处理用户手动设置了一个错误路径的情况
-        message(FATAL_ERROR "UglifyJS script path is set to '${VERITNOTE_UGLIFYJS_SCRIPT_PATH}', but the file does not exist. Please check the path.")
+    set(VERITNOTE_CLOSURE_COMPILER_PATH "${CLOSURE_COMPILER_DEFAULT_SCRIPT_PATH}"
+        CACHE FILEPATH "Path to the Google Closure Compiler script file.")
+    
+    if(NOT VERITNOTE_CLOSURE_COMPILER_PATH)
+        message(FATAL_ERROR "Could not find google-closure-compiler automatically. Please run 'npm install -g google-closure-compiler' or specify VERITNOTE_CLOSURE_COMPILER_PATH.")
+    elseif(NOT EXISTS "${VERITNOTE_CLOSURE_COMPILER_PATH}")
+        message(FATAL_ERROR "Closure Compiler path is set to '${VERITNOTE_CLOSURE_COMPILER_PATH}', but it does not exist.")
     endif()
-    message(STATUS "Using UglifyJS script: ${VERITNOTE_UGLIFYJS_SCRIPT_PATH}")
+    message(STATUS "Using Closure Compiler: ${VERITNOTE_CLOSURE_COMPILER_PATH}")
 
     # 3. 定义预处理命令
     file(GLOB_RECURSE WEB_ASSETS_SOURCES "${WEB_ASSETS_DIR}/*")
@@ -92,8 +91,9 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
         COMMAND ${CMAKE_COMMAND}
             -D "PROCESSED_DIR=${PROCESSED_ASSETS_DIR}"
             -D "NODE_CMD=${NODE_EXECUTABLE}"
-            -D "UGLIFYJS_SCRIPT=${VERITNOTE_UGLIFYJS_SCRIPT_PATH}"
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/UglifyScripts.cmake"
+            -D "CLOSURE_COMPILER_SCRIPT=${VERITNOTE_CLOSURE_COMPILER_PATH}"
+            -D "USE_ADVANCED_MODE=${CLOSURE_OPTIMIZATION}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompileJSScripts.cmake"
         COMMAND ${CMAKE_COMMAND}
             -D "WEB_ASSETS_DIR_SRC=${WEB_ASSETS_DIR}"
             -D "PROCESSED_ASSETS_DIR_DST=${PROCESSED_ASSETS_DIR}"

@@ -20,13 +20,25 @@ class Block {
         this.element = null;
         this.contentElement = null;
         this.childrenContainer = null; //如果为null，则不是容器块，一个容器块只能有一个容器区
+
+        this.BAPI_PE = this.editor.BAPI_PE;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 PageEditor 定义和维护
+        this.BAPI_WD = window.BAPI_WD;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 Window 定义和维护
+        this.BAPI_IPC = window.BAPI_IPC;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 IPC 定义和维护
         
         // *** FIX: GUARANTEE that this.children is always an array. ***
         const childrenData = data.children || [];
-        this.children = childrenData.map(childJson => this.editor.createBlockInstance(childJson)).filter(Boolean);
+        this.children = childrenData.map(childJson => this.BAPI_PE.createBlockInstance(childJson)).filter(Boolean);
         // Add parent property to children right away
         this.children.forEach(child => child.parent = this);
     }
+
+
+
+    // ========== ------ ========== //
+    // ========== Public ========== //
+    // ========== ------ ========== //
+
+
 
     // --- Static properties for registration and slash command ---
     static type = 'block'; // Should be overridden by subclasses
@@ -34,6 +46,12 @@ class Block {
     static description = 'A generic block.'; // Default description for UI
     static keywords = []; // Keywords for search
     static canBeToggled = false; // Whether it appears in the slash command menu
+    element = null;
+    content = null;
+    properties = {};
+    contentElement = null;
+    childrenContainer = null;
+    children = [];
     
     /**
      * Returns the block's data for saving.
@@ -69,6 +87,8 @@ class Block {
         ];
     }
 
+    handleToolbarAction(action, buttonElement) { }
+
     /**
      * Creates and returns the DOM element for the block.
      * This is the main rendering entry point.
@@ -90,62 +110,6 @@ class Block {
     }
 
     /**
-     * Creates the main wrapper element (.block-container).
-     * @private
-     */
-    _createWrapperElement() {
-        const element = document.createElement('div');
-        element.className = 'block-container';
-        element.dataset.id = this.id;
-        element.draggable = true;
-        element.innerHTML = `
-            <div class="block-controls">
-                <span class="drag-handle" title="Drag to move">⠿</span>
-            </div>
-        `;
-        return element;
-    }
-
-    /**
-     * Creates the content element (.block-content).
-     * @private
-     */
-    _createContentElement() {
-        const content = document.createElement('div');
-        content.className = 'block-content';
-        content.dataset.id = this.id;
-        content.dataset.type = this.type;
-        return content;
-    }
-
-    /**
-     * Renders the specific content of the block into `this.contentElement`.
-     * Subclasses MUST override this method.
-     * @private
-     */
-    _renderContent() {
-        // Example: this.contentElement.innerHTML = this.content;
-        // To be implemented by subclasses.
-    }
-
-    /**
-     * Renders child blocks and appends them to the correct container.
-     * @param {HTMLElement} [targetContainer] - 指定渲染的目标容器区。如果不传，则默认尝试渲染到交互容器(childrenContainer)。
-     * @private
-     */
-    _renderChildren(targetContainer = null) {
-        // 渲染目标：优先使用传入的 target，否则使用交互容器 childrenContainer
-        const destination = targetContainer || this.childrenContainer;
-
-        if (destination && this.children.length > 0) {
-            this.children.forEach(childInstance => {
-                childInstance.parent = this;
-                destination.appendChild(childInstance.render());
-            });
-        }
-    }
-    
-    /**
      * Updates the block's `content` property from its DOM element.
      */
     syncContentFromDOM() {
@@ -155,20 +119,11 @@ class Block {
     }
 
     /**
-     * Updates the block's DOM element from its `content` property.
-     */
-    syncContentToDOM() {
-        if (this.contentElement) {
-            this.contentElement.innerHTML = this.content;
-        }
-    }
-
-    /**
      * Focuses the block's content element and moves cursor to the end.
      */
     focus() {
         if (!this.contentElement || !this.contentElement.isContentEditable) return;
-        
+
         this.contentElement.focus();
         const range = document.createRange();
         const selection = window.getSelection();
@@ -177,19 +132,19 @@ class Block {
         selection.removeAllRanges();
         selection.addRange(range);
     }
-    
+
     /**
      * Handles input events on the block.
      * @param {InputEvent} e The event object.
      */
     onInput(e) {
-        // Simply delegate the entire lifecycle management to the editor.
+        // Simply delegate the entire lifecycle management to the editor
         // The editor will decide whether to show, hide, or update the menu.
-        this.editor._handleCommandMenuLifecycle(this);
-        
-        this.editor.emitChange(true, 'typing', this);
+        this.BAPI_PE._handleCommandMenuLifecycle(this);
+
+        this.BAPI_PE.emitChange(true, 'typing', this);
     }
-    
+
     /**
      * Handles keydown events on the block.
      * @param {KeyboardEvent} e The event object.
@@ -199,12 +154,12 @@ class Block {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             // *** FIX: Force sync THIS block's content before telling the editor to create a new one. ***
-            this.syncContentFromDOM(); 
-            this.editor.insertNewBlockAfter(this);
+            this.syncContentFromDOM();
+            this.BAPI_PE.insertNewBlockAfter(this);
         }
 
         if (e.key === '/') {
-            setTimeout(() => this.editor.showCommandMenuForBlock(this), 0);
+            setTimeout(() => this.BAPI_PE.showCommandMenuForBlock(this), 0);
         }
     }
 
@@ -221,7 +176,7 @@ class Block {
         const gatherAncestors = (node) => {
             if (!node) return;
             // Add to the beginning of the array to maintain order
-            hierarchyData.unshift({ block: node }); 
+            hierarchyData.unshift({ block: node });
             maxAncestorDepth++; // Count how many ancestors we have
             gatherAncestors(node.parent);
         };
@@ -239,7 +194,7 @@ class Block {
         // --- REVISED LOGIC ---
         // 1. Gather all ancestors first to determine the root depth
         gatherAncestors(this.parent);
-        
+
         // 2. Now, assign the correct, positive depth to each ancestor
         hierarchyData.forEach((item, index) => {
             item.depth = index;
@@ -247,10 +202,10 @@ class Block {
 
         // 3. Add the current block. Its depth is the number of ancestors.
         hierarchyData.push({ block: this, depth: maxAncestorDepth });
-        
+
         // 4. Gather descendants. Their depth is relative to the current block.
         gatherDescendants(this.children, maxAncestorDepth + 1);
-        
+
 
         // --- Step 2: Render HTML from the Data Structure ---
         const hierarchyHtml = hierarchyData.map(item => {
@@ -324,9 +279,269 @@ class Block {
     }
 
     /**
+     * Called by PageEditor after the details panel HTML is inserted into the DOM.
+     * This attaches event listeners to the inputs.
+     * @param {HTMLElement} container - The details panel container.
+     */
+    onDetailsPanelOpen(container) {
+        this.onDetailsPanelOpen_custom(container);
+
+        // 0. 处理重置按钮点击事件
+        const resetBtn = container.querySelector('.details-reset-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!confirm('Reset all visual properties for this block?')) return;
+
+                // 安全重置：只删除在 Schema 中定义的属性键值
+                // 这样不会误删 Table 的 colWidths 或其他内部状态
+                const schema = this.constructor.getPropertiesSchema();
+                schema.forEach(field => {
+                    delete this.properties[field.key];
+                });
+
+                // 立即生效
+                this._renderContent();   // 刷新块内容（如文字颜色）
+                this._applyGenericStyles(); // 刷新通用样式（如背景、边距）
+                // 某些属性（如边距）被删除后，_applyGenericStyles 不会自动移除内联样式，
+                // 因为它通常只负责"设置存在的属性"。
+                // 所以更彻底的做法是先清空 style 再重新应用。
+                if (this.element) {
+                    this.element.removeAttribute('style');
+                    // 重新应用可能存在的非 Schema 样式（如果有的话，通常没有）
+                    this._applyGenericStyles();
+                }
+
+                // 通知编辑器保存并刷新面板
+                this.BAPI_PE.emitChange(true, 'reset-props', this);
+                this.BAPI_PE.updateDetailsPanel(); // 刷新面板以清空输入框
+            });
+        }
+
+        // 1. Handle Regular Properties
+        const inputs = container.querySelectorAll('.details-properties-view .details-input-field');
+        inputs.forEach(input => {
+            input.addEventListener('change', (e) => {
+                const key = e.target.dataset.propKey;
+                const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+
+                this.properties[key] = value;
+
+                const genericProperties = [
+                    'backgroundColor', 'opacity',
+                    'padding', 'marginTop', 'marginBottom',
+                    'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
+                    'boxShadow'
+                ];
+
+                if (genericProperties.includes(key)) {
+                    this._applyGenericStyles();
+                } else {
+                    this._renderContent();
+                }
+
+                this.BAPI_PE.emitChange(true, 'property-change', this);
+            });
+        });
+
+        // 2. Handle Custom CSS Interaction (Delegated)
+        const cssContainer = container.querySelector('.details-custom-css-view');
+        if (cssContainer) {
+            cssContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.dataset.action === 'add-css-group-btn' || target.id === 'add-css-group-btn') {
+                    this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
+                    this._refreshDetailsPanel();
+                }
+                else if (target.dataset.action === 'delete-group') {
+                    const idx = parseInt(target.dataset.group);
+                    this.properties.customCSS.splice(idx, 1);
+                    this._refreshDetailsPanel();
+                }
+                else if (target.dataset.action === 'add-rule') {
+                    const idx = parseInt(target.dataset.group);
+                    this.properties.customCSS[idx].rules.push({ prop: '', val: '' });
+                    this._refreshDetailsPanel();
+                }
+                else if (target.dataset.action === 'delete-rule') {
+                    const gIdx = parseInt(target.dataset.group);
+                    const rIdx = parseInt(target.dataset.rule);
+                    this.properties.customCSS[gIdx].rules.splice(rIdx, 1);
+                    this._refreshDetailsPanel();
+                }
+            });
+
+            cssContainer.addEventListener('input', (e) => {
+                const target = e.target;
+                if (target.classList.contains('css-selector')) {
+                    const idx = parseInt(target.dataset.group);
+                    this.properties.customCSS[idx].selector = target.value;
+                    this._applyCustomCSS();
+                    // Debounce save? relying on blur or next action for history usually better, but for CSS visual feedback we update immediately.
+                }
+                else if (target.classList.contains('css-key')) {
+                    const gIdx = parseInt(target.dataset.group);
+                    const rIdx = parseInt(target.dataset.rule);
+                    this.properties.customCSS[gIdx].rules[rIdx].prop = target.value;
+                    this._applyCustomCSS();
+                }
+                else if (target.classList.contains('css-val')) {
+                    const gIdx = parseInt(target.dataset.group);
+                    const rIdx = parseInt(target.dataset.rule);
+                    this.properties.customCSS[gIdx].rules[rIdx].val = target.value;
+                    this._applyCustomCSS();
+                }
+            });
+
+            // Save history on change (blur)
+            cssContainer.addEventListener('change', () => {
+                this.BAPI_PE.emitChange(true, 'css-edit', this);
+            });
+        }
+    }
+
+    /**
+     * 生成当前块及其自定义属性对应的 CSS 字符串，用于导出。
+     * @returns {string}
+     */
+    getCustomCSSString() {
+        let cssString = '';
+
+        // 1. 处理 Custom CSS 面板中的规则 (如 :hover 等)
+        if (this.properties.customCSS && this.properties.customCSS.length > 0) {
+            this.properties.customCSS.forEach(group => {
+                // 确保选择器依然能选中这个块
+                // 注意：导出时 .block-container 和 data-id 都会保留，所以这个选择器是有效的
+                const selector = `.block-container[data-id="${this.id}"] ${group.selector}`;
+
+                const rules = group.rules
+                    .filter(r => r.prop && r.val)
+                    .map(r => `${r.prop}: ${r.val} !important;`)
+                    .join(' ');
+
+                if (rules) {
+                    cssString += `${selector} { ${rules} } \n`;
+                }
+            });
+        }
+
+        // 注意：通用的 _applyGenericStyles (背景、边距等) 是直接写在 element.style 上的，
+        // 它们会作为 inline style 自动包含在 innerHTML 中，所以这里不需要重复处理。
+
+        return cssString;
+    }
+
+
+    // --- Export API ---
+
+    /**
+     * Generates the final, sanitized HTML for this block for export.
+     * Subclasses can override this to add special behaviors.
+     * @param {HTMLElement} blockElement - The pre-rendered, clean DOM element of the block.
+     * @param {object} options - The export options from the main process.
+     * @param {object} imageSrcMap - A map of original image sources to their new local paths.
+     * @param {string} pathPrefix - The relative path prefix (e.g., './' or '../') for assets.
+     */
+    async getExportHtml(blockElement, options, imageSrcMap, pathPrefix) {
+        return blockElement;
+    }
+
+    /**
+     * Returns any JavaScript code that needs to be injected into the final exported HTML file
+     * to make this block interactive.
+     * @returns {string|null} A string containing the script (without <script> tags), or null.
+     */
+    static getExportScripts() {
+        // Default is no scripts.
+        return null;
+    }
+
+    /**
+     * Returns a list of vendor library paths required for this block when exported.
+     * @returns {Array<string>} Example: ['vendor/highlight/highlight.min.js']
+     */
+    static get requiredExportLibs() {
+        return [];
+    }
+
+
+
+    // ========== ------- ========== //
+    // ========== Private ========== //
+    // ========== ------- ========== //
+
+
+
+    /**
+     * Creates the main wrapper element (.block-container).
+     * @private
+     */
+    _createWrapperElement() {
+        const element = document.createElement('div');
+        element.className = 'block-container';
+        element.dataset.id = this.id;
+        element.draggable = true;
+        element.innerHTML = `
+            <div class="block-controls">
+                <span class="drag-handle" title="Drag to move">⠿</span>
+            </div>
+        `;
+        return element;
+    }
+
+    /**
+     * Creates the content element (.block-content).
+     * @private
+     */
+    _createContentElement() {
+        const content = document.createElement('div');
+        content.className = 'block-content';
+        content.dataset.id = this.id;
+        content.dataset.type = this.type;
+        return content;
+    }
+
+    /**
+     * Renders the specific content of the block into `this.contentElement`.
+     * Subclasses MUST override this method.
+     * @private
+     */
+    _renderContent() {
+        // Example: this.contentElement.innerHTML = this.content;
+        // To be implemented by subclasses.
+    }
+
+    /**
+     * Renders child blocks and appends them to the correct container.
+     * @param {HTMLElement} [targetContainer] - 指定渲染的目标容器区。如果不传，则默认尝试渲染到交互容器(childrenContainer)。
+     * @private
+     */
+    _renderChildren(targetContainer = null) {
+        // 渲染目标：优先使用传入的 target，否则使用交互容器 childrenContainer
+        const destination = targetContainer || this.childrenContainer;
+
+        if (destination && this.children.length > 0) {
+            this.children.forEach(childInstance => {
+                childInstance.parent = this;
+                destination.appendChild(childInstance.render());
+            });
+        }
+    }
+
+    /**
+     * Updates the block's DOM element from its `content` property.
+     */
+    syncContentToDOM() {
+        if (this.contentElement) {
+            this.contentElement.innerHTML = this.content;
+        }
+    }
+
+    /**
      * Subclasses can override this to inject custom HTML into the details panel.
      * Returned HTML will be placed between Hierarchy and Properties sections.
      * @returns {string} HTML string or empty string.
+     * @private
      */
     renderDetailsPanel_custom() {
         return '';
@@ -339,6 +554,7 @@ class Block {
      * Returns an array defining the editable properties for this block.
      * Subclasses should override this.
      * @returns {Array<{key: string, label: string, type: 'text'|'number'|'color'|'select'|'checkbox', options?: Array}>}
+     * @private
      */
     static getPropertiesSchema() {
         return [
@@ -424,130 +640,9 @@ class Block {
     }
 
     /**
-     * Called by PageEditor after the details panel HTML is inserted into the DOM.
-     * This attaches event listeners to the inputs.
-     * @param {HTMLElement} container - The details panel container.
-     */
-    onDetailsPanelOpen(container) {
-        this.onDetailsPanelOpen_custom(container);
-
-        // 0. 处理重置按钮点击事件
-        const resetBtn = container.querySelector('.details-reset-btn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!confirm('Reset all visual properties for this block?')) return;
-
-                // 安全重置：只删除在 Schema 中定义的属性键值
-                // 这样不会误删 Table 的 colWidths 或其他内部状态
-                const schema = this.constructor.getPropertiesSchema();
-                schema.forEach(field => {
-                    delete this.properties[field.key];
-                });
-
-                // 立即生效
-                this._renderContent();   // 刷新块内容（如文字颜色）
-                this._applyGenericStyles(); // 刷新通用样式（如背景、边距）
-                // 某些属性（如边距）被删除后，_applyGenericStyles 不会自动移除内联样式，
-                // 因为它通常只负责"设置存在的属性"。
-                // 所以更彻底的做法是先清空 style 再重新应用。
-                if (this.element) {
-                    this.element.removeAttribute('style');
-                    // 重新应用可能存在的非 Schema 样式（如果有的话，通常没有）
-                    this._applyGenericStyles();
-                }
-
-                // 通知编辑器保存并刷新面板
-                this.editor.emitChange(true, 'reset-props', this);
-                this.editor.updateDetailsPanel(); // 刷新面板以清空输入框
-            });
-        }
-
-        // 1. Handle Regular Properties
-        const inputs = container.querySelectorAll('.details-properties-view .details-input-field');
-        inputs.forEach(input => {
-            input.addEventListener('change', (e) => {
-                const key = e.target.dataset.propKey;
-                const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-
-                this.properties[key] = value;
-
-                const genericProperties = [
-                    'backgroundColor', 'opacity',
-                    'padding', 'marginTop', 'marginBottom',
-                    'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
-                    'boxShadow'
-                ];
-
-                if (genericProperties.includes(key)) {
-                    this._applyGenericStyles();
-                } else {
-                    this._renderContent();
-                }
-
-                this.editor.emitChange(true, 'property-change', this);
-            });
-        });
-
-        // 2. Handle Custom CSS Interaction (Delegated)
-        const cssContainer = container.querySelector('.details-custom-css-view');
-        if (cssContainer) {
-            cssContainer.addEventListener('click', (e) => {
-                const target = e.target;
-                if (target.dataset.action === 'add-css-group-btn' || target.id === 'add-css-group-btn') {
-                    this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
-                    this._refreshDetailsPanel();
-                }
-                else if (target.dataset.action === 'delete-group') {
-                    const idx = parseInt(target.dataset.group);
-                    this.properties.customCSS.splice(idx, 1);
-                    this._refreshDetailsPanel();
-                }
-                else if (target.dataset.action === 'add-rule') {
-                    const idx = parseInt(target.dataset.group);
-                    this.properties.customCSS[idx].rules.push({ prop: '', val: '' });
-                    this._refreshDetailsPanel();
-                }
-                else if (target.dataset.action === 'delete-rule') {
-                    const gIdx = parseInt(target.dataset.group);
-                    const rIdx = parseInt(target.dataset.rule);
-                    this.properties.customCSS[gIdx].rules.splice(rIdx, 1);
-                    this._refreshDetailsPanel();
-                }
-            });
-
-            cssContainer.addEventListener('input', (e) => {
-                const target = e.target;
-                if (target.classList.contains('css-selector')) {
-                    const idx = parseInt(target.dataset.group);
-                    this.properties.customCSS[idx].selector = target.value;
-                    this._applyCustomCSS();
-                    // Debounce save? relying on blur or next action for history usually better, but for CSS visual feedback we update immediately.
-                }
-                else if (target.classList.contains('css-key')) {
-                    const gIdx = parseInt(target.dataset.group);
-                    const rIdx = parseInt(target.dataset.rule);
-                    this.properties.customCSS[gIdx].rules[rIdx].prop = target.value;
-                    this._applyCustomCSS();
-                }
-                else if (target.classList.contains('css-val')) {
-                    const gIdx = parseInt(target.dataset.group);
-                    const rIdx = parseInt(target.dataset.rule);
-                    this.properties.customCSS[gIdx].rules[rIdx].val = target.value;
-                    this._applyCustomCSS();
-                }
-            });
-
-            // Save history on change (blur)
-            cssContainer.addEventListener('change', () => {
-                this.editor.emitChange(true, 'css-edit', this);
-            });
-        }
-    }
-
-    /**
      * Subclasses can override this to attach event listeners to their custom HTML.
      * @param {HTMLElement} container - The details panel container.
+     * @private
      */
     onDetailsPanelOpen_custom(container) {
         // Default: do nothing
@@ -555,8 +650,8 @@ class Block {
 
     _refreshDetailsPanel() {
         this._applyCustomCSS();
-        this.editor.emitChange(false, 'css-ui-update', this); // Don't record history for every UI click
-        this.editor.updateDetailsPanel(); // Force re-render of panel
+        this.BAPI_PE.emitChange(false, 'css-ui-update', this); // Don't record history for every UI click
+        this.BAPI_PE.updateDetailsPanel(); // Force re-render of panel
     }
 
     _applyGenericStyles() {
@@ -618,34 +713,16 @@ class Block {
         styleTag.textContent = cssString;
     }
 
-    /**
-     * 生成当前块及其自定义属性对应的 CSS 字符串，用于导出。
-     */
-    getCustomCSSString() {
-        let cssString = '';
+    _reRenderSelf() {
+        // 1. 保存旧的 DOM 元素引用
+        const oldElement = this.element;
+        // 2. 调用自身的 render 方法生成全新的 DOM 结构
+        const newElement = this.render();
 
-        // 1. 处理 Custom CSS 面板中的规则 (如 :hover 等)
-        if (this.properties.customCSS && this.properties.customCSS.length > 0) {
-            this.properties.customCSS.forEach(group => {
-                // 确保选择器依然能选中这个块
-                // 注意：导出时 .block-container 和 data-id 都会保留，所以这个选择器是有效的
-                const selector = `.block-container[data-id="${this.id}"] ${group.selector}`;
-
-                const rules = group.rules
-                    .filter(r => r.prop && r.val)
-                    .map(r => `${r.prop}: ${r.val} !important;`)
-                    .join(' ');
-
-                if (rules) {
-                    cssString += `${selector} { ${rules} } \n`;
-                }
-            });
+        // 3. 在真实的 DOM 树中，用新元素替换旧元素
+        if (oldElement && oldElement.parentElement) {
+            oldElement.parentElement.replaceChild(newElement, oldElement);
         }
-
-        // 注意：通用的 _applyGenericStyles (背景、边距等) 是直接写在 element.style 上的，
-        // 它们会作为 inline style 自动包含在 innerHTML 中，所以这里不需要重复处理。
-
-        return cssString;
     }
 
 
@@ -653,39 +730,5 @@ class Block {
         return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
             (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
         );
-    }
-
-
-    // --- NEW: Export API ---
-
-    /**
-     * Generates the final, sanitized HTML for this block for export.
-     * Subclasses can override this to add special behaviors.
-     * @param {HTMLElement} blockElement - The pre-rendered, clean DOM element of the block.
-     * @param {object} options - The export options from the main process.
-     * @param {object} imageSrcMap - A map of original image sources to their new local paths.
-     * @param {string} pathPrefix - The relative path prefix (e.g., './' or '../') for assets.
-     */
-    async getExportHtml(blockElement, options, imageSrcMap, pathPrefix) {
-        // Default implementation does nothing special, just returns the element.
-        return blockElement;
-    }
-
-    /**
-     * Returns any JavaScript code that needs to be injected into the final exported HTML file
-     * to make this block interactive.
-     * @returns {string|null} A string containing the script (without <script> tags), or null.
-     */
-    static getExportScripts() {
-        // Default is no scripts.
-        return null;
-    }
-
-    /**
-     * Returns a list of vendor library paths required for this block when exported.
-     * @returns {Array<string>} Example: ['vendor/highlight/highlight.min.js']
-     */
-    static get requiredExportLibs() {
-        return [];
     }
 }

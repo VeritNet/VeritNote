@@ -100,10 +100,12 @@ void WinBackend::ClearNextWorkspacePath() {
 }
 
 void WinBackend::SendMessageToJS(const json& message) {
-    if (m_webview) {
-        std::string json_str = message.dump();
-        m_webview->PostWebMessageAsJson(this->string_to_wstring(json_str).c_str());
-    }
+    std::string json_str = message.dump();
+   std::string debugMessage = "C++ [WinBackend]: Sending message to JS: " + json_str;
+   LOG_DEBUG(debugMessage.c_str());  
+   if (m_webview) {  
+       m_webview->PostWebMessageAsJson(this->string_to_wstring(json_str).c_str());  
+   }  
 }
 
 void WinBackend::NavigateTo(const std::wstring& url) {
@@ -162,7 +164,7 @@ void WinBackend::OpenFileDialog() {
                 encoded << '%' << std::setw(2) << std::setfill('0') << (int)(unsigned char)c;
             }
         }
-        finalPathStr = "https://veritnote.app/local-file/" + encoded.str();
+        finalPathStr = "http://veritnote.localhost/local-file/" + encoded.str();
     }
 
     SendMessageToJS({ {"action", "fileDialogClosed"}, {"payload", {{"path", finalPathStr}}} });
@@ -303,7 +305,6 @@ void WinBackend::ListWorkspace(const json& payload) {
     // Debug 输出和发送消息的逻辑保持不变
     std::string debug_json_string = response.dump(2);
     LOG_DEBUG("--- C++ Backend --- \n");
-    LOG_DEBUG("Sending to JS: \n");
     LOG_DEBUG(debug_json_string.c_str());
     LOG_DEBUG("\n---------------------\n");
 
@@ -459,7 +460,6 @@ void WinBackend::EnsureWorkspaceConfigs(const json& payload) {
             }
         }
     }
-    // Optionally, send a message back to JS confirming completion
 }
 
 void WinBackend::OpenExternalLink(const std::wstring& url) {

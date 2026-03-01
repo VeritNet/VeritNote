@@ -120,7 +120,7 @@ class TableViewBlock extends DataBlock {
 
         // 渲染表头
         this.properties.columns.forEach((colConfig, index) => {
-            const label = colConfig.label || colConfig.sourceHeader || 'Untitled';
+            const label = (this.properties.firstRowMode === 'header' ? colConfig.sourceHeader : (colConfig.label || colConfig.sourceHeader)) || 'Untitled';
             const widthPercent = (colConfig.width || (1 / totalCols)) * 100;
 
             // 最后一列不加 resizer
@@ -209,7 +209,7 @@ class TableViewBlock extends DataBlock {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
             // 调整结束后记录历史
-            this.editor.emitChange(true, 'resize-table-view-column', this);
+            this.BAPI_PE.emitChange(true, 'resize-table-view-column', this);
         };
 
         document.addEventListener('mousemove', onMouseMove);
@@ -304,7 +304,7 @@ class TableViewBlock extends DataBlock {
             </div>
             
             <div style="margin-top: 12px; margin-bottom: 6px; display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-primary); padding-bottom: 4px;">
-                <span style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Columns Config</span>
+                <span style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Columns</span>
                 <button class="css-btn css-btn-add add-column-btn" style="width: auto; margin:0; font-size:11px; padding: 2px 6px;">+ Add</button>
             </div>
             
@@ -413,7 +413,7 @@ class TableViewBlock extends DataBlock {
                 // 刷新面板（因为列配置可能需要根据新数据更新）
                 this._refreshDetailsPanel();
                 // 通知编辑器
-                this.editor.emitChange(true, 'refresh-data', this);
+                this.BAPI_PE.emitChange(true, 'refresh-data', this);
             });
         }
 
@@ -455,7 +455,7 @@ class TableViewBlock extends DataBlock {
                 this.properties.firstRowMode = newMode;
                 this._refreshDetailsPanel();
                 this._renderContent(); // 确保视图同步
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             });
         }
 
@@ -485,7 +485,7 @@ class TableViewBlock extends DataBlock {
                         this.properties.columns[idx].label = e.target.value;
                     }
                     this._renderContent();
-                    this.editor.emitChange(true, 'edit-table-config', this);
+                    this.BAPI_PE.emitChange(true, 'edit-table-config', this);
                 });
             });
         };
@@ -508,7 +508,7 @@ class TableViewBlock extends DataBlock {
                 this.properties.columns.push({ sourceHeader: defaultHeader, type: 'string', label: '' });
                 this._refreshDetailsPanel();
                 this._renderContent(); // 确保视图同步刷新
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             });
         }
 
@@ -522,7 +522,7 @@ class TableViewBlock extends DataBlock {
                 this.properties.columns.splice(idx, 1);
                 this._refreshDetailsPanel();
                 this._renderContent();
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
             // Move Column
             else if (target.classList.contains('move-col-btn')) {
@@ -535,7 +535,7 @@ class TableViewBlock extends DataBlock {
                     this.properties.columns[newIdx] = temp;
                     this._refreshDetailsPanel();
                     this._renderContent();
-                    this.editor.emitChange(true, 'edit-table-config', this);
+                    this.BAPI_PE.emitChange(true, 'edit-table-config', this);
                 }
             }
             // Add Status Map
@@ -552,7 +552,7 @@ class TableViewBlock extends DataBlock {
                 this.properties.columns[colIdx].statusMappings.splice(mapIdx, 1);
                 this._refreshDetailsPanel();
                 this._renderContent();
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
         });
 
@@ -563,29 +563,31 @@ class TableViewBlock extends DataBlock {
                 const idx = parseInt(target.dataset.index);
                 this.properties.columns[idx].label = target.value;
                 this._renderContent();
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
             else if (target.classList.contains('col-type-select')) {
                 const idx = parseInt(target.dataset.index);
                 this.properties.columns[idx].type = target.value;
                 this._refreshDetailsPanel(); // 类型改变需要刷新（显示/隐藏 status editor）
                 this._renderContent();
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
             else if (target.classList.contains('map-condition')) {
                 const colIdx = parseInt(target.dataset.colIndex);
                 const mapIdx = parseInt(target.dataset.mapIndex);
                 this.properties.columns[colIdx].statusMappings[mapIdx].condition = target.value;
                 this._renderContent();
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
             else if (target.classList.contains('map-html')) {
                 const colIdx = parseInt(target.dataset.colIndex);
                 const mapIdx = parseInt(target.dataset.mapIndex);
                 this.properties.columns[colIdx].statusMappings[mapIdx].html = target.value;
                 this._renderContent();
-                this.editor.emitChange(true, 'edit-table-config', this);
+                this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
         });
     }
 }
+
+window['registerBlock'](TableViewBlock);

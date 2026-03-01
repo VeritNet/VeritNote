@@ -9,7 +9,7 @@
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --spacing-s: 8px;
     --spacing-m: 16px;
-    --spacing-l: 24px;
+    --spacing-l: 26px;
 }
 
 * {
@@ -24,6 +24,29 @@ body {
     color: var(--text-primary);
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
+}
+
+/* --- 入场动画定义 (现代模糊渐入) --- */
+@keyframes revealUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+        filter: blur(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+.reveal {
+    opacity: 0;
+    /* 使用 Apple 风格的弹性贝塞尔曲线 */
+    animation: revealUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    /* 配合 HTML 中的 --d 变量实现瀑布流延迟 */
+    animation-delay: calc(var(--d) * 0.06s);
 }
 
 .background-noise {
@@ -55,6 +78,7 @@ body {
     max-width: 700px;
     margin: 0 auto;
     padding: var(--spacing-l);
+    padding-top: 30px;
     height: 100vh;
 }
 
@@ -69,38 +93,59 @@ header {
         font-size: 28px;
         font-weight: 700;
     }
-    header h1, .header-controls {
-    }
-
 
 .header-controls {
     display: flex;
     gap: var(--spacing-s);
+    align-items: center;
 }
 
-#about-btn.icon-btn {
-    background: transparent;
+.ea-btn {
+    display: flex;
+    align-items: center;
+    background-color: rgba(255, 243, 205, 0.15);
     border: none;
-    color: var(--text-secondary);
+    padding: 1px 1px 1px 12px;
+    border-radius: 20px;
     cursor: pointer;
-    padding: var(--spacing-s);
-    border-radius: 50%;
-    transition: background-color 0.2s, color 0.2s;
+    /* 增加悬浮放大的平滑过渡 */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    text-decoration: none;
+    gap: 2px;
 }
 
-    #about-btn.icon-btn:hover {
-        background-color: var(--bg-tertiary);
-        color: var(--text-primary);
+    .ea-btn:hover {
+        background-color: rgba(255, 243, 205, 0.2);
+        transform: scale(1.03); /* 微弱的悬浮感 */
     }
 
-    .icon-btn:hover {
-        background-color: var(--bg-tertiary);
-        color: var(--text-primary);
-    }
+.ea-label {
+    color: #d39e00;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+.ea-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+
+.ea-btn:hover .ea-icon-wrapper {
+    color: var(--text-primary);
+}
 
 .content {
     flex-grow: 1;
     overflow-y: auto;
+    padding-left: 10px;
     padding-right: 10px;
 }
 
@@ -112,20 +157,25 @@ header {
 
 .search-bar input {
     width: 100%;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background-color: rgba(255, 255, 255, 0.03); /* 降低默认亮度显得更内敛 */
+    border: 1px solid transparent;
     color: var(--text-primary);
     border-radius: 6px;
     padding: 12px;
     font-size: 16px;
     margin-bottom: var(--spacing-l);
+    /* 输入框的现代过渡效果 */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
     .search-bar input:focus {
-        border-color: var(--text-accent);
+        background-color: var(--bg-secondary);
+        border-color: transparent;
+        box-shadow: 0 0 0 2px rgba(86, 156, 214, 0.3); /* 现代的发光边框 */
         outline: none;
     }
 
+/* --- 列表项现代 3D 悬浮特效 --- */
 .recent-list .item {
     display: flex;
     justify-content: space-between;
@@ -134,11 +184,20 @@ header {
     border-radius: 6px;
     margin-bottom: var(--spacing-s);
     cursor: pointer;
-    transition: background-color 0.2s;
+    background-color: transparent;
+    border: 1px solid transparent;
+    /* 关键的平滑过渡 */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
 }
 
     .recent-list .item:hover {
         background-color: var(--bg-secondary);
+        border-color: var(--border-color);
+        /* 向上位移一点，并放大一点，加上阴影产生立体感 */
+        transform: translateY(-2px) scale(1.01);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        z-index: 10;
     }
 
 .item-details .name {
@@ -160,7 +219,7 @@ header {
     padding: var(--spacing-s);
     border-radius: 50%;
     opacity: 0;
-    transition: opacity 0.2s, color 0.2s;
+    transition: opacity 0.2s, color 0.2s, transform 0.2s;
 }
 
 .recent-list .item:hover .remove-btn {
@@ -169,6 +228,7 @@ header {
 
 .remove-btn:hover {
     color: #f44336;
+    transform: scale(1.1);
 }
 
 .empty-list {
@@ -178,47 +238,43 @@ header {
 }
 
 footer {
-    padding: var(--spacing-l) 0;
+    padding: var(--spacing-m) 0;
     text-align: center;
+    padding-bottom: var(--spacing-s);
 }
 
-    footer #open-workspace-btn.primary-btn {
-        width: auto;
-        background-color: var(--text-accent);
-        color: white;
-        border: none;
-        padding: 10px 24px;
-        font-size: 14px;
-        font-weight: 500;
-        border-radius: 6px;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: var(--spacing-s);
-        transition: background-color: 0.2s;
-    }
-
-        footer #open-workspace-btn.primary-btn:hover {
-            background-color: #4A90E2;
-        }
-
+/* --- 底部按钮现代 3D 浮出特效 (深灰色主题) --- */
 .primary-btn {
-    background-color: var(--text-accent);
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    font-size: 14px; /* A slightly smaller font size is also common for such buttons */
+    background-color: #333333; /* 深灰色 */
+    color: #e0e0e0;
+    border: 1px solid #444; /* 细微的边框增加质感 */
+    padding: 10px 22px;
+    font-size: 14px;
     font-weight: 500;
     border-radius: 6px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-s);
-    transition: background-color 0.2s;
+    /* 基础阴影 */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    /* 动画过渡 */
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
     .primary-btn:hover {
-        background-color: #4A90E2;
+        background-color: #3d3d3d; /* 悬浮时略微变亮 */
+        color: #ffffff;
+        border-color: #555;
+        /* 往屏幕外浮出的感觉：上移 + 微缩放 + 更大更散的阴影 */
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .primary-btn:active {
+        /* 点击时按下去的感觉 */
+        transform: translateY(-1px) scale(1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     }
 
 /* Modal styles */
@@ -236,7 +292,6 @@ footer {
     z-index: 100;
 }
 
-
 .modal-content {
     background-color: var(--bg-secondary);
     padding: var(--spacing-l);
@@ -245,17 +300,16 @@ footer {
     max-width: 95vw;
     position: relative;
     border: 1px solid var(--border-color);
-    /* 将所有文本内容居中 */
     text-align: center;
+    /* 给模态框也加一点高级阴影 */
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
     .modal-content .close-btn {
         position: absolute;
-        top: 10px; /* 微调以获得更好的视觉效果 */
-        right: 10px; /* 微调以获得更好的视觉效果 */
-
-        width: auto; /* <-- 这就是解决问题的关键！ */
-
+        top: 10px;
+        right: 10px;
+        width: auto;
         background: none;
         border: none;
         color: var(--text-secondary);
@@ -264,7 +318,13 @@ footer {
         line-height: 1;
         padding: 8px;
         z-index: 10;
+        transition: color 0.2s, transform 0.2s;
     }
+
+        .modal-content .close-btn:hover {
+            color: var(--text-primary);
+            transform: scale(1.1);
+        }
 
     .modal-content h3 {
         margin-bottom: 8px;
@@ -280,18 +340,14 @@ footer {
     align-items: center;
     margin-top: 24px;
     width: 100%;
-    /* KEY FIX #2: 移除 gap 属性，让元素自然接触 */
-    /* gap: var(--spacing-s); */ /* <-- 移除或注释掉此行 */
 }
 
-    /* 确保标签文本不会被压缩 */
     .link-container label {
         flex-shrink: 0;
         white-space: nowrap;
-        margin-right: var(--spacing-s); /* 使用 margin 代替 gap 来创建间距 */
+        margin-right: var(--spacing-s);
     }
 
-    /* 让输入框占据所有可用空间 */
     .link-container input {
         flex-grow: 1;
         background-color: var(--bg-primary);
@@ -300,27 +356,30 @@ footer {
         border-radius: 4px 0 0 4px;
         padding: 8px;
         min-width: 0;
+        transition: border-color 0.2s;
     }
 
-    /* 针对复制按钮的精确修复 */
+        .link-container input:focus {
+            border-color: var(--text-accent);
+            outline: none;
+        }
+
     .link-container button#copy-link-btn {
         width: auto;
         flex-shrink: 0;
         background-color: var(--bg-tertiary);
         color: var(--text-primary);
         border: 1px solid var(--border-color);
-        /* 现在 border-left: none 可以正常工作，因为没有 gap 了 */
         border-left: none;
         border-radius: 0 4px 4px 0;
         padding: 8px 16px;
         cursor: pointer;
+        transition: background-color 0.2s;
     }
 
     .link-container button:hover {
-        background-color: var(--bg-accent);
+        background-color: #444;
     }
-
-
 
 .window-control-btn {
     width: 46px;
@@ -345,37 +404,35 @@ footer {
         color: white;
     }
 
-
 #title-bar {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 40px; /* 设定一个明确的标题栏高度 */
+    height: 40px;
     display: flex;
-    justify-content: space-between; /* 让左右两部分分开 */
+    justify-content: space-between;
     align-items: center;
-    z-index: 2000; /* 确保它在最顶层 */
+    z-index: 2000;
 }
 
-/* 左侧拖动区域的样式 */
 #drag-region {
-    flex-grow: 1; /* 关键: 让它填满所有剩余空间 */
+    flex-grow: 1;
     height: 100%;
+    -webkit-app-region: drag; /* 确保拖动生效 */
 }
 
-/* 右侧窗口控件容器的样式 */
 #window-controls {
     display: flex;
     height: 100%;
-    flex-shrink: 0; /* 防止被压缩 */
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
 }
 
-
-
+/* --- 优化后的现代极简滚动条 --- */
 ::-webkit-scrollbar {
-    width: 14px;
-    height: 14px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -383,14 +440,12 @@ footer {
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: var(--bg-accent, #3a3d41); /* 使用 var 并提供备用值 */
+    background-color: rgba(255, 255, 255, 0.15); /* 半透明，融入背景 */
     border-radius: 10px;
-    /* 关键: 这里的边框颜色需要匹配 dashboard 的主背景色 */
-    border: 4px solid var(--bg-primary, rgb(25, 25, 25));
+    border: none;
+    transition: background-color 0.3s;
 }
 
     ::-webkit-scrollbar-thumb:hover {
-        background-color: #555;
-        /* 这里的边框颜色需要匹配 dashboard 的次级背景色 */
-        border-color: var(--bg-secondary, #252526);
+        background-color: rgba(255, 255, 255, 0.3);
     }

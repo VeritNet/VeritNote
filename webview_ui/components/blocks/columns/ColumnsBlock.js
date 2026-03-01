@@ -20,3 +20,5 @@ class ColumnsBlock extends Block {
     onInput(e) { /* no-op */ }
     onKeyDown(e) { /* no-op */ }
 }
+
+window['registerBlock'](ColumnsBlock);

@@ -60,27 +60,22 @@ class TextBlock extends Block {
     onKeyDown(e) {
         // 检查条件：按下的是 Backspace 或 Delete 键，并且内容为空
         // 浏览器在清空 contenteditable 时有时会留下 <br>，所以要同时检查
-        if ((e.key === 'Backspace' || e.key === 'Delete') && 
+        if ((e.key === 'Backspace' || e.key === 'Delete') &&
             (this.contentElement.innerHTML === '' || this.contentElement.innerHTML === '<br>')) {
-            
+
             e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
 
-            // (可选但强烈推荐的UX优化) 找到前一个块，以便删除后聚焦
-            const info = this.editor._findBlockInstanceAndParent(this.id);
-            let blockToFocus = null;
-            if (info) {
-                // 尝试找到前一个兄弟节点，如果找不到，就找父节点
-                blockToFocus = info.parentArray[info.index - 1] || info.parentInstance;
-            }
+            // 找到前一个块，以便删除后聚焦
+            let blockToFocus = this.BAPI_PE._findBlockToFocusAfterTextBlockDeleted(this.id);
 
             // 调用编辑器的核心删除方法
-            this.editor.deleteBlock(this);
+            this.BAPI_PE.deleteBlock(this);
 
             // 如果找到了前一个块，就将光标聚焦到它上面
             if (blockToFocus) {
                 blockToFocus.focus();
             }
-            
+
             return; // 已经处理完毕，退出函数
         }
 
@@ -194,7 +189,7 @@ class TextBlock extends Block {
             // 更新数据模型和编辑器 DOM
             this.content = newHtml;
             this.syncContentToDOM();
-            this.editor.emitChange(true, 'source-edit', this);
+            this.BAPI_PE.emitChange(true, 'source-edit', this);
         });
 
         // 修正上面的 HTML 样式 (JS动态修正更方便)
@@ -214,8 +209,7 @@ class TextBlock extends Block {
                 window.removeEventListener('block:updated', safeUpdateHandler);
                 return;
             }
-            if (e.detail.filePath === this.editor.filePath &&
-                e.detail.blockData.id === this.id) {
+            if (e.detail.blockData.id === this.id) {
                 if (document.activeElement !== textarea) {
                     const newContent = e.detail.blockData.content;
                     textarea.value = newContent;

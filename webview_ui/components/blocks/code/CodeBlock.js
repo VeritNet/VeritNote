@@ -7,13 +7,6 @@ class CodeBlock extends Block {
     static keywords = ['code', 'snippet', 'pre', 'highlight'];
     static canBeToggled = true;
 
-    static get requiredExportLibs() {
-        return [
-            'vendor/highlight/highlight.min.js',
-            'vendor/highlight/theme.css'
-        ];
-    }
-
     constructor(data, editor) {
         super(data, editor);
         
@@ -107,7 +100,7 @@ class CodeBlock extends Block {
     onInput() {
         this.updateHighlight();
         // Use 'typing' action type to get coalescing for free
-        this.editor.emitChange(true, 'typing', this);
+        this.BAPI_PE.emitChange(true, 'typing', this);
     }
     
     // Code blocks don't need default keydown handlers (no Enter for new blocks, etc.)
@@ -183,13 +176,13 @@ class CodeBlock extends Block {
     
     showLanguagePicker(buttonElement) {
         // --- MODIFIED: This now calls the new, dedicated popover function in main.js ---
-        this.editor.popoverManager.showLanguagePicker({
-            targetElement: buttonElement,
-            availableLanguages: this.availableLanguages,
-            callback: (selectedLanguage) => {
+        this.BAPI_PE.popoverManager.showLanguagePicker(
+            buttonElement,
+            this.availableLanguages,
+            (selectedLanguage) => {
                 this.setLanguage(selectedLanguage);
             }
-        });
+        );
     }
     
     setLanguage(lang) {
@@ -197,12 +190,9 @@ class CodeBlock extends Block {
         // No need to update button text here, the toolbar will be re-rendered on next hover
         this.highlightedElement.className = `language-${lang}`;
         this.updateHighlight();
-        this.editor.emitChange(true, 'change-language', this);
+        this.BAPI_PE.emitChange(true, 'change-language', this);
         
-        // Force the toolbar to redraw to show the new language name
-        if (this.editor.activeToolbarBlock === this) {
-            this.editor._populateToolbar(this);
-        }
+        this.BAPI_PE._populateToolbar(this);
     }
 
 
@@ -244,3 +234,5 @@ class CodeBlock extends Block {
         return blockElement;
     }
 }
+
+window['registerBlock'](CodeBlock);

@@ -730,7 +730,7 @@ void AndroidBackend::OpenFileDialog() {
                     }
                 }
 
-                std::string finalPathStr = "https://veritnote.app/local-file/" + encoded_uri;
+                std::string finalPathStr = "http://veritnote.localhost/local-file/" + encoded_uri;
                 SendMessageToJS({ {"action", "fileDialogClosed"}, {"payload", {{"path", finalPathStr}}} });
             }
         }

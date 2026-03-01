@@ -72,8 +72,8 @@ class QuoteBlock extends Block {
 
         if (this.properties.referenceLink) {
             // 检查编辑器实例是否有预加载的缓存 (用于预览模式)
-            if (this.editor.quoteContentCache && this.editor.quoteContentCache.has(this.properties.referenceLink)) {
-                const cachedContent = this.editor.quoteContentCache.get(this.properties.referenceLink);
+            if (this.BAPI_PE.quoteContentCache && this.BAPI_PE.quoteContentCache.has(this.properties.referenceLink)) {
+                const cachedContent = this.BAPI_PE.quoteContentCache.get(this.properties.referenceLink);
                 if (cachedContent) {
                     this.renderQuotedContent(cachedContent);
                 } else {
@@ -94,7 +94,7 @@ class QuoteBlock extends Block {
         this.previewContainer.innerHTML = '<div class="quote-loading-placeholder">Loading reference...</div>';
 
         const [pathPart, blockId] = this.properties.referenceLink.split('#');
-        const absolutePath = window.resolveWorkspacePath(pathPart);
+        const absolutePath = this.BAPI_WD.resolveWorkspacePath(pathPart);
         const absoluteReferenceLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
 
         // 定义一次性事件监听器
@@ -126,7 +126,7 @@ class QuoteBlock extends Block {
         window.addEventListener('quoteContentFetched', listener);
 
         // 发起请求，传入 this.id 作为请求标识
-        ipc.fetchQuoteContent(this.id, absoluteReferenceLink);
+        this.BAPI_IPC.fetchQuoteContent(this.id, absoluteReferenceLink);
     }
 
     renderQuotedContent(blockDataList) {
@@ -139,7 +139,7 @@ class QuoteBlock extends Block {
         }
 
         // 使用编辑器实例创建块并渲染
-        const blockInstances = blockDataList.map(data => this.editor.createBlockInstance(data)).filter(Boolean);
+        const blockInstances = blockDataList.map(data => this.BAPI_PE.createBlockInstance(data)).filter(Boolean);
         blockInstances.forEach(instance => {
             // 渲染并添加到容器
             const el = instance.render();
@@ -167,7 +167,7 @@ class QuoteBlock extends Block {
         if (!this.properties.referenceLink) return;
 
         const [pathPart] = this.properties.referenceLink.split('#');
-        const referencedPagePath = window.resolveWorkspacePath(pathPart);
+        const referencedPagePath = this.BAPI_WD.resolveWorkspacePath(pathPart);
 
         // 如果保存的页面正是当前引用的页面，则重新加载
         if (savedPath === referencedPagePath) {
@@ -203,15 +203,15 @@ class QuoteBlock extends Block {
 
     showReferencePicker(targetElement) {
         // Uses a new, custom popover defined in main.js
-        this.editor.popoverManager.showReference({
-            targetElement: targetElement,
-            existingValue: this.properties.referenceLink,
-            callback: (value) => {
+        this.BAPI_PE.popoverManager.showReference(
+            targetElement,
+            this.properties.referenceLink,
+            (value) => {
                 this.properties.referenceLink = value;
-                this.editor.emitChange(true, 'set-quote-reference', this);
+                this.BAPI_PE.emitChange(true, 'set-quote-reference', this);
                 this._renderContent(); // Re-render to fetch new content
             }
-        });
+        );
     }
     
     toggleStyle() {
@@ -219,20 +219,20 @@ class QuoteBlock extends Block {
         if (this.contentElement) {
             this.contentElement.dataset.style = this.properties.style;
         }
-        this.editor.emitChange(true, 'toggle-quote-style', this);
+        this.BAPI_PE.emitChange(true, 'toggle-quote-style', this);
     }
 
     showClickLinkPicker(targetElement) {
         // Reuses the standard link popover
-        this.editor.popoverManager.showLink({
-            targetElement: targetElement,
-            existingValue: this.properties.clickLink,
-            callback: (value) => {
+        this.BAPI_PE.popoverManager.showLink(
+            targetElement,
+            this.properties.clickLink,
+            (value) => {
                 this.properties.clickLink = value;
-                this.editor.emitChange(true, 'set-quote-click-link', this);
+                this.BAPI_PE.emitChange(true, 'set-quote-click-link', this);
                 // No need to re-render, as the link is only applied on export/preview
             }
-        });
+        );
     }
 
     // This block is not directly editable
@@ -258,7 +258,7 @@ class QuoteBlock extends Block {
         
             if (cachedBlockData && Array.isArray(cachedBlockData)) {
                 // The cache contains raw block data, so we must render it.
-                const blockInstances = cachedBlockData.map(data => this.editor.createBlockInstance(data)).filter(Boolean);
+                const blockInstances = cachedBlockData.map(data => this.BAPI_PE.createBlockInstance(data)).filter(Boolean);
                 
                 blockInstances.forEach(instance => {
                     const renderedEl = instance.render(); // This creates the full block element with controls
@@ -290,3 +290,5 @@ class QuoteBlock extends Block {
         return blockElement;
     }
 }
+
+window['registerBlock'](QuoteBlock);

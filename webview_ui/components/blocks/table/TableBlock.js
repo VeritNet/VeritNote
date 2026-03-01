@@ -72,7 +72,7 @@ class TableBlock extends Block {
                 for (let j = 0; j < 2; j++) {
                     cells.push({ type: 'tableCell', children: [] });
                 }
-                const row = this.editor.createBlockInstance({ type: 'tableRow', children: cells });
+                const row = this.BAPI_PE.createBlockInstance({ type: 'tableRow', children: cells });
                 this.children.push(row);
             }
         }
@@ -262,17 +262,17 @@ class TableBlock extends Block {
         for (let i = 0; i < colCount; i++) {
             cells.push({ type: 'tableCell', children: [] });
         }
-        const newRow = this.editor.createBlockInstance({ type: 'tableRow', children: cells });
+        const newRow = this.BAPI_PE.createBlockInstance({ type: 'tableRow', children: cells });
         this.children.push(newRow);
-        this.editor.render(); // 结构变化较大，完全重绘
-        this.editor.emitChange(true, 'add-table-row', this);
+        this._reRenderSelf(); // 结构变化较大，完全重绘
+        this.BAPI_PE.emitChange(true, 'add-table-row', this);
     }
 
     deleteRow(rowIndex) {
         if (this.children.length > 1) {
             this.children.splice(rowIndex, 1);
-            this.editor.render();
-            this.editor.emitChange(true, 'delete-table-row', this);
+            this._reRenderSelf();
+            this.BAPI_PE.emitChange(true, 'delete-table-row', this);
         }
     }
 
@@ -286,12 +286,12 @@ class TableBlock extends Block {
 
         // 为每一行添加一个新单元格
         this.children.forEach(row => {
-            const newCell = this.editor.createBlockInstance({ type: 'tableCell', children: [] });
+            const newCell = this.BAPI_PE.createBlockInstance({ type: 'tableCell', children: [] });
             row.children.push(newCell);
         });
 
-        this.editor.render();
-        this.editor.emitChange(true, 'add-table-column', this);
+        this._reRenderSelf();
+        this.BAPI_PE.emitChange(true, 'add-table-column', this);
     }
 
     deleteColumn(colIndex) {
@@ -308,8 +308,8 @@ class TableBlock extends Block {
             const remainingWidth = this.properties.colWidths.reduce((sum, w) => sum + w, 0);
             this.properties.colWidths = this.properties.colWidths.map(w => (w / remainingWidth) * newTotalWidth);
 
-            this.editor.render();
-            this.editor.emitChange(true, 'delete-table-column', this);
+            this._reRenderSelf();
+            this.BAPI_PE.emitChange(true, 'delete-table-column', this);
         }
     }
 
@@ -345,10 +345,14 @@ class TableBlock extends Block {
         const onMouseUp = () => {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
-            this.editor.emitChange(true, 'resize-table-column', this);
+            this.BAPI_PE.emitChange(true, 'resize-table-column', this);
         };
 
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
     }
 }
+
+window['registerBlock'](TableCellBlock);
+window['registerBlock'](TableRowBlock);
+window['registerBlock'](TableBlock);

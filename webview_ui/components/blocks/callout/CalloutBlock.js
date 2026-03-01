@@ -13,7 +13,7 @@ class CalloutBlock extends Block {
         // *** FIX: Use this.children, which is guaranteed to be an array by the Block constructor. ***
         // This logic is correct: a new, empty callout should have a paragraph to type in.
         if (this.children.length === 0) {
-            const newParagraph = this.editor.createBlockInstance({ type: 'paragraph', content: '' });
+            const newParagraph = this.BAPI_PE.createBlockInstance({ type: 'paragraph', content: '' });
             this.children.push(newParagraph);
             // Manually set the parent since it's created after the initial parent assignment
             newParagraph.parent = this;
@@ -93,3 +93,5 @@ class CalloutBlock extends Block {
         return buttons;
     }
 }
+
+window['registerBlock'](CalloutBlock);

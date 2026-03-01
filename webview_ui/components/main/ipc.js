@@ -2,11 +2,11 @@
 const ipc = {
     // 向 C++ 后端发送消息
     send: (action, payload = {}) => {
-        // [修改] 在 Android 上，我们使用 JS Bridge
+        console.log("IPC: Sending message to C++:", { action, payload });
         if (window.AndroidBridge && window.AndroidBridge.postMessage) {
-            window.AndroidBridge.postMessage(JSON.stringify({ action, payload }));
+            window.AndroidBridge.postMessage(JSON.stringify({ "action": action, "payload": payload }));
         } else if (window.chrome && window.chrome.webview) {
-            window.chrome.webview.postMessage({ action, payload });
+            window.chrome.webview.postMessage({ "action": action, "payload": payload });
         } else {
             console.warn("WebView environment not detected. Message not sent:", { action, payload });
         }
@@ -27,6 +27,7 @@ const ipc = {
         window.chrome.webview.messageHandler = (jsonString) => {
             try {
                 const message = JSON.parse(jsonString);
+                console.log("IPC: Received message from C++:" + message);
                 ipc.messageHandler(message);
             } catch (e) {
                 console.error("Failed to parse message from C++:", jsonString, e);
@@ -35,17 +36,8 @@ const ipc = {
     },
     // 统一的消息处理逻辑
     messageHandler: (message) => {
-        const callbackId = message.payload?.callbackId;
-
-        if (callbackId !== undefined && ipc._callbacks.has(Number(callbackId))) {
-            const numericId = Number(callbackId);
-            const resolve = ipc._callbacks.get(numericId);
-            resolve(message.payload);
-            ipc._callbacks.delete(numericId);
-        } else {
-            const customEvent = new CustomEvent(message.action, { detail: message });
-            window.dispatchEvent(customEvent);
-        }
+        const customEvent = new CustomEvent(message.action, { detail: message });
+        window.dispatchEvent(customEvent);
     },
 
 
@@ -60,15 +52,15 @@ const ipc = {
         ipc.send('loadPage', { path, fromPreview, blockIdToFocus });
     },
     savePage: (path, blocks, config) => {
-        ipc.send('savePage', { path, blocks, config });
+        ipc.send('savePage', { 'path': path, 'blocks': blocks, 'config': config });
     },
 
     // Data
     loadData: (path) => {
-        ipc.send('loadData', { path });
+        ipc.send('loadData', { 'path': path });
     },
     saveData: (path, content) => {
-        ipc.send('saveData', { path, content });
+        ipc.send('saveData', { 'path': path, 'content': content });
     },
 
 
@@ -76,13 +68,13 @@ const ipc = {
         ipc.send('exportPages');
     },
     exportPageAsHtml: (path, html) => {
-        ipc.send('exportPageAsHtml', { path, html });
+        ipc.send('exportPageAsHtml', { 'path': path, 'html': html });
     },
     createItem: (parentPath, name, type) => {
-        ipc.send('createItem', { parentPath, name, type });
+        ipc.send('createItem', { 'parentPath': parentPath, 'name': name, 'type': type });
     },
     deleteItem: (path) => {
-        ipc.send('deleteItem', { path });
+        ipc.send('deleteItem', { 'path': path });
     },
 
     openFileDialog: () => {
@@ -90,26 +82,26 @@ const ipc = {
     },
 
     prepareExportLibs: (libPaths) => {
-        ipc.send('prepareExportLibs', { paths: libPaths });
+        ipc.send('prepareExportLibs', { 'paths': libPaths });
     },
 
     processExportImages: (tasks) => {
-        ipc.send('processExportImages', { tasks });
+        ipc.send('processExportImages', { 'tasks': tasks });
     },
 
     fetchQuoteContent: (requestIdentifier, referenceLink) => {
-        ipc.send('fetchQuoteContent', { quoteBlockId: requestIdentifier, referenceLink });
+        ipc.send('fetchQuoteContent', { 'quoteBlockId': requestIdentifier, 'referenceLink': referenceLink });
     },
 
     fetchDataContent: (requestIdentifier, path) => {
-        ipc.send('fetchDataContent', { dataBlockId: requestIdentifier, path });
+        ipc.send('fetchDataContent', { 'dataBlockId': requestIdentifier, 'path': path });
     },
 
     openWorkspaceDialog: () => {
         return new Promise((resolve) => {
             const handleDialogClose = (event) => {
                 window.removeEventListener('workspaceDialogClosed', handleDialogClose);
-                resolve(event.detail.payload.path); // 返回选择的路径
+                resolve(event.detail['payload']['path']); // 返回选择的路径
             };
             
             window.addEventListener('workspaceDialogClosed', handleDialogClose, { once: true });
@@ -117,10 +109,10 @@ const ipc = {
             ipc.send('openWorkspaceDialog');
         });
     },
-    openWorkspace: (path) => ipc.send('openWorkspace', { path }),
+    openWorkspace: (path) => ipc.send('openWorkspace', { 'path': path }),
     goToDashboard: () => ipc.send('goToDashboard'),
     toggleFullscreen: () => ipc.send('toggleFullscreen'),
-    setWorkspace: (path) => ipc.send('setWorkspace', path),
+    setWorkspace: (path) => ipc.send('setWorkspace', { 'path': path }),
 
     minimizeWindow: () => ipc.send('minimizeWindow'),
     maximizeWindow: () => ipc.send('maximizeWindow'),
@@ -128,23 +120,23 @@ const ipc = {
     startWindowDrag: () => ipc.send('startWindowDrag'),
     checkWindowState: () => ipc.send('checkWindowState'),
 
-    // --- NEW: Promise-based wrappers for new C++ functions ---
-    _callbacks: new Map(),
-    _nextCallbackId: 0,
-
-    _sendRequest: function(action, payload) {
-        return new Promise((resolve) => {
-            const callbackId = this._nextCallbackId++;
-            this._callbacks.set(callbackId, resolve);
-            this.send(action, { ...payload, callbackId });
-        });
-    },
-
     ensureWorkspaceConfigs: () => ipc.send('ensureWorkspaceConfigs'),
-    readConfigFile: (path) => ipc._sendRequest('readConfigFile', { path }),
-    writeConfigFile: (path, data) => ipc.send('writeConfigFile', { path, data }),
-    resolveFileConfiguration: (path) => ipc._sendRequest('resolveFileConfiguration', { path }),
+    readConfigFile: (path) => ipc.send('readConfigFile', { 'path': path }),
+    writeConfigFile: (path, data) => ipc.send('writeConfigFile', { 'path': path, 'data': data }),
+    resolveFileConfiguration: (path) => ipc.send('resolveFileConfiguration', { 'path': path }),
 };
 
 // 立即初始化监听器
 ipc.init();
+
+
+// --- Block API from IPC (BAPI_IPC)
+window['BAPI_IPC'] = {
+    // IPC Functions
+    ['fetchQuoteContent']: (requestIdentifier, referenceLink) => {
+        return ipc.fetchQuoteContent(requestIdentifier, referenceLink);
+    },
+    ['fetchDataContent']: (requestIdentifier, path) => {
+        return ipc.fetchDataContent(requestIdentifier, path);
+    }
+};

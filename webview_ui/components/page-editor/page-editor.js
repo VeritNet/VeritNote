@@ -14,7 +14,6 @@ class PageEditor {
         this.isReady = false; // Flag to check if HTML content is loaded
         
         // --- Core Editor State (from old Editor class) ---
-        this.blockRegistry = new Map();
         this.blocks = [];
         this.history = new PageHistoryManager(this);
         this.activeCommandBlock = null;
@@ -37,6 +36,67 @@ class PageEditor {
     }
 
     // --- ========================================================== ---
+    // --- 0. Block API from Page Editor (BAPI_PE)
+    // --- ========================================================== ---
+    ['BAPI_PE'] = {
+        // Page Editor Functions
+        ['_populateToolbar']: (blockInstance) => {
+            return this._populateToolbar(blockInstance);
+        },
+        ['_findBlockToFocusAfterTextBlockDeleted']: (id) => {
+            return this._findBlockToFocusAfterTextBlockDeleted(id);
+        },
+        ['updateDetailsPanel']: () => {
+            return this.updateDetailsPanel();
+        },
+        ['insertNewBlockAfter']: (targetBlock, type = 'paragraph') => {
+            return this.insertNewBlockAfter(targetBlock, type);
+        },
+        ['showCommandMenuForBlock']: (blockInstance) => {
+            return this.showCommandMenuForBlock(blockInstance);
+        },
+        ['_handleCommandMenuLifecycle']: (blockInstance) => {
+            return this._handleCommandMenuLifecycle(blockInstance);
+        },
+        ['deleteBlock']: (blockInstance, recordHistory = true) => {
+            return this.deleteBlock(blockInstance, recordHistory);
+        },
+        ['emitChange']: (recordHistory = true, actionType = 'unknown', blockInstance = null) => {
+            return this.emitChange(recordHistory, actionType, blockInstance);
+        },
+        ['createBlockInstance']: (blockData) => {
+            return this.createBlockInstance(blockData);
+        },
+
+        ['popoverManager']: {
+            ['showLink']: (targetElement, existingValue, callback) => {
+                return this.popoverManager.showLink(targetElement, existingValue, callback);
+            },
+            ['showDataFilePicker']: (targetElement, existingValue, callback) => {
+                return this.popoverManager.showDataFilePicker(targetElement, existingValue, callback);
+            },
+            ['showImageSource']: (targetElement, existingValue, callback) => {
+                return this.popoverManager.showImageSource(targetElement, existingValue, callback);
+            },
+            ['showColorPicker']: (targetElement, callback) => {
+                return this.popoverManager.showColorPicker(targetElement, callback);
+            },
+            ['showReference']: (targetElement, existingValue, callback) => {
+                return this.popoverManager.showReference(targetElement, existingValue, callback);
+            },
+            ['showLanguagePicker']: (targetElement, availableLanguages, callback) => {
+                return this.popoverManager.showLanguagePicker(targetElement, availableLanguages, callback);
+            },
+            ['showReferenceDrop']: (targetElement, callback) => {
+                return this.popoverManager.showReferenceDrop(targetElement, callback);
+            }
+        },
+
+        ['quoteContentCache']: this.quoteContentCache
+    }
+
+
+    // --- ========================================================== ---
     // --- 1. Core Lifecycle Methods
     // --- ========================================================== ---
 
@@ -53,7 +113,6 @@ class PageEditor {
         this.PageReferenceManager = new PageReferenceManager(this); 
         this.popoverManager = new PopoverManager(this);
 
-        this._registerAllBlocks();
         this._initListeners();
         this._initUiState();
         
@@ -135,17 +194,22 @@ class PageEditor {
         console.log(`Configuration change detected for: ${this.filePath}. Re-evaluating styles.`);
         
         // 1. Re-resolve the configuration from the backend
-        const resolved = await ipc.resolveFileConfiguration(this.filePath);
-        if (!resolved || !resolved.config) {
-            console.error("Failed to re-resolve configuration for", this.filePath);
-            return;
-        }
-
-        // 2. Compute the final config with defaults filled in
-        const newComputedConfig = window.computeFinalConfig(resolved.config);
-
-        // 3. Apply the new configuration to the UI
-        this.applyConfiguration(newComputedConfig);
+        ipc.resolveFileConfiguration(this.filePath);
+        const fileConfigurationResolvedHandler = (e) => {
+            const payload = e['detail']['payload'];
+            if (payload.path === this.filePath) {
+                if (payload.config) {
+                    // 2. Compute the final config with defaults filled in
+                    const newComputedConfig = window.computeFinalConfig(payload.config);
+                    // 3. Apply the new configuration to the UI
+                    this.applyConfiguration(newComputedConfig);
+                } else {
+                    console.error("Failed to re-resolve configuration for", this.filePath);
+                }
+                window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler); // 移除监听器，防止多次触发
+            }
+        };
+        window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
     }
     
     // Method for main.js to call when saving config from modal
@@ -358,8 +422,8 @@ class PageEditor {
     }
     
     _initUiState() {
-        this.setRightSidebarCollapsed(localStorage.getItem('veritnote_right_sidebar_collapsed') === 'true');
-        this.setToolbarCollapsed(localStorage.getItem('veritnote_toolbar_collapsed') === 'true');
+        this.setRightSidebarCollapsed(window.localStorage.getItem('veritnote_right_sidebar_collapsed') === 'true');
+        this.setToolbarCollapsed(window.localStorage.getItem('veritnote_toolbar_collapsed') === 'true');
     }
     
     _initGlobalEventListeners() {
@@ -432,51 +496,13 @@ class PageEditor {
     // --- ========================================================== ---
     // --- 3. Block Management (from old Editor class)
     // --- ========================================================== ---
-
-    _registerAllBlocks() {
-        const ALL_BLOCK_CLASSES = [
-            ParagraphBlock,
-            Heading1Block,
-            Heading2Block,
-            ImageBlock,
-            LinkButtonBlock,
-            CalloutBlock,
-            ColumnsBlock,
-            ColumnBlock,
-            CodeBlock,
-            BulletedListItemBlock,
-            TodoListItemBlock,
-            NumberedListItemBlock,
-            ToggleListItemBlock,
-            QuoteBlock,
-            TableBlock,
-            TableRowBlock,
-            TableCellBlock,
-            TableViewBlock
-        ];
-        
-        ALL_BLOCK_CLASSES.forEach(blockClass => this.registerBlock(blockClass));
-    }
-
-    /**
-     * Registers a Block class so the editor knows how to create it.
-     * @param {typeof Block} blockClass - The class constructor of the block to register.
-     */
-    registerBlock(blockClass) {
-        if (blockClass.type) {
-            this.blockRegistry.set(blockClass.type, blockClass);
-        } else {
-            console.error("Block class is missing a static 'type' property and cannot be registered.", blockClass);
-        }
-    }
-
     /**
      * Creates an instance of a registered block.
      * @param {object} blockData - The data for the block (type, id, etc.).
      * @returns {Block | null} An instance of the corresponding Block class.
      */
     createBlockInstance(blockData) {
-        const BlockClass = this.blockRegistry.get(blockData.type);
+        const BlockClass = window['blockRegistry'].get(blockData.type);
         if (BlockClass) {
             return new BlockClass(blockData, this);
         }
@@ -540,8 +566,7 @@ class PageEditor {
                 const parentData = parentToUpdate.data;
                 window.dispatchEvent(new CustomEvent('block:updated', {
                     detail: {
-                        filePath: this.filePath,
-                        blockData: parentData
+                        ['blockData']: parentData
                     }
                 }));
                 const grandParentInfo = this._findBlockInstanceById(this.blocks, parentToUpdate.id);
@@ -620,6 +645,8 @@ class PageEditor {
         
         newBlockInstance.focus();
         this.emitChange(true, 'insert-block');
+
+        return newBlockInstance;
     }
 
     // --- ========================================================== ---
@@ -719,8 +746,7 @@ class PageEditor {
 
                 window.dispatchEvent(new CustomEvent('block:updated', {
                     detail: {
-                        filePath: this.filePath,
-                        blockData: currentBlockData
+                        ['blockData']: currentBlockData
                     }
                 }));
 
@@ -825,7 +851,7 @@ class PageEditor {
         if (link) {
             e.preventDefault(); // 阻止 a[href="#"] 的默认跳转行为
 
-            const internalLink = link.dataset.internalLink;
+            const internalLink = link.dataset['internalLink'];
             if (!internalLink) return;
 
             // 1. 将链接分割为文件路径和可能的块ID（哈希部分）
@@ -901,7 +927,7 @@ class PageEditor {
 
     // --- Global Keydown Handler ---
     onKeyDown(e) {
-        const activeTab = tabManager.getActiveTab();
+        const activeTab = this.tabManager.getActiveTab();
         if (!activeTab) return;
         const activeEditor = activeTab.editor;
     
@@ -1094,10 +1120,10 @@ class PageEditor {
     _getFilteredCommands(searchTerm) {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
         const filteredCommands = [];
-        this.blockRegistry.forEach(BlockClass => {
+        window['blockRegistry'].forEach(BlockClass => {
             if (BlockClass.canBeToggled) {
                 const match = BlockClass.label.toLowerCase().includes(lowerCaseSearchTerm) ||
-                              BlockClass.keywords.some(k => k.toLowerCase().startsWith(lowerCaseSearchTerm));
+                    BlockClass.keywords.some(k => k.toLowerCase().startsWith(lowerCaseSearchTerm));
                 if (match) {
                     filteredCommands.push({
                         type: BlockClass.type,
@@ -1934,12 +1960,12 @@ class PageEditor {
         popoverAnchor.style.height = '1px';
         this.container.appendChild(popoverAnchor);
 
-        this.popoverManager.showReferenceDrop({
-            targetElement: popoverAnchor,
-            callback: (action) => {
+        this.popoverManager.showReferenceDrop(
+            popoverAnchor,
+            (action) => {
                 this._executeReferenceDropAction(action, refData, targetBlockInfo, position);
             }
-        });
+        );
 
         // --- The global mousedown listener in main.js will call hidePopover.
         // We just need to ensure hidePopover knows about our anchor. ---
@@ -2250,25 +2276,25 @@ class PageEditor {
             
             case 'colorPicker':
                 this.richTextEditingState = { isActive: true, blockId: blockInstance.id, savedRange: this.currentSelection };
-                this.popoverManager.showColorPicker({
-                    targetElement: button,
-                    callback: (color) => {
+                this.popoverManager.showColorPicker(
+                    button,
+                    (color) => {
                         document.execCommand('styleWithCSS', false, true);
                         forceRestoreAndExecute('foreColor', color);
                         document.execCommand('styleWithCSS', false, false);
                     }
-                });
+                );
                 break;
 
             case 'link':
                 this.richTextEditingState = { isActive: true, blockId: blockInstance.id, savedRange: this.currentSelection };
-                this.popoverManager.showLink({
-                    targetElement: button,
-                    existingValue: this.currentSelection?.commonAncestorContainer.parentNode.href || '',
-                    callback: (value) => {
+                this.popoverManager.showLink(
+                    button,
+                    this.currentSelection?.commonAncestorContainer.parentNode.href || '',
+                    (value) => {
                         forceRestoreAndExecute(value ? 'createLink' : 'unlink', value || undefined);
                     }
-                });
+                );
                 break;
 
             case 'showDetails':
@@ -2584,7 +2610,7 @@ class PageEditor {
             };
 
             const onMouseUp = () => {
-                localStorage.setItem('veritnote_right_sidebar_width', this.elements.rightSidebar.style.width);
+                window.localStorage.setItem('veritnote_right_sidebar_width', this.elements.rightSidebar.style.width);
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
             };
@@ -2594,7 +2620,7 @@ class PageEditor {
         });
 
         // Restore saved width on init
-        const savedRightWidth = localStorage.getItem('veritnote_right_sidebar_width');
+        const savedRightWidth = window.localStorage.getItem('veritnote_right_sidebar_width');
         if (savedRightWidth) {
             this.elements.rightSidebar.style.width = savedRightWidth;
         }
@@ -2653,15 +2679,15 @@ class PageEditor {
         
         if (collapsed) {
             appContainer.classList.add('right-sidebar-collapsed');
-            localStorage.setItem('veritnote_right_sidebar_collapsed', 'true');
+            window.localStorage.setItem('veritnote_right_sidebar_collapsed', 'true');
             if (buttonText) buttonText.textContent = 'Expand';
             this.elements.rightSidebarToggleBtn.title = 'Expand right sidebar';
             if (buttonSvg) buttonSvg.innerHTML = `<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><polyline points="14 16 9 12 14 8"></polyline>`;
         } else {
             appContainer.classList.remove('right-sidebar-collapsed');
             appContainer.classList.remove('right-sidebar-peek'); // Always remove peek on expand
-            localStorage.setItem('veritnote_right_sidebar_collapsed', 'false');
-            this.elements.rightSidebar.style.width = localStorage.getItem('veritnote_right_sidebar_width') || '280px';
+            window.localStorage.setItem('veritnote_right_sidebar_collapsed', 'false');
+            this.elements.rightSidebar.style.width = window.localStorage.getItem('veritnote_right_sidebar_width') || '280px';
             if (buttonText) buttonText.textContent = 'Collapse';
             this.elements.rightSidebarToggleBtn.title = 'Collapse right sidebar';
             if (buttonSvg) buttonSvg.innerHTML = `<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><polyline points="10 8 15 12 10 16"></polyline>`;
@@ -2674,8 +2700,8 @@ class PageEditor {
      */
     switchRightSidebarView(viewName) {
         const views = {
-            references: this.elements.referencesView,
-            details: this.elements.detailsView
+            'references': this.elements.referencesView,
+            'details': this.elements.detailsView
         };
         const slider = this.elements.rightSidebarViewToggle.querySelector('.rs-view-slider');
         const optionToActivate = this.elements.rightSidebarViewToggle.querySelector(`.rs-view-option[data-view="${viewName}"]`);
@@ -2782,11 +2808,11 @@ class PageEditor {
 
         if (collapsed) {
             mainContentEl.classList.add('toolbar-collapsed');
-            localStorage.setItem('veritnote_toolbar_collapsed', 'true');
+            window.localStorage.setItem('veritnote_toolbar_collapsed', 'true');
             this.elements.toggleToolbarBtn.title = 'Expand Toolbar';
         } else {
             mainContentEl.classList.remove('toolbar-collapsed');
-            localStorage.setItem('veritnote_toolbar_collapsed', 'false');
+            window.localStorage.setItem('veritnote_toolbar_collapsed', 'false');
             this.elements.toggleToolbarBtn.title = 'Collapse Toolbar';
             // Also remove peek class on expand
             if (mainContentEl.classList.contains('toolbar-peek')) {
@@ -2873,6 +2899,16 @@ class PageEditor {
         return null;
     }
 
+    _findBlockToFocusAfterTextBlockDeleted(id) {
+        const info = this._findBlockInstanceAndParent(id);
+        let blockToFocus = null;
+        if (info) {
+            // 尝试找到前一个兄弟节点，如果找不到，就找父节点
+            blockToFocus = info.parentArray[info.index - 1] || info.parentInstance;
+        }
+        return blockToFocus;
+    };
+
     _findBlockInstanceAndParent(id, rootBlocks = this.blocks, parent = null) {
         for (let i = 0; i < rootBlocks.length; i++) {
             const block = rootBlocks[i];
@@ -2887,7 +2923,7 @@ class PageEditor {
             }
         }
         return null;
-    }
+    };
 
     _generateUUID() {
         return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
@@ -2923,24 +2959,8 @@ class PageEditor {
             pathPrefix = './'
         } = exportContext;
 
-        // --- Step 1: Create a Clean DOM from Data ---
-        // We build a fresh DOM tree from our canonical block data, ensuring no editor-specific artifacts
-        // (like event listeners or temporary classes) are included from the start.
-        const cleanContainer = document.createElement('div');
-        // Create a temporary, lightweight editor instance solely for rendering.
-        const tempEditor = new PageEditor(cleanContainer, this.filePath, null);
-
-        tempEditor.quoteContentCache = quoteContentCache; 
-
-        tempEditor.elements.editorAreaContainer = document.createElement('div');
-        tempEditor.elements.editorAreaContainer.id = 'editor-area-container';
-        tempEditor.elements.editorAreaContainer.className = 'editor-view';
-        cleanContainer.appendChild(tempEditor.elements.editorAreaContainer);
-
-        tempEditor._registerAllBlocks();
-        // Use a helper to load data and render without the full initialization lifecycle.
-        await tempEditor.loadContentForRender(this.getBlocksForSaving());
-        const renderedContainer = tempEditor.elements.editorAreaContainer;
+        // --- 核心修复：直接克隆当前编辑器的容器 DOM，杜绝创建多余实例 ---
+        const renderedContainer = this.elements.editorAreaContainer.cloneNode(true);
 
         // --- Step 2: Perform Universal Cleanup ---
         renderedContainer.querySelectorAll('.block-controls, .column-resizer, .drop-indicator, .drop-indicator-vertical, .quadrant-overlay, .table-controls-top, .table-controls-left, .table-add-col-btn, .table-add-row-btn').forEach(el => el.remove());
@@ -2952,110 +2972,92 @@ class PageEditor {
         renderedContainer.querySelectorAll('.toolbar-active, .vn-active, .is-highlighted').forEach(el => {
             el.classList.remove('toolbar-active', 'vn-active', 'is-highlighted');
         });
+
         if (isForExport && options.disableDrag) {
             renderedContainer.querySelectorAll('[draggable="true"]').forEach(el => el.removeAttribute('draggable'));
         }
 
         // --- Step 3: Delegate to Each Block for Specific Export Modifications ---
-        // Find all rendered block containers in the clean DOM.
         const allBlockElements = Array.from(renderedContainer.querySelectorAll('.block-container'));
         for (const blockEl of allBlockElements) {
             const blockId = blockEl.dataset.id;
             const blockInstance = this._findBlockInstanceById(this.blocks, blockId)?.block;
-            
+
             if (blockInstance && typeof blockInstance.getExportHtml === 'function') {
-                // blockInstance.getExportHtml 可能会创建新的 <a> 标签
                 await blockInstance.getExportHtml(blockEl, options, imageSrcMap, pathPrefix, quoteContentCache);
             }
         }
 
         // 收集所有块的自定义 CSS
         let allCustomCSS = '';
-
-        // 定义递归收集函数，因为块可能有子块（如分栏、引用）
         const collectCSSRecursive = (blocks) => {
             if (!blocks) return;
             blocks.forEach(block => {
-                // 调用刚刚在 Block.js 里写的新方法
                 if (typeof block.getCustomCSSString === 'function') {
                     allCustomCSS += block.getCustomCSSString();
                 }
-                // 递归子块
                 if (block.children && block.children.length > 0) {
                     collectCSSRecursive(block.children);
                 }
             });
         };
-
-        // 从临时编辑器的块列表中收集（因为它们拥有完整的数据）
-        collectCSSRecursive(tempEditor.blocks);
+        collectCSSRecursive(this.blocks);
 
         // --- Step 4: Universally Process All Links ---
-        // This must be done before delegating to blocks, so blocks receive already-processed links.
         renderedContainer.querySelectorAll('a').forEach(el => {
             let href = el.getAttribute('href');
             if (!href) return;
-            
-            // 检查是否是内部链接
+
             if (href.includes('.veritnote')) {
                 if (isForExport) {
-                    // 最终导出：转换为 .html
-                    const normalizedHref = href.replace(/\\/g, '/');
-                    let [pathPart, hashPart] = normalizedHref.split('#');
+                    let [pathPart, hashPart] = href.split('#');
                     hashPart = hashPart ? '#' + hashPart : '';
-                    const relativeHtmlPath = pathPart.replace('.veritnote', '.html');
-                    el.setAttribute('href', pathPrefix + relativeHtmlPath + hashPart);
-                } else { 
-                    // 应用内预览：转换为可点击的 data-internal-link
+
+                    // 如果是链接到当前页面的 Block
+                    if (pathPart === this.filePath) {
+                        el.setAttribute('href', hashPart);
+                    } else {
+                        // 跨页面链接，转换为相对 .html 路径
+                        const normalizedHref = pathPart.replace(/\\/g, '/');
+                        const relativeHtmlPath = normalizedHref.replace('.veritnote', '.html');
+                        el.setAttribute('href', pathPrefix + relativeHtmlPath + hashPart);
+                    }
+                } else {
                     el.setAttribute('href', '#');
                     el.setAttribute('data-internal-link', href);
                     el.classList.add('internal-link');
                 }
             }
-            // 外部链接
         });
 
         //----------------------
         let finalHtml = renderedContainer.innerHTML;
 
         // --- Step 5 (Export Only): Collect and Inject Block-Specific Scripts ---
-        // This is the old logic for highlight.js which is now also handled by a block's getExportScripts.
         if (isForExport) {
             if (allCustomCSS) {
-                // 将所有样式包裹在 <style> 标签中，并放在最前面
                 finalHtml = `<style>\n/* VeritNote Custom CSS */\n${allCustomCSS}\n</style>\n` + finalHtml;
             }
 
             const scriptModules = new Set();
-        
-            // This function traverses the entire block tree to find all unique block types
-            // and collect their required export scripts.
             const collectScriptsRecursive = (blocks) => {
                 if (!blocks) return;
                 blocks.forEach(block => {
                     const BlockClass = block.constructor;
                     if (typeof BlockClass.getExportScripts === 'function') {
                         const script = BlockClass.getExportScripts();
-                        if (script) {
-                            scriptModules.add(script.trim());
-                        }
+                        if (script) scriptModules.add(script.trim());
                     }
-                    // Recurse into children
-                    if (block.children && block.children.length > 0) {
-                        collectScriptsRecursive(block.children);
-                    }
+                    if (block.children && block.children.length > 0) collectScriptsRecursive(block.children);
                 });
             };
-        
-            // Start the recursive collection from the root blocks
             collectScriptsRecursive(this.blocks);
-        
+
             if (scriptModules.size > 0) {
                 const finalScript = Array.from(scriptModules).join('\n\n');
                 finalHtml += `<script>document.addEventListener('DOMContentLoaded', () => { \n${finalScript}\n });<\/script>`;
             }
-        
-            // Add the highlight-on-hash-change script (this is a universal feature for any exported page with blocks)
+
             const highlightScript = `
                 function highlightBlockFromHash() {
                     try {
@@ -3084,7 +3086,7 @@ class PageEditor {
             `;
             finalHtml += `<script>document.addEventListener('DOMContentLoaded', () => { \n${highlightScript}\n });<\/script>`;
         }
-        
+
         return finalHtml;
     }
     
@@ -3102,7 +3104,6 @@ class PageEditor {
             this.elements.editorAreaContainer.id = 'editor-area-container';
             this.elements.editorAreaContainer.className = 'editor-view';
             this.container.appendChild(this.elements.editorAreaContainer);
-            this._registerAllBlocks();
         }
 
         this.blocks = blockDataList.map(data => this.createBlockInstance(data)).filter(Boolean);
@@ -3264,14 +3265,14 @@ class PageReferenceManager {
         }
     
         // 检查这个块是否确实存在于引用列表中
-        const refExists = globalState.references.some(
+        const refExists = window.globalState.references.some(
             // 也对数组中的项进行安全检查
             r => r && r.blockData && r.blockData.id === updatedBlockData.id
         );
 
         if (refExists) {
             // 如果存在，则调用全局函数来更新它
-            updateGlobalReferenceData(updatedBlockData);
+            window.updateGlobalReferenceData(updatedBlockData);
         }
     }
 
@@ -3333,10 +3334,10 @@ class PageReferenceManager {
             this.container.querySelectorAll('.reference-item').forEach(itemEl => {
                 const blockId = itemEl.dataset.blockId;
                 // 从全局状态中查找
-                const refObject = globalState.references.find(r => r.blockData.id === blockId);
+                const refObject = window.globalState.references.find(r => r.blockData.id === blockId);
                 if (refObject) { newReferences.push(refObject); }
             });
-            updateGlobalReferences(newReferences); // 调用全局更新函数
+            window.updateGlobalReferences(newReferences); // 调用全局更新函数
             return;
         }
 
@@ -3353,7 +3354,7 @@ class PageReferenceManager {
 
         if (blockIdsToAdd.length > 0) {
             blockIdsToAdd.forEach(blockId => {
-                if (globalState.references.some(ref => ref.blockData.id === blockId)) {
+                if (window.globalState.references.some(ref => ref.blockData.id === blockId)) {
                     return;
                 }
                 
@@ -3373,7 +3374,7 @@ class PageReferenceManager {
             const blockId = item.dataset.blockId;
             
             // 将 this.references 改为 globalState.references
-            const refData = globalState.references.find(r => r.blockData.id === blockId);
+            const refData = window.globalState.references.find(r => r.blockData.id === blockId);
     
             if (refData) {
                 e.dataTransfer.setData('application/veritnote-reference-item', JSON.stringify(refData));
@@ -3407,7 +3408,7 @@ class PageReferenceManager {
             const itemEl = e.target.closest('.reference-item');
             if (itemEl && this.linkingCallback) {
                 const blockId = itemEl.dataset.blockId;
-                const refData = globalState.references.find(r => r.blockData.id === blockId);
+                const refData = window.globalState.references.find(r => r.blockData.id === blockId);
                 if (refData) { this.linkingCallback(refData); }
             }
             return;
@@ -3424,7 +3425,7 @@ class PageReferenceManager {
         const itemEl = e.target.closest('.reference-item');
         if (itemEl) {
             const blockId = itemEl.dataset.blockId;
-            const refData = globalState.references.find(r => r.blockData.id === blockId);
+            const refData = window.globalState.references.find(r => r.blockData.id === blockId);
 
             if (refData) {
                 // Check if the reference is in the current file
@@ -3444,11 +3445,11 @@ class PageReferenceManager {
     }
 
     addReference(filePath, blockData) {
-        addGlobalReference(filePath, blockData);
+        window.addGlobalReference(filePath, blockData);
     }
 
     removeReference(blockId) {
-        removeGlobalReference(blockId);
+        window.removeGlobalReference(blockId);
     }
 
     render() {
@@ -3457,15 +3458,14 @@ class PageReferenceManager {
         this.container.appendChild(this.placeholder);
         
         // 直接从全局状态读取数据
-        this.placeholder.style.display = globalState.references.length === 0 ? 'block' : 'none';
-        if (globalState.references.length === 0) return;
+        this.placeholder.style.display = window.globalState.references.length === 0 ? 'block' : 'none';
+        if (window.globalState.references.length === 0) return;
         
         const tempEditorContainer = document.createElement('div');
         const tempEditor = new PageEditor(tempEditorContainer, '', null);
-        tempEditor._registerAllBlocks();
 
         // 遍历全局引用
-        globalState.references.forEach((ref) => {
+        window.globalState.references.forEach((ref) => {
             const fileName = ref.filePath.substring(ref.filePath.lastIndexOf('\\') + 1).replace('.veritnote', '');
             const itemEl = document.createElement('div');
             itemEl.className = 'reference-item';
@@ -3489,13 +3489,13 @@ class PageReferenceManager {
     handleBlockUpdate(filePath, blockData) {
         // 功能 1: 实时同步
         // 1. 更新全局状态中的数据
-        updateGlobalReferenceData(blockData); 
+        window.updateGlobalReferenceData(blockData); 
         
         // 2. 更新当前实例的 DOM (其他实例会通过 block:updated 事件各自更新自己的DOM)
         const itemEl = this.container.querySelector(`.reference-item[data-block-id="${blockData.id}"]`);
         if (itemEl) {
             // filePath 在这里没有变化，所以可以复用
-            const ref = globalState.references.find(r => r.blockData.id === blockData.id);
+            const ref = window.globalState.references.find(r => r.blockData.id === blockData.id);
             if (ref) {
                  this.updateReferenceItemDOM(itemEl, ref);
             }
@@ -3504,10 +3504,10 @@ class PageReferenceManager {
 
     handleBlockDeletion(blockId) {
         // 检查这个块是否在引用列表中
-        const refExists = globalState.references.some(ref => ref.blockData.id === blockId);
+        const refExists = window.globalState.references.some(ref => ref.blockData.id === blockId);
         if (refExists) {
             // 调用全局函数来移除引用并触发事件
-            removeGlobalReference(blockId);
+            window.removeGlobalReference(blockId);
         }
     }
 
@@ -3526,7 +3526,7 @@ class PageReferenceManager {
         let updatedRefs = [];
     
         // 遍历全局引用
-        for (const ref of globalState.references) {
+        for (const ref of window.globalState.references) {
             // 只关心那些来自被修改页面的引用
             if (ref.filePath === filePath) {
                 const updatedBlockData = pageBlocksMap.get(ref.blockData.id);
@@ -3544,14 +3544,14 @@ class PageReferenceManager {
         }
         
         // 如果引用列表的长度或内容发生变化，则触发全局更新
-        if (referencesChanged || JSON.stringify(updatedRefs) !== JSON.stringify(globalState.references)) {
-             updateGlobalReferences(updatedRefs);
+        if (referencesChanged || JSON.stringify(updatedRefs) !== JSON.stringify(window.globalState.references)) {
+             window.updateGlobalReferences(updatedRefs);
         }
     }
     
     handleRevertReferences(filePath) {
         // 功能 2: 恢复到已保存版本
-        const refsToRevert = globalState.references.filter(ref => ref.filePath === filePath);
+        const refsToRevert = window.globalState.references.filter(ref => ref.filePath === filePath);
                 
         if (refsToRevert.length === 0) return;
                 
@@ -3576,7 +3576,7 @@ class PageReferenceManager {
                 refsToRevert.forEach(refToRevert => {
                     const savedBlockData = savedBlocksMap.get(refToRevert.blockData.id);
                     if (savedBlockData) {
-                        const mainRef = globalState.references.find(r => r.blockData.id === refToRevert.blockData.id);
+                        const mainRef = window.globalState.references.find(r => r.blockData.id === refToRevert.blockData.id);
                         if (mainRef) {
                             mainRef.blockData = savedBlockData;
                             changed = true;
@@ -3598,7 +3598,6 @@ class PageReferenceManager {
     updateReferenceItemDOM(itemEl, refData) {
         const tempEditorContainer = document.createElement('div');
         const tempEditor = new PageEditor(tempEditorContainer, '', null);
-        tempEditor._registerAllBlocks();
         
         const blockInstance = tempEditor.createBlockInstance(refData.blockData);
         if (!blockInstance) return;

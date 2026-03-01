@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+﻿window['initializeDashboardComponent'] = () => {
     const searchInput = document.getElementById('search-input');
     const recentList = document.getElementById('recent-list');
     const openWorkspaceBtn = document.getElementById('open-workspace-btn');
@@ -28,7 +28,7 @@
     // --- Data Logic ---
     function getRecentWorkspaces() {
         try {
-            const stored = localStorage.getItem(STORAGE_KEY);
+            const stored = window.localStorage.getItem(STORAGE_KEY);
             return stored ? JSON.parse(stored) : [];
         } catch (e) {
             return [];
@@ -36,7 +36,7 @@
     }
 
     function saveRecentWorkspaces(workspaces) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(workspaces));
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(workspaces));
     }
 
     function addRecentWorkspace(path) {
@@ -148,4 +148,4 @@
 
     // --- Initial Load ---
     renderList();
-});
+};

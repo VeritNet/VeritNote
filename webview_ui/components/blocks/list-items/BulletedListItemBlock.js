@@ -39,7 +39,6 @@ class BulletedListItemBlock extends TextBlock {
         this.textElement.contentEditable = 'true';
         this.textElement.innerHTML = this.content || '';
         this.textElement.dataset.placeholder = this.constructor.placeholder;
-        this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
         this._renderContent();
 
@@ -109,19 +108,30 @@ class BulletedListItemBlock extends TextBlock {
             // 关键：阻止 Enter 键的所有默认行为，包括在文本区内换行
             e.preventDefault(); 
         
-            // 如果按下了 Shift+Enter，我们什么都不做，从而有效地“禁用”换行
             if (e.shiftKey) {
                 return; 
             }
 
             // 如果只按下了 Enter，则创建新的列表项
             this.syncContentFromDOM();
-            this.editor.insertNewBlockAfter(this, 'bulletedListItem');
+            this.BAPI_PE.insertNewBlockAfter(this, 'bulletedListItem');
             return;
         }
 
-        // 2. 对于所有其他按键，执行 TextBlock 的默认行为
-        // 这将正确处理空块删除、字母输入、富文本快捷键等
-        super.onKeyDown(e);
+        if ((e.key === 'Backspace' || e.key === 'Delete') &&
+            (this.textElement.innerHTML === '' || this.textElement.innerHTML === '<br>')) {
+            e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
+            // 找到前一个块，以便删除后聚焦
+            let blockToFocus = this.BAPI_PE._findBlockToFocusAfterTextBlockDeleted(this.id);
+            // 调用编辑器的核心删除方法
+            this.BAPI_PE.deleteBlock(this);
+            // 如果找到了前一个块，就将光标聚焦到它上面
+            if (blockToFocus) {
+                blockToFocus.focus();
+            }
+            return;
+        }
     }
 }
+
+window['registerBlock'](BulletedListItemBlock);

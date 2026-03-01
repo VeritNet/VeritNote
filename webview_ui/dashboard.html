@@ -1,22 +1,21 @@
-﻿﻿
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VeritNote - Welcome</title>
     <script>
-      (function() {
-        const ua = navigator.userAgent.toLowerCase();
-        const html = document.documentElement;
-        if (ua.includes('android')) {
-          window.currentOS = 'android';
-          html.className += ' os-android';
-        } else {
-          window.currentOS = 'windows';
-          html.className += ' os-windows';
-        }
-      })();
+        (function () {
+            const ua = navigator.userAgent.toLowerCase();
+            const html = document.documentElement;
+            if (ua.includes('android')) {
+                window.currentOS = 'android';
+                html.className += ' os-android';
+            } else {
+                window.currentOS = 'windows';
+                html.className += ' os-windows';
+            }
+        })();
     </script>
     <link rel="stylesheet" href="components/dashboard/dashboard.css">
 </head>
@@ -29,7 +28,7 @@
         <!-- 右侧: 窗口控制按钮 -->
         <div id="window-controls">
             <button id="minimize-btn" class="window-control-btn" title="Minimize">
-                <svg xmlns="http://www.w.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
             <button id="maximize-btn" class="window-control-btn" title="Maximize">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
@@ -43,25 +42,30 @@
     <div class="background-noise"></div>
     <div class="main-container">
         <header style="user-select: none;">
+            <!-- 标题保持静止，不加 reveal 类 -->
             <h1>VeritNote</h1>
-            <div class="header-controls">
-                <button id="about-btn" class="icon-btn" title="About VeritNote">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <!-- 增加 reveal 类和延迟变量 --d -->
+            <div class="header-controls reveal" style="--d: 1">
+                <button id="about-btn" class="ea-btn" title="About VeritNote">
+                    <span class="ea-label">Alpha Access</span>
+                    <div class="ea-icon-wrapper">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    </div>
                 </button>
             </div>
         </header>
 
         <section class="content">
-            <h2 style="user-select: none;">Recent Workspaces</h2>
-            <div class="search-bar">
+            <h2 class="reveal" style="user-select: none; --d: 2">Recent Workspaces</h2>
+            <div class="search-bar reveal" style="--d: 3">
                 <input type="text" id="search-input" placeholder="Search recent workspaces...">
             </div>
-            <div id="recent-list" class="recent-list">
+            <div id="recent-list" class="recent-list reveal" style="--d: 4">
                 <!-- Recent workspaces will be dynamically inserted here -->
             </div>
         </section>
 
-        <footer>
+        <footer class="reveal" style="--d: 5">
             <button id="open-workspace-btn" class="primary-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 <span>Open a Workspace</span>
@@ -84,7 +88,16 @@
         </div>
     </div>
 
-    <script src="components/main/ipc.js"></script>
-    <script src="components/dashboard/dashboard.js"></script>
+    <script src="main.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.initializeDashboardComponent) {
+                window.initializeDashboardComponent();
+            } else {
+                console.error("Dashboard component initialization function not found!");
+            }
+        });
+    </script>
 </body>
 </html>

@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
                 val url = request.url
 
                 // [NEW] Handle our special local-file URIs for images
-                val localFilePrefix = "https://veritnote.app/local-file/"
+                val localFilePrefix = "http://veritnote.localhost/local-file/"
                 if (url.toString().startsWith(localFilePrefix)) {
                     try {
                         // Decode the content URI from the URL path

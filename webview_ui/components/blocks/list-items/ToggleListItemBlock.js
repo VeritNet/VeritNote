@@ -63,11 +63,8 @@ class ToggleListItemBlock extends TextBlock {
         this.toggleElement.addEventListener('click', () => {
             this.properties.isCollapsed = !this.properties.isCollapsed;
             this.updateCollapsedStateStyle();
-            this.editor.emitChange(true, 'toggle-collapse', this); // Notify the editor of the change
+            this.BAPI_PE.emitChange(true, 'toggle-collapse', this); // Notify the editor of the change
         });
-
-        // Manually bind onKeyDown to the text area
-        this.textElement.addEventListener('keydown', (e) => this.onKeyDown(e));
 
         return this.element;
     }
@@ -134,12 +131,23 @@ class ToggleListItemBlock extends TextBlock {
             e.preventDefault();
             this.syncContentFromDOM();
             // When Enter is pressed, create a new, expanded toggle list item
-            this.editor.insertNewBlockAfter(this, 'toggleListItem');
+            this.BAPI_PE.insertNewBlockAfter(this, 'toggleListItem');
             return;
         }
         
-        // Reuse TextBlock's logic for deleting empty blocks, etc.
-        super.onKeyDown(e);
+        if ((e.key === 'Backspace' || e.key === 'Delete') &&
+            (this.textElement.innerHTML === '' || this.textElement.innerHTML === '<br>')) {
+            e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
+            // 找到前一个块，以便删除后聚焦
+            let blockToFocus = this.BAPI_PE._findBlockToFocusAfterTextBlockDeleted(this.id);
+            // 调用编辑器的核心删除方法
+            this.BAPI_PE.deleteBlock(this);
+            // 如果找到了前一个块，就将光标聚焦到它上面
+            if (blockToFocus) {
+                blockToFocus.focus();
+            }
+            return;
+        }
     }
 
 
@@ -199,3 +207,5 @@ class ToggleListItemBlock extends TextBlock {
         `;
     }
 }
+
+window['registerBlock'](ToggleListItemBlock);

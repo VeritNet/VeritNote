@@ -17,10 +17,10 @@ const referencesChangedEvent = new CustomEvent('global:referencesChanged');
  */
 window.addGlobalReference = function(filePath, blockData) {
     // 检查是否已存在
-    if (globalState.references.some(ref => ref.blockData.id === blockData.id)) {
+    if (window.globalState.references.some(ref => ref.blockData.id === blockData.id)) {
         return;
     }
-    globalState.references.push({ filePath, blockData });
+    window.globalState.references.push({ filePath, blockData });
     window.dispatchEvent(referencesChangedEvent);
 };
 
@@ -29,9 +29,9 @@ window.addGlobalReference = function(filePath, blockData) {
  * @param {string} blockId - 要移除的块的ID
  */
 window.removeGlobalReference = function(blockId) {
-    const initialLength = globalState.references.length;
-    globalState.references = globalState.references.filter(ref => ref.blockData.id !== blockId);
-    if (globalState.references.length < initialLength) {
+    const initialLength = window.globalState.references.length;
+    window.globalState.references = window.globalState.references.filter(ref => ref.blockData.id !== blockId);
+    if (window.globalState.references.length < initialLength) {
         window.dispatchEvent(referencesChangedEvent);
     }
 };
@@ -41,7 +41,7 @@ window.removeGlobalReference = function(blockId) {
  * @param {Array} newReferencesArray - 新的引用对象数组
  */
 window.updateGlobalReferences = function(newReferencesArray) {
-    globalState.references = newReferencesArray;
+    window.globalState.references = newReferencesArray;
     window.dispatchEvent(referencesChangedEvent);
 };
 
@@ -54,7 +54,7 @@ window.updateGlobalReferenceData = function(updatedBlockData) {
         return;
     }
 
-    const ref = globalState.references.find(r => 
+    const ref = window.globalState.references.find(r => 
         r && r.blockData && r.blockData.id === updatedBlockData.id
     );
 

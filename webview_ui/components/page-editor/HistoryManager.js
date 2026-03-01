@@ -71,7 +71,7 @@ class PageHistoryManager {
         this._applySnapshot(prevState);
 
         this.isUndoingOrRedoing = false;
-        this.editor.emitChange(false); // Emit change, but don't record history
+        this.BAPI_PE.emitChange(false); // Emit change, but don't record history
         // console.log(`Undo. Undo stack: ${this.undoStack.length}, Redo stack: ${this.redoStack.length}`);
     }
 
@@ -88,7 +88,7 @@ class PageHistoryManager {
         this._applySnapshot(nextState);
 
         this.isUndoingOrRedoing = false;
-        this.editor.emitChange(false); // Emit change, but don't record history
+        this.BAPI_PE.emitChange(false); // Emit change, but don't record history
         // console.log(`Redo. Undo stack: ${this.undoStack.length}, Redo stack: ${this.redoStack.length}`);
     }
     

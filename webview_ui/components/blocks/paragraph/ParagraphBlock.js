@@ -8,3 +8,5 @@ class ParagraphBlock extends TextBlock {
     static canBeToggled = true;
     static placeholder = 'Type \'/\' for commands...';
 }
+
+window['registerBlock'](ParagraphBlock);

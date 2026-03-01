@@ -64,7 +64,7 @@ void Backend::HandleWebMessage(const std::string& message) {
         std::string action = json_msg.value("action", "");
         json payload = json_msg.value("payload", json::object());
 
-        std::string log_msg = "C++ [Backend]: Received action '" + action + "'";
+        std::string log_msg = "C++ [Backend]: Received action '" + message + "'";
         LOG_DEBUG(log_msg.c_str());
 
         if (action == "setWorkspace") {
@@ -200,10 +200,9 @@ void Backend::ExportPageAsHtml(const json& payload) {
         std::ofstream file(targetPath);
         file << htmlContent;
         file.close();
-
     }
     catch (const std::exception& e) {
-        // 可以选择性地向前端报告错误
+		LOG_DEBUG(std::string("Error exporting page as HTML: " + std::string(e.what())).c_str());
     }
 }
 
@@ -232,7 +231,8 @@ void Backend::PrepareExportLibs(const json& payload) {
             L"/components/blocks/link-button/link-button.css",
             L"/components/blocks/list-items/list-item-shared.css",
             L"/components/blocks/quote/quote.css",
-            L"/components/blocks/table/table.css"
+            L"/components/blocks/table/table.css",
+            L"/components/blocks/table-view/table-view.css"
         };
 
         std::filesystem::path styleCssPath = buildPath / "style.css";
@@ -325,7 +325,7 @@ void Backend::ProcessExportImages(const json& payload) {
             std::filesystem::path sourcePath;
 
             // Check for the special local file URI scheme first.
-            std::string localFileAppPrefix = "https://veritnote.app/local-file/";
+            std::string localFileAppPrefix = "http://veritnote.localhost/local-file/";
             if (originalSrc.rfind(localFileAppPrefix, 0) == 0) {
                 std::string encoded_path_str = originalSrc.substr(localFileAppPrefix.length());
 
@@ -616,37 +616,21 @@ void Backend::OpenWorkspace(const json& payload) {
     m_workspaceRoot = this->string_to_wstring(path); // 设置工作区路径
 
     // 告诉平台去导航
-    NavigateTo(L"https://veritnote.app/index.html");
+    NavigateTo(L"http://veritnote.localhost/index.html");
 }
 
 void Backend::GoToDashboard() {
-    NavigateTo(L"https://veritnote.app/dashboard.html");
-}
-
-// Safely extracts a value that could be a string or a number and returns it as a string.
-std::string get_callback_id(const json& payload) {
-    if (payload.contains("callbackId")) {
-        const auto& id_val = payload["callbackId"];
-        if (id_val.is_string()) {
-            return id_val.get<std::string>();
-        }
-        if (id_val.is_number()) {
-            // This ensures it's always a string
-            return std::to_string(id_val.get<long long>());
-        }
-    }
-    return "";
+    NavigateTo(L"http://veritnote.localhost/dashboard.html");
 }
 
 
 void Backend::ReadConfigFile(const json& payload) {
     std::string pathStr = payload.value("path", "");
-    std::string callbackId = get_callback_id(payload);
 
     json response;
     response["action"] = "configFileRead";
-    response["payload"]["callbackId"] = callbackId;
     std::wstring identifier = this->string_to_wstring(pathStr);
+    response["payload"]["path"] = pathStr;
     response["payload"]["data"] = ReadJsonFile(identifier);
 
     SendMessageToJS(response);
@@ -662,7 +646,6 @@ void Backend::WriteConfigFile(const json& payload) {
 
 void Backend::ResolveFileConfiguration(const json& payload) {
     std::string filePathStr = payload.value("path", "");
-    std::string callbackId = get_callback_id(payload);
 
     json finalConfig = json::object();
     // 'identifier' can be a file path on Windows or a content URI on Android.
@@ -715,7 +698,7 @@ void Backend::ResolveFileConfiguration(const json& payload) {
 
     json response;
     response["action"] = "fileConfigurationResolved";
-    response["payload"]["callbackId"] = callbackId;
+    response["payload"]["path"] = filePathStr;
     response["payload"]["config"] = finalConfig;
 
     SendMessageToJS(response);

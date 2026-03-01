@@ -78,25 +78,27 @@
     handleToolbarAction(action, buttonElement) {
         if (action === 'editLinkButton') {
             // We call the global showLinkPopover function
-            this.editor.popoverManager.showLink({
-                targetElement: buttonElement,
-                existingValue: this.properties.url || '',
-                callback: (value) => {
+            this.BAPI_PE.popoverManager.showLink(
+                buttonElement,
+                this.properties.url || '',
+                (value) => {
                     this.properties.url = value || '#';
                     // Re-render content with the new URL after a delay
                     // This ensures the popover has time to close and doesn't interfere
                     setTimeout(() => {
                         this.syncContentFromDOM(); // First, save any text changes the user made
                         this._renderContent();   // Then, re-render the link with the new URL
-                        this.editor.emitChange(true, 'edit-button-link', this);
+                        this.BAPI_PE.emitChange(true, 'edit-button-link', this);
                     }, 0);
                 }
-            });
+            );
         }
     }
 
     // Use default TextBlock-like onInput to trigger updates
     onInput(e) {
-        this.editor.emitChange(true, 'typing', this);
+        this.BAPI_PE.emitChange(true, 'typing', this);
     }
 }
+
+window['registerBlock'](LinkButtonBlock);

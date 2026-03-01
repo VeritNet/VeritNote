@@ -88,25 +88,25 @@ class ImageBlock extends Block {
     handleToolbarAction(action, buttonElement) {
         if (action === 'editImage') {
             // --- REFACTORED: Updates properties.src ---
-            this.editor.popoverManager.showImageSource({
-                targetElement: buttonElement,
-                existingValue: this.properties.src,
-                callback: (value) => {
+            this.BAPI_PE.popoverManager.showImageSource(
+                buttonElement,
+                this.properties.src,
+                (value) => {
                     this.properties.src = value || '';
                     this._renderContent(); // Re-render the block with the new image source
-                    this.editor.emitChange(true, 'edit-image-src', this);
+                    this.BAPI_PE.emitChange(true, 'edit-image-src', this);
                 }
-            });
+            );
         } else if (action === 'linkImage') {
-            this.editor.popoverManager.showLink({
-                targetElement: buttonElement,
-                existingValue: this.properties.href,
-                callback: (value) => {
+            this.BAPI_PE.popoverManager.showLink(
+                buttonElement,
+                this.properties.href,
+                (value) => {
                     this.properties.href = value || '';
                     // No visual change in the editor, just save the data
-                    this.editor.emitChange(true, 'edit-image-link', this);
+                    this.BAPI_PE.emitChange(true, 'edit-image-link', this);
                 }
-            });
+            );
         }
     }
 
@@ -132,3 +132,5 @@ class ImageBlock extends Block {
         return blockElement;
     }
 }
+
+window['registerBlock'](ImageBlock);

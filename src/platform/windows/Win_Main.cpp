@@ -106,6 +106,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // 注册窗口类
     WNDCLASSEXW wcex = {};
+    HBRUSH hBackgroundBrush = CreateSolidBrush(RGB(25, 25, 25)); // 创建自定义颜色画刷
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = WndProc;
@@ -114,6 +115,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszClassName = L"VeritNoteWindowClass";
+    wcex.hbrBackground = hBackgroundBrush;
     RegisterClassExW(&wcex);
 
     // 创建窗口
@@ -149,6 +151,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                     [hWnd, env](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
                         if (controller != nullptr) {
                             webviewController = controller;
+                            // --- 设置 WebView2 默认背景色 ---
+                            wil::com_ptr<ICoreWebView2Controller2> controller2;
+                            if (SUCCEEDED(webviewController->QueryInterface(IID_PPV_ARGS(&controller2)))) {
+                                COREWEBVIEW2_COLOR backgroundColor = { 255, 25, 25, 25 }; // ARGB: 不透明, R25, G25, B25
+                                controller2->put_DefaultBackgroundColor(backgroundColor);
+                            }
                             webviewController->get_CoreWebView2(&webview);
                         }
 
@@ -168,7 +176,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                         webviewController->put_Bounds(bounds);
 
                         // +++ 设置Web资源请求过滤器 +++
-                        webview->AddWebResourceRequestedFilter(L"https://veritnote.app/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+                        webview->AddWebResourceRequestedFilter(L"http://veritnote.localhost/*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
 
                         EventRegistrationToken webResourceToken;
                         webview->add_WebResourceRequested(Callback<ICoreWebView2WebResourceRequestedEventHandler>(
@@ -181,7 +189,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                                 std::wstring uri(uri_ptr);
                                 CoTaskMemFree(uri_ptr);
 
-                                std::wstring VIRTUAL_DOMAIN = L"https://veritnote.app";
+                                std::wstring VIRTUAL_DOMAIN = L"http://veritnote.localhost";
 
                                 if (uri.rfind(VIRTUAL_DOMAIN, 0) == 0) {
                                     std::wstring path = uri.substr(VIRTUAL_DOMAIN.length());
@@ -241,7 +249,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                             }).Get(), &webResourceToken);
 
                         // --- 初始导航 ---
-                        std::wstring htmlPath = L"https://veritnote.app/dashboard.html";
+                        std::wstring htmlPath = L"http://veritnote.localhost/dashboard.html";
                         webview->Navigate(htmlPath.c_str());
 
                         EventRegistrationToken navigationToken;
@@ -293,7 +301,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                                 std::wstring uri(uri_ptr);
                                 CoTaskMemFree(uri_ptr);
 
-                                if (uri.rfind(L"https://veritnote.app", 0) == 0) {
+                                if (uri.rfind(L"http://veritnote.localhost", 0) == 0) {
                                     return S_OK;
                                 }
 

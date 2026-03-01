@@ -88,9 +88,9 @@ class PopoverManager {
 
     // --- Specific Popover Methods ---
 
-    showLink(options) {
+    showLink(targetElement, existingValue, callback) {
         this.hide();
-        const { targetElement, existingValue, callback } = options;
+        
         this.currentPopoverCallback = callback;
         
         this.popover.innerHTML = `
@@ -182,9 +182,9 @@ class PopoverManager {
         this._positionAndShow(targetElement);
     }
 
-    showDataFilePicker(options) {
+    showDataFilePicker(targetElement, existingValue, callback) {
         this.hide();
-        const { targetElement, existingValue, callback } = options;
+        
         this.currentPopoverCallback = callback;
 
         this.popover.innerHTML = `
@@ -256,9 +256,9 @@ class PopoverManager {
         this._positionAndShow(targetElement);
     }
     
-    showImageSource(options) {
+    showImageSource(targetElement, existingValue, callback) {
         this.hide();
-        const { targetElement, existingValue, callback } = options;
+        
         this.currentPopoverCallback = callback;
         
         this.popover.innerHTML = `
@@ -280,9 +280,9 @@ class PopoverManager {
         this._positionAndShow(targetElement);
     }
 
-    showColorPicker(options) {
+    showColorPicker(targetElement, callback) {
         this.hide();
-        const { targetElement, callback } = options;
+
         this.currentPopoverCallback = callback;
         
         this.popover.innerHTML = `<div class="popover-content"><div id="popover-color-picker-grid" class="popover-color-picker"></div></div>`;
@@ -298,12 +298,12 @@ class PopoverManager {
             } 
         });
 
-        this._positionAndShow(options.targetElement);
+        this._positionAndShow(targetElement);
     }
 
-    showReference(options) {
+    showReference(targetElement, existingValue, callback) {
         this.hide();
-        const { targetElement, existingValue, callback } = options;
+        
         this.currentPopoverCallback = callback;
         
         this.popover.innerHTML = `
@@ -384,12 +384,11 @@ class PopoverManager {
         const initialMode = existingValue && existingValue.indexOf('#') > -1 && existingValue.split('#')[1].length > 0 ? 'block' : 'page';
         setActiveMode(initialMode);
 
-        this._positionAndShow(options.targetElement);
+        this._positionAndShow(targetElement);
     }
 
-    showLanguagePicker(options) {
+    showLanguagePicker(targetElement, availableLanguages, callback) {
         this.hide();
-        const { targetElement, availableLanguages, callback } = options;
         this.currentPopoverCallback = callback; // The callback will receive the selected language string
 
         // --- 1. Build unique HTML for this popover ---
@@ -427,12 +426,12 @@ class PopoverManager {
         renderList('');
         searchInput.focus();
 
-        this._positionAndShow(options.targetElement);
+        this._positionAndShow(targetElement);
     }
 
-    showReferenceDrop(options) {
+    showReferenceDrop(targetElement, callback) {
         this.hide();
-        const { targetElement, callback } = options;
+
         this.currentPopoverCallback = callback;
 
         // 1. Build unique HTML for this popover
@@ -458,6 +457,6 @@ class PopoverManager {
         });
 
         // 3. Position and show
-        this._positionAndShow(options.targetElement);
+        this._positionAndShow(targetElement);
     }
 }

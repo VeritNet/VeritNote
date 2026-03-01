@@ -8,3 +8,5 @@ class Heading2Block extends TextBlock {
     static canBeToggled = true;
     static placeholder = 'Heading 2';
 }
+
+window['registerBlock'](Heading2Block);

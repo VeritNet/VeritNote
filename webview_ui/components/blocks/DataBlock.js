@@ -98,7 +98,7 @@ class DataBlock extends Block {
             }
             // 2. 本地文件，走 IPC
             else {
-                const absolutePath = window.resolveWorkspacePath ? window.resolveWorkspacePath(path) : path;
+                const absolutePath = this.BAPI_WD.resolveWorkspacePath ? BAPI_PE.resolveWorkspacePath(path) : path;
                 text = await this._loadLocalDataFromIPC(absolutePath);
             }
 
@@ -137,7 +137,7 @@ class DataBlock extends Block {
 
             window.addEventListener('dataContentFetched', listener);
 
-            ipc.fetchDataContent(this.id, absolutePath);
+            this.BAPI_IPC.fetchDataContent(this.id, absolutePath);
         });
     }
 
@@ -151,22 +151,22 @@ class DataBlock extends Block {
 
     handleToolbarAction(action, buttonElement) {
         if (action === 'selectDataFile') {
-            this.editor.popoverManager.showDataFilePicker({
-                targetElement: buttonElement,
-                existingValue: this.properties.dataSource,
-                callback: (path) => {
+            this.BAPI_PE.popoverManager.showDataFilePicker(
+                buttonElement,
+                this.properties.dataSource,
+                (path) => {
                     this._updateDataSource(path);
                 }
-            });
+            );
         }
     }
 
     _updateDataSource(path) {
         this.properties.dataSource = path;
         this._cachedData = null; // 清除缓存
-        this.render();
-        this.editor.emitChange(true, 'edit-data-source', this);
-        this.editor.updateDetailsPanel();
+        this._renderContent();
+        this.BAPI_PE.emitChange(true, 'edit-data-source', this);
+        this.BAPI_PE.updateDetailsPanel();
     }
 
     renderDetailsPanel_custom() {
@@ -202,13 +202,13 @@ class DataBlock extends Block {
 
         if (browseBtn && sourceInput) {
             browseBtn.addEventListener('click', (e) => {
-                this.editor.popoverManager.showDataFilePicker({
-                    targetElement: browseBtn,
-                    existingValue: sourceInput.value,
-                    callback: (path) => {
+                this.BAPI_PE.popoverManager.showDataFilePicker(
+                    browseBtn,
+                    sourceInput.value,
+                    (path) => {
                         this._updateDataSource(path);
                     }
-                });
+                );
             });
 
             sourceInput.addEventListener('change', (e) => {
