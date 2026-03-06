@@ -267,11 +267,11 @@ void WinBackend::ListWorkspace(const json& payload) {
                     file_node["type"] = "graph";
                     tree_node["children"].push_back(file_node);
                 }
-                else if (extension == ".csv") {
+                else if (extension == ".veritnotedb") {
                     json file_node;
                     file_node["name"] = entry.path().filename().string();
                     file_node["path"] = entry.path().string();
-                    file_node["type"] = "data";
+                    file_node["type"] = "database";
                     tree_node["children"].push_back(file_node);
                 }
 
@@ -347,7 +347,7 @@ void WinBackend::CreateItem(const json& payload) {
         }
         // --- START OF MODIFICATION ---
         // --- 文件类型的处理 ---
-        else if (type == "page" || type == "graph" || type == "data") {
+        else if (type == "page" || type == "graph" || type == "database") {
 
             // 1. 根据类型设置扩展名
             if (type == "page") {
@@ -356,13 +356,12 @@ void WinBackend::CreateItem(const json& payload) {
             else if (type == "graph") {
                 fullPath.replace_extension(".veritnotegraph");
             }
-            else if (type == "data") {
-                fullPath.replace_extension(".csv");
+            else if (type == "database") {
+                fullPath.replace_extension(".veritnotedb");
             }
 
             // 2. 内容初始化
-            if (type == "data") {
-                // CSV 创建空文件即可
+            if (type == "database") {
                 std::ofstream file(fullPath);
                 file << "";
                 file.close();

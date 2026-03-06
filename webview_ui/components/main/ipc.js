@@ -56,11 +56,15 @@ const ipc = {
     },
 
     // Data
-    loadData: (path) => {
-        ipc.send('loadData', { 'path': path });
+    loadDatabase: (path) => {
+        ipc.send('loadDatabase', { 'path': path });
     },
-    saveData: (path, content) => {
-        ipc.send('saveData', { 'path': path, 'content': content });
+    saveDatabase: (path, content) => {
+        ipc.send('saveDatabase', { 'path': path, 'content': content });
+    },
+
+    readCSV: (requestIdentifier, path) => {
+        ipc.send('readCSV', { 'requestIdentifier': requestIdentifier, 'path': path });
     },
 
 
@@ -138,5 +142,8 @@ window['BAPI_IPC'] = {
     },
     ['fetchDataContent']: (requestIdentifier, path) => {
         return ipc.fetchDataContent(requestIdentifier, path);
+    },
+    ['readCSV']: (requestIdentifier, path) => {
+        return ipc.readCSV(requestIdentifier, path);
     }
 };

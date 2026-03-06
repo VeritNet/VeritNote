@@ -142,8 +142,8 @@ window['initializeMainComponent'] = () => {
                 editorType = 'pageEditor';
             } else if (path.endsWith('.veritnotegraph')) {
                 editorType = 'graphEditor';
-            } else if (path.endsWith('.csv')) {
-                editorType = 'dataEditor';
+            } else if (path.endsWith('.veritnotedb')) {
+                editorType = 'databaseEditor';
             }
 
             if (editorType === 'default') {
@@ -164,8 +164,8 @@ window['initializeMainComponent'] = () => {
                 tabInstance = new PageEditor(wrapper, path, this, finalConfig);
             } else if (editorType === 'graphEditor') {
                 //tabInstance = new GraphEditor(wrapper, path, this, finalConfig);
-            } else if (editorType === 'dataEditor') {
-                tabInstance = new DataEditor(wrapper, path, this);
+            } else if (editorType === 'databaseEditor') {
+                tabInstance = new DatabaseEditor(wrapper, path, this);
             }
             
             if (!tabInstance) return;
@@ -326,7 +326,7 @@ window['initializeMainComponent'] = () => {
         }
     });
 
-    window.addEventListener('dataLoaded', (e) => {
+    window.addEventListener('databaseLoaded', (e) => {
         console.log(e['detail']['payload']);
         const payload = e['detail']['payload'];
         const tab = tabManager.tabs.get(payload.path);
@@ -334,7 +334,7 @@ window['initializeMainComponent'] = () => {
             tab.instance.onDataLoaded(payload);
         }
     });
-    window.addEventListener('dataSaved', (e) => {
+    window.addEventListener('databaseSaved', (e) => {
         const payload = e['detail']['payload'];
         const tab = tabManager.tabs.get(payload.path);
         if (tab && tab.instance && tab.instance.onDataSaved) {
@@ -574,23 +574,22 @@ window['initializeMainComponent'] = () => {
     };
 
     /**
-     * 获取当前工作区的所有 Data (.csv) 文件
      * @returns {Array<{name: string, path: string}>}
      */
-    window.getAllDataFiles = function () {
+    /*window.getAllDataFiles = function () {
         const workspaceDataStr = sidebar.dataset.workspaceData;
         if (!workspaceDataStr) return [];
 
         try {
             const rootNode = JSON.parse(workspaceDataStr);
             const results = [];
-            collectFilesByType(rootNode, 'data', results);
+            collectFilesByType(rootNode, 'database', results);
             return results;
         } catch (e) {
             console.error("Failed to parse workspace tree for data search:", e);
             return [];
         }
-    };
+    };*/
 
 
     function renderWorkspaceTree(node) {
@@ -623,11 +622,11 @@ window['initializeMainComponent'] = () => {
                 <span class="name">${node.name.replace('.veritnotegraph', '')}</span>
                 <button class="item-settings-btn" data-type="graph" title="Graph Settings">${settingsIconSvg}</button>
             </div>`;
-        } else if (node.type === 'data') {
+        } else if (node.type === 'database') {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
             html += `<div class="tree-node page" data-path="${node.path}">
                 <span class="icon">${iconSvg}</span>
-                <span class="name">${node.name}</span> 
+                <span class="name">${node.name.replace('.veritnotedb', '') }</span> 
              </div>`;
         }
         return html;
@@ -656,7 +655,7 @@ window['initializeMainComponent'] = () => {
         switch (action) {
             case 'newPage': { const name = prompt("Page Name", "MyPage"); if (name) { ipc.createItem(parentPath, name, 'page'); } break; }
             case 'newGraph': { const name = prompt("Graph Name", "MyGraph"); if (name) { ipc.createItem(parentPath, name, 'graph'); } break; }
-            case 'newData': { const name = prompt("Data Name", "MyData"); if (name) { ipc.createItem(parentPath, name, 'data'); } break; }
+            case 'newDatabase': { const name = prompt("Database Name", "MyDatabase"); if (name) { ipc.createItem(parentPath, name, 'database'); } break; }
             case 'newFolder': { const name = prompt("Folder Name", "MyFolder"); if (name) { ipc.createItem(parentPath, name, 'folder'); } break; }
             case 'delete': { if (confirm(`Delete "${targetPath}"?`)) { ipc.deleteItem(targetPath); } break; }
         }

@@ -79,7 +79,7 @@ class DataBlock extends Block {
      * 加载数据。在实际应用中，这里应该调用 ipc 读取文件内容。
      * 为了演示，这里假设有一个 window.readFileContent 或 fetch 可用。
      */
-    async loadData() {
+    async loadDatabase() {
         const path = this.properties.dataSource;
         if (!path) return null;
 

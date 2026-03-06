@@ -1,0 +1,51 @@
+﻿<div class="db-editor-container">
+    <div class="db-top-bar">
+        <div style="display:flex; align-items:center; gap:5px;">
+            <button id="db-save-btn" style="padding: 5px 12px" class="primary-btn" style="white-space:nowrap;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            </button>
+        </div>
+
+        <div style="width:1px; height:24px; background:var(--border-primary); margin:0 3px;"></div>
+
+        <div class="db-radio-group">
+            <label class="db-radio-label">
+                <input type="radio" name="db-mode" value="embedded">
+                <span class="db-radio-btn">Embedded</span>
+            </label>
+            <label class="db-radio-label">
+                <input type="radio" name="db-mode" value="external">
+                <span class="db-radio-btn">External Link</span>
+            </label>
+        </div>
+
+        <div id="db-external-config" class="db-config-flex">
+            <input type="text" class="db-input" id="db-external-url" placeholder="Local path or http:// URL" style="margin-bottom:0;">
+            <button class="db-btn" id="db-browse-csv-btn" style="white-space:nowrap;">Browse...</button>
+            <button class="db-btn" id="db-refresh-data-btn" title="Reload Data Source">
+                <span class="db-refresh-icon">↻</span>
+            </button>
+        </div>
+
+        <div id="db-embedded-config" class="db-config-flex">
+            <button class="db-btn" id="db-import-csv-btn" style="white-space:nowrap;">Import CSV...</button>
+            <span id="db-embedded-info" style="font-size: 12px; color: var(--text-secondary); white-space:nowrap;"></span>
+        </div>
+    </div>
+
+    <div class="db-presets-header">
+        <div class="db-presets-tabs" id="db-presets-tabs"></div>
+        <button id="db-add-preset-btn" class="primary-btn">+ Add Preset</button>
+    </div>
+
+    <div class="db-preset-workspace">
+        <div class="db-preset-config-panel" id="db-preset-config-panel">
+            <div class="empty-placeholder">Select or add a preset</div>
+        </div>
+        <div class="db-panel-resizer" id="db-panel-resizer"></div>
+        <div class="db-preset-preview-panel">
+            <div class="db-preview-header">Live Preview</div>
+            <div id="db-preview-container"></div>
+        </div>
+    </div>
+</div>

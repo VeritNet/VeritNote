@@ -80,8 +80,10 @@ protected:
     void FetchQuoteContent(const json& payload);
     void FetchDataContent(const json& payload);
     // Data
-    void LoadData(const json& payload);
-    void SaveData(const json& payload);
+    void LoadDatabase(const json& payload);
+    void SaveDatabase(const json& payload);
+
+    void ReadCSV(const json& payload);
 
     bool ExtractResourceToFile(const std::wstring& resourceUrlPath, const std::filesystem::path& destinationPath);
 

@@ -93,11 +93,11 @@ void Backend::HandleWebMessage(const std::string& message) {
             SavePage(payload);
         }
 		// Data
-        else if (action == "loadData") {
-            LoadData(payload);
+        else if (action == "loadDatabase") {
+            LoadDatabase(payload);
         }
-        else if (action == "saveData") {
-            SaveData(payload);
+        else if (action == "saveDatabase") {
+            SaveDatabase(payload);
         }
 
         else if (action == "exportPageAsHtml") {
@@ -232,7 +232,7 @@ void Backend::PrepareExportLibs(const json& payload) {
             L"/components/blocks/list-items/list-item-shared.css",
             L"/components/blocks/quote/quote.css",
             L"/components/blocks/table/table.css",
-            L"/components/blocks/table-view/table-view.css"
+            L"/components/blocks/data/table-view.css",
         };
 
         std::filesystem::path styleCssPath = buildPath / "style.css";
@@ -476,35 +476,69 @@ void Backend::SavePage(const json& payload) {
     SendMessageToJS(response);
 }
 
-// LoadData：通用实现 (给 DataEditor 用的)
-void Backend::LoadData(const json& payload) {
+void Backend::LoadDatabase(const json& payload) {
     std::string path_str = payload.value("path", "");
     std::wstring path = this->string_to_wstring(path_str);
 
     json response;
-    response["action"] = "dataLoaded";
+    response["action"] = "databaseLoaded";
     response["payload"]["path"] = path_str;
 
     std::string content = ReadFileContent(path);
-    response["payload"]["content"] = content;
+    if (!content.empty()) {
+        try {
+            json dbJson = json::parse(content);
+            response["payload"]["content"] = dbJson;
+        }
+        catch (const std::exception& e) {
+            response["error"] = std::string("JSON Parse Error: ") + e.what();
+        }
+    }
+    else {
+        // 如果是新文件，返回默认的空结构
+        json defaultDb = {
+            {"config", json::object()},
+            {"data", {{"mode", "embedded"}, {"embeddedData", json::array()}, {"externalUrl", ""}}},
+            {"presets", json::array()}
+        };
+        response["payload"]["content"] = defaultDb;
+    }
 
     SendMessageToJS(response);
 }
 
-// SaveData：通用实现
-void Backend::SaveData(const json& payload) {
+void Backend::SaveDatabase(const json& payload) {
     std::string path_str = payload.value("path", "");
     std::wstring path = this->string_to_wstring(path_str);
-    std::string content = payload.value("content", "");
+    json content = payload.value("content", json::object());
 
-    bool success = WriteFileContent(path, content);
+    bool success = WriteFileContent(path, content.dump(2));
 
     json response;
-    response["action"] = "dataSaved";
+    response["action"] = "databaseSaved";
     response["payload"]["path"] = path_str;
     response["payload"]["success"] = success;
     if (!success) response["error"] = "Failed to write file.";
 
+    SendMessageToJS(response);
+}
+
+void Backend::ReadCSV(const json& payload) {
+    std::string requestIdentifier = payload.value("requestIdentifier", "");
+    std::string path_str = payload.value("path", "");
+    std::wstring path = this->string_to_wstring(path_str);
+
+    json response;
+    response["action"] = "csvReadComplete";
+    response["payload"]["requestIdentifier"] = requestIdentifier;
+
+    std::string content = ReadFileContent(path);
+    if (!content.empty()) {
+        response["payload"]["content"] = content;
+    }
+    else {
+        response["error"] = "Failed to read CSV or file is empty.";
+    }
     SendMessageToJS(response);
 }
 

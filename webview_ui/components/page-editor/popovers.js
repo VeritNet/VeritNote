@@ -182,7 +182,7 @@ class PopoverManager {
         this._positionAndShow(targetElement);
     }
 
-    showDataFilePicker(targetElement, existingValue, callback) {
+    /*showDataFilePicker(targetElement, existingValue, callback) {
         this.hide();
         
         this.currentPopoverCallback = callback;
@@ -254,7 +254,7 @@ class PopoverManager {
         input.focus();
 
         this._positionAndShow(targetElement);
-    }
+    }*/
     
     showImageSource(targetElement, existingValue, callback) {
         this.hide();

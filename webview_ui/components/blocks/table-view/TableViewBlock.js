@@ -4,7 +4,7 @@ class TableViewBlock extends DataBlock {
     static icon = '📊';
     static label = 'Table View';
     static description = 'Renders CSV data as a configurable table.';
-    static keywords = ['data', 'table', 'csv', 'spreadsheet'];
+    static keywords = ['data', 'table', 'database', 'spreadsheet'];
     static canBeToggled = true;
 
     constructor(data, editor) {
@@ -41,7 +41,7 @@ class TableViewBlock extends DataBlock {
     _renderContent() {
         this.contentElement.innerHTML = '<div class="loading-placeholder">Loading data...</div>';
 
-        this.loadData().then(rawData => {
+        this.loadDatabase().then(rawData => {
             if (!rawData || rawData.length === 0) {
                 this.contentElement.innerHTML = '<div class="empty-details-placeholder">No data found in source.</div>';
                 return;
@@ -407,7 +407,7 @@ class TableViewBlock extends DataBlock {
                 // 清除缓存
                 this._cachedData = null;
                 // 重新加载数据
-                await this.loadData();
+                await this.loadDatabase();
                 // 强制重新生成内容
                 this._renderContent();
                 // 刷新面板（因为列配置可能需要根据新数据更新）
@@ -423,7 +423,7 @@ class TableViewBlock extends DataBlock {
             modeSelect.addEventListener('change', async (e) => {
                 const newMode = e.target.value;
 
-                const rawData = await this.loadData();
+                const rawData = await this.loadDatabase();
 
                 if (rawData && rawData.length > 0) {
                     const realHeaders = rawData[0]; // 实际表头 e.g.["Name", "Age"]
@@ -462,7 +462,7 @@ class TableViewBlock extends DataBlock {
         // 2. 动态填充 Source Header 选项
         // 我们需要读取当前缓存的数据来知道有哪些 Header
         const populateHeaders = async () => {
-            const rawData = await this.loadData();
+            const rawData = await this.loadDatabase();
             let headers = [];
             if (rawData && rawData.length > 0) {
                 if (this.properties.firstRowMode === 'header') {
@@ -496,7 +496,7 @@ class TableViewBlock extends DataBlock {
         if (addBtn) {
             addBtn.addEventListener('click', async () => {
                 let defaultHeader = '';
-                const rawData = await this.loadData();
+                const rawData = await this.loadDatabase();
                 if (rawData && rawData.length > 0) {
                     if (this.properties.firstRowMode === 'header') {
                         defaultHeader = rawData[0][0] || '';

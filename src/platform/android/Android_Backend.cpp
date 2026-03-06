@@ -202,7 +202,7 @@ void AndroidBackend::ListWorkspace(const json& payload) {
                 // Remove extension for display name if it's a veritnote file
                 std::string extPage = ".veritnote";
                 std::string extGraph = ".veritnotegraph";
-                std::string extData = ".csv";
+                std::string extDatabase = ".veritnotedb";
                 if (name.size() > extPage.size() && name.substr(name.size() - extPage.size()) == extPage) {
                     // Veritnote Page logic (existing)
                     file_node["name"] = name.substr(0, name.size() - extPage.size());
@@ -212,9 +212,9 @@ void AndroidBackend::ListWorkspace(const json& payload) {
 					file_node["name"] = name.substr(0, name.size() - extGraph.size());
 					file_node["type"] = "graph";
 				}
-                else if (name.size() > extData.size() && name.substr(name.size() - extData.size()) == extData) {
+                else if (name.size() > extData.size() && name.substr(name.size() - extData.size()) == extDatabase) {
 					file_node["name"] = name.substr(0, name.size() - extData.size());
-					file_node["type"] = "data";
+					file_node["type"] = "database";
                 }
                 else {
                     file_node["name"] = name;
@@ -224,7 +224,7 @@ void AndroidBackend::ListWorkspace(const json& payload) {
                 file_node["path"] = file_item.value("uri", ""); // Use the URI as the path
 
                 // Only add folders and VeritNote files
-				if (file_node["type"] == "page" || file_node["type"] == "graph" || file_node["type"] == "data" || file_node["type"] == "folder") {
+				if (file_node["type"] == "page" || file_node["type"] == "graph" || file_node["type"] == "database" || file_node["type"] == "folder") {
                     if (file_node["type"] == "folder") {
                         // For now, folders are empty shells. Recursive loading can be a future feature.
                         file_node["children"] = json::array();
@@ -299,8 +299,8 @@ void AndroidBackend::CreateItem(const json& payload) {
     else if (type == "graph") {
         finalName = name + ".veritnotegraph";
     }
-    else if (type == "data") {
-        finalName = name + ".csv";
+    else if (type == "database") {
+        finalName = name + ".veritnotedb";
 	}
 
     json request;
@@ -326,7 +326,7 @@ void AndroidBackend::CreateItem(const json& payload) {
                 RequestPlatformService(write_request, [this](const json&) {
                     SendMessageToJS({ {"action", "workspaceUpdated"} });
                 });
-            } else if (type == "data") {
+            } else if (type == "database") {
                 json write_request;
                 write_request["action"] = "writeFile";
                 write_request["payload"]["uri"] = new_file_uri;

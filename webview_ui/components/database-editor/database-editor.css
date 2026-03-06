@@ -1,0 +1,225 @@
+﻿/* components/database-editor/database-editor.css */
+.db-editor-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.db-top-bar {
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.db-config-flex {
+    display: none;
+    flex-grow: 1;
+    align-items: center;
+    gap: 8px;
+    min-width: 200px;
+}
+
+/* 隐藏原生Radio，定制漂亮的 Toggle 按钮 */
+.db-radio-group {
+    display: flex;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    border: 1px solid var(--border-primary);
+    overflow: hidden;
+}
+
+.db-radio-label input {
+    display: none;
+}
+
+.db-radio-btn {
+    display: inline-block;
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.db-radio-label input:checked + .db-radio-btn {
+    background: var(--text-accent);
+    color: white;
+}
+
+.db-presets-header {
+    display: flex;
+    align-items: center;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
+    padding: 5px 10px;
+    overflow-x: auto;
+}
+
+.db-presets-tabs {
+    display: flex;
+    gap: 5px;
+    flex-grow: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none; /* Firefox 隐藏滚动条 */
+}
+
+    .db-presets-tabs::-webkit-scrollbar {
+        display: none; /* Chrome/Safari 隐藏滚动条让UI更干净 */
+    }
+
+.db-preset-tab {
+    padding: 5px 15px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+    .db-preset-tab.active {
+        background: var(--text-accent);
+        color: white;
+        border-color: var(--text-accent);
+    }
+
+.db-preset-workspace {
+    display: flex;
+    flex-grow: 1;
+    overflow: hidden;
+    width: 100%;
+}
+
+.db-preset-config-panel {
+    width: 350px;
+    min-width: 150px;
+    border-right: none;
+    overflow-y: auto;
+    padding: 15px;
+    background: var(--bg-secondary);
+}
+
+.db-preset-preview-panel {
+    flex-grow: 1;
+    min-width: 150px;
+    padding: 15px;
+    overflow-y: auto;
+    background: var(--bg-primary);
+    width: 0;
+}
+
+/* 调整条样式 */
+.db-panel-resizer {
+    width: 2px;
+    cursor: col-resize;
+    background: var(--border-primary);
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+    .db-panel-resizer:hover, .db-panel-resizer.is-resizing {
+        background: var(--text-accent);
+    }
+
+.db-preview-header {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.db-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* 修复: 输入框和按钮的统一样式 */
+.db-input {
+    width: 100%;
+    padding: 6px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.db-btn {
+    background: var(--bg-accent);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+    .db-btn:hover {
+        background: var(--bg-tertiary);
+    }
+
+.db-col-card {
+    border: 1px solid var(--border-primary);
+    padding: 10px;
+    margin-bottom: 10px;
+    background: var(--bg-primary);
+    position: relative;
+    border-radius: 4px;
+}
+
+/* 修复: 列配置右上角的小按钮样式 */
+.db-icon-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+    .db-icon-btn:hover {
+        background: var(--bg-accent);
+        color: var(--text-primary);
+    }
+
+    .db-icon-btn.delete:hover {
+        background: var(--bg-danger-hover);
+        color: white;
+    }
+
+
+@keyframes db-icon-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(720deg);
+    }
+}
+
+.db-refresh-icon {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+
+/* 当按钮拥有 spinning 类时，只让内部的 span 旋转 */
+.db-btn.spinning .db-refresh-icon {
+    animation: db-icon-spin 0.7s ease-in-out;
+}
+
+.db-btn.spinning {
+    opacity: 0.8;
+}
