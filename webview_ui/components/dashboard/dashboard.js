@@ -148,4 +148,10 @@
 
     // --- Initial Load ---
     renderList();
+    
+    // 设置 About 弹窗版本名称
+    const versionElem = document.querySelector('.version');
+    if (versionElem && window.VERITNOTE_VERSION_NAME) {
+        versionElem.textContent = window.VERITNOTE_VERSION_NAME;
+    }
 };

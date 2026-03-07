@@ -39,6 +39,56 @@ set(RESOURCE_RC "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
 # 这个自定义目标总是会被定义，但它的具体命令取决于主机平台
 add_custom_target(preprocess_web_assets ALL) 
 
+# --- 版本信息 ---
+# 读取 version.txt，提取 NAME，并生成 version.js
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/version.txt" VERSION_TXT_CONTENT)
+string(REGEX MATCH "VERSION=([^\n\r]*)" _VERSION_NUM_LINE "${VERSION_TXT_CONTENT}")
+string(REGEX REPLACE "VERSION=" "" VERSION_NUM "${_VERSION_NUM_LINE}")
+string(REGEX MATCH "NAME=([^\n\r]*)" _VERSION_NAME_LINE "${VERSION_TXT_CONTENT}")
+string(REGEX REPLACE "NAME=" "" VERSION_NAME "${_VERSION_NAME_LINE}")
+file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/webview_ui/components/version.js" "// Auto Generated File & Don't Edit\nwindow.VERITNOTE_VERSION_NAME = \"${VERSION_NAME}\";")
+
+
+set(VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/version_info.h")
+file(WRITE "${VERSION_HEADER}" "#pragma once\n#define APP_VERSION_NAME \"${VERSION_NAME}\"\n#define APP_VERSION_NUM \"${VERSION_NUM}\"\n")
+
+# 生成 Windows 版本资源文件 (仅 Windows UI 显示用)
+if(WIN32)
+    string(REPLACE "." "," VERSION_COMMA "${VERSION_NUM}") # 将 1.0.0.0 转为 1,0,0,0
+    set(VERSION_RC_FILE "${CMAKE_CURRENT_BINARY_DIR}/version_info.rc")
+    file(WRITE "${VERSION_RC_FILE}" "
+#include <windows.h>
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    ${VERSION_COMMA}
+PRODUCTVERSION ${VERSION_COMMA}
+FILEFLAGSMASK  0x3fL
+FILEFLAGS      0x0L
+FILEOS         0x40004L
+FILETYPE       0x1L
+FILESUBTYPE    0x0L
+BEGIN
+    BLOCK \"StringFileInfo\"
+    BEGIN
+        BLOCK \"040904b0\"
+        BEGIN
+            VALUE \"CompanyName\",      \"VeritNet\"
+            VALUE \"FileDescription\",  \"VeritNote Main Program\"
+            VALUE \"FileVersion\",      \"${VERSION_NUM}\"
+            VALUE \"InternalName\",     \"VeritNote\"
+            VALUE \"OriginalFilename\", \"VeritNote.exe\"
+            VALUE \"ProductName\",      \"VeritNote\"
+            VALUE \"ProductVersion\",   \"${VERSION_NAME}\"
+        END
+    END
+    BLOCK \"VarFileInfo\"
+    BEGIN
+        VALUE \"Translation\", 0x409, 1200
+    END
+END
+")
+endif()
+
+
 # --- 主机工具的查找和配置 ---
 # 这段逻辑只在运行CMake的主机是Windows时执行
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
@@ -126,7 +176,8 @@ set(CORE_SOURCES
 set(WINDOWS_SOURCES
     src/platform/windows/Win_Main.cpp
     src/platform/windows/Win_Backend.cpp
-    ${RESOURCE_RC} # .rc 文件是 Windows 特有的
+    ${RESOURCE_RC}
+    ${VERSION_RC_FILE}
 )
 
 # 3. Android 平台专属源文件 (目前为空，占位)

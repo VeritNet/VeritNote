@@ -14,7 +14,7 @@ class DataBlock extends Block {
         this.properties.presetId = data.properties?.presetId || '';
 
         this._dbJsonCache = null;
-        this._rawDataCache = null;
+        this._rawData = null;
     }
 
     _dbJsonCache = null; // Public
@@ -53,19 +53,19 @@ class DataBlock extends Block {
             this._dbJsonCache = await this._fetchJson(absolutePath);
         }
 
+        console.log('DB JSON Cache:', this._dbJsonCache);
+        console.log('Selected Preset ID:', this.properties.presetId);
         const preset = this._dbJsonCache.presets.find(p => p.id === this.properties.presetId);
         if (!preset) throw new Error("Preset not found in DB.");
 
         // 2. 获取数据 (解析 Embedded 或 请求 External)
-        if (!this._rawDataCache) {
-            const dbData = this._dbJsonCache.data;
-            if (dbData.mode === 'embedded') {
-                this._rawDataCache = dbData.embeddedData;
-            } else if (dbData.mode === 'external' && dbData.externalUrl) {
-                this._rawDataCache = await this._fetchExternalCsv(dbData.externalUrl);
-            } else {
-                this._rawDataCache = [];
-            }
+        const dbData = this._dbJsonCache.data;
+        if (dbData.mode === 'embedded') {
+            this._rawData = dbData.embeddedData;
+        } else if (dbData.mode === 'external' && dbData.externalUrl) {
+            this._rawData = await this._fetchExternalCsv(dbData.externalUrl);
+        } else {
+            this._rawData = [];
         }
 
         // 3. 动态实例化对应类型的子渲染块
@@ -79,7 +79,7 @@ class DataBlock extends Block {
         this.contentElement.innerHTML = '';
         renderInstance.render(); // 生成外壳
         // 将数据喂给它并强制其绘制内部结构
-        renderInstance._renderDataContent(this._rawDataCache);
+        renderInstance._renderDataContent(this._rawData);
         this.contentElement.appendChild(renderInstance.contentElement);
     }
 
@@ -170,7 +170,7 @@ class DataBlock extends Block {
 
     //    refreshBtn.addEventListener('click', () => {
     //        this._dbJsonCache = null;
-    //        this._rawDataCache = null;
+    //        this._rawData = null;
     //        this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
     //    });
     }

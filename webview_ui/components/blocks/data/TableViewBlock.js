@@ -10,7 +10,7 @@ class TableViewBlock extends Block {
         if (!this.preset.columns) this.preset.columns = [];
     }
 
-    // 由父块 DataBlock (或 DatabaseEditor) 手动调用
+    // 由 DataBlock 调用
     _renderDataContent(rawData) {
         if (!rawData || rawData.length === 0) {
             this.contentElement.innerHTML = '<div style="padding:10px; color:gray;">Empty data.</div>';

@@ -220,8 +220,11 @@ class DatabaseEditor {
         this.elements.embeddedConfig.style.display = isEmbedded ? 'flex' : 'none';
         this.elements.externalConfig.style.display = !isEmbedded ? 'flex' : 'none';
 
-        this.elements.externalUrlInput.value = this.dbData.data.externalUrl || '';
-        this.elements.embeddedInfo.textContent = `Contains ${this.dbData.data.embeddedData.length} rows of data.`;
+        if (isEmbedded) {
+            this.elements.embeddedInfo.textContent = `Contains ${this.dbData.data.embeddedData ? this.dbData.data.embeddedData.length : 0} rows of data.`;
+        } else {
+            this.elements.externalUrlInput.value = this.dbData.data.externalUrl || '';
+        }
     }
 
     _renderTabs() {
@@ -550,12 +553,10 @@ class DatabaseEditor {
             // 首次预览：实例化最外层的 DataBlock
             const DataBlockClass = window['blockRegistry'].get('data');
             if (DataBlockClass) {
-                const blockData = { id: 'preview-1', type: 'data', properties: { dbPath: this.filePath, presetId: preset.id } };
+                const blockData = { id: 'preview-1', type: 'data', properties: { 'dbPath': this.filePath, presetId: preset.id } };
                 this.previewBlockInstance = new DataBlockClass(blockData, fakeEditor);
 
-                // 将编辑器的实时 JSON 状态注入（劫持它的默认缓存，防止它去磁盘读老数据）
                 this.previewBlockInstance._dbJsonCache = this.dbData;
-                this.previewBlockInstance._rawDataCache = null;
 
                 // 执行正常渲染周期
                 this.elements.previewContainer.innerHTML = '';
@@ -567,11 +568,7 @@ class DatabaseEditor {
             this.previewBlockInstance.properties.presetId = preset.id;
             this.previewBlockInstance._dbJsonCache = this.dbData;
 
-            // 每次强制清空原始数据缓存，让 DataBlock 自己根据外部模式（embedded/external）去拿最新的
-            this.previewBlockInstance._rawDataCache = null;
-
-            // 触发块自身的内容重绘机制，它会自动跑 render -> _loadDatabaseAndRender
-            this.previewBlockInstance._renderContent();
+            this.previewBlockInstance.render();
         }
     }
 

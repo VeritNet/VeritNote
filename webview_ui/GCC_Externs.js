@@ -120,4 +120,5 @@ Block.children;
 class TextBlock extends Block { }
 class DataBlock extends Block { }
 DataBlock._dbJsonCache;
+DataBlock.properties.presetId;
 class ParagraphBlock extends TextBlock { }

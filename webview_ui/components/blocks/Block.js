@@ -95,12 +95,15 @@ class Block {
      * @returns {HTMLElement} The fully rendered block element.
      */
     render() {
-        this.element = this._createWrapperElement();
-        this.contentElement = this._createContentElement();
+        if (!this.element) {
+            this.element = this._createWrapperElement();
+        }
+        if (!this.contentElement) {
+            this.contentElement = this._createContentElement();
+            this.element.appendChild(this.contentElement);
+        }
 
         this._renderContent();
-        
-        this.element.appendChild(this.contentElement);
 
         this._renderChildren();
 
