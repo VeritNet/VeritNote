@@ -458,14 +458,6 @@ class PageEditor {
         });
 
         document.addEventListener('selectionchange', this._onSelectionChange.bind(this));
-        
-        // These window listeners are for IPC events. They need a check to see if the event is for this editor.
-        window.addEventListener('fileDialogClosed', (e) => {
-            if (this.tabManager.getActiveTab()?.instance === this && this.popoverManager.currentPopoverCallback) {
-                this.popoverManager.currentPopoverCallback(e.detail.payload.path);
-                this.popoverManager.hide();
-            }
-        });
 
 
         window.addEventListener('page:saved', (e) => {
@@ -695,12 +687,12 @@ class PageEditor {
     /**
      * 接收来自 IPC 的Data(CSV)数据加载响应，并广播给等待的 Block
      */
-    onDataLoaded(payload) {
+    onDatabaseLoaded(payload) {
         // payload 结构: { path: string, content: string }
 
         // 派发一个自定义事件，DataBlock 会监听这个事件
         // 使用 window 派发确保 Block 能收到，携带 path 以便区分是谁请求的
-        window.dispatchEvent(new CustomEvent('veritnote:data-loaded', {
+        window.dispatchEvent(new CustomEvent('veritnote:database-loaded', {
             detail: payload
         }));
     }

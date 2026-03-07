@@ -275,7 +275,13 @@ class PopoverManager {
         imageInput.focus();
         
         imageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.currentPopoverCallback) this.currentPopoverCallback(e.target.value); this.hide(); } });
-        localBtn.addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog(); });
+        localBtn.addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog("Image Files"); });
+        const listener = (e) => {
+            window.removeEventListener('fileDialogClosed', listener);
+            this.currentPopoverCallback(e.detail.payload.path);
+            this.hide();
+        }
+        window.addEventListener('fileDialogClosed', listener);
 
         this._positionAndShow(targetElement);
     }

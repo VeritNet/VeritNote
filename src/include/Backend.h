@@ -32,7 +32,7 @@ protected:
     // --- 平台相关的抽象接口 (纯虚函数) ---
     // 这些函数必须由特定平台的子类（如 WinBackend, AndroidBackend）来实现。
     virtual void SendMessageToJS(const json& message) = 0;
-    virtual void OpenFileDialog() = 0;
+    virtual void OpenFileDialog(const json& payload) = 0;
     virtual void OpenWorkspace(const json& payload);
     virtual void OpenWorkspaceDialog() = 0;
     virtual void NavigateTo(const std::wstring& url) = 0;
@@ -83,7 +83,7 @@ protected:
     void LoadDatabase(const json& payload);
     void SaveDatabase(const json& payload);
 
-    void ReadCSV(const json& payload);
+    //void ReadCSV(const json& payload);
 
     bool ExtractResourceToFile(const std::wstring& resourceUrlPath, const std::filesystem::path& destinationPath);
 

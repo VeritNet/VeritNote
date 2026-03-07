@@ -16,6 +16,7 @@ class DatabaseEditor {
         this.activePresetId = null;
         this.previewCacheData = []; // 用于预览的数据缓存
         this.elements = {};
+        this.previewBlockInstance = null; // 持有实时预览的 DataBlock 实例
     }
 
     async load() {
@@ -71,8 +72,6 @@ class DatabaseEditor {
         });
 
         this.elements.browseCsvBtn.addEventListener('click', () => {
-            // 复用主进程的文件选择逻辑 (假设返回路径)
-            window.BAPI_IPC.openFileDialog = () => { ipc.send('openFileDialog'); };
             const listener = (e) => {
                 window.removeEventListener('fileDialogClosed', listener);
                 if (e.detail.payload.path) {
@@ -83,16 +82,16 @@ class DatabaseEditor {
                 }
             };
             window.addEventListener('fileDialogClosed', listener);
-            ipc.send('openFileDialog');
+            ipc.openFileDialog("CSV File");
         });
 
         this.elements.importCsvBtn.addEventListener('click', () => {
-            window.BAPI_IPC.openFileDialog = () => { ipc.send('openFileDialog'); };
             const listener = async (e) => {
                 window.removeEventListener('fileDialogClosed', listener);
                 if (e.detail.payload.path) {
                     const absolutePath = window.resolveWorkspacePath(e.detail.payload.path);
-                    const text = await this._loadLocalCsv(absolutePath);
+                    const res = await fetch(absolutePath);
+                    const text = await res.text();
                     this.dbData.data.embeddedData = this._parseCSV(text);
                     this._updateDataSourceUI();
                     this._markDirty();
@@ -100,7 +99,7 @@ class DatabaseEditor {
                 }
             };
             window.addEventListener('fileDialogClosed', listener);
-            ipc.send('openFileDialog');
+            ipc.openFileDialog("CSV File");
         });
 
         this.elements.addPresetBtn.addEventListener('click', () => {
@@ -175,7 +174,7 @@ class DatabaseEditor {
         this.elements.configPanel.addEventListener('change', this._onConfigChange.bind(this));
     }
 
-    onDataLoaded(payload) {
+    onDatabaseLoaded(payload) {
         if (payload.path !== this.filePath) return;
         this.dbData = payload.content;
 
@@ -202,7 +201,7 @@ class DatabaseEditor {
         ipc.saveDatabase(this.filePath, this.dbData);
     }
 
-    onDataSaved(payload) {
+    onDatabaseSaved(payload) {
         if (payload.path !== this.filePath) return;
         this.elements.saveBtn.disabled = false;
         if (payload.success) {
@@ -514,13 +513,8 @@ class DatabaseEditor {
         } else if (this.dbData.data.mode === 'external' && this.dbData.data.externalUrl) {
             let text = '';
             try {
-                if (/^https?:\/\//i.test(this.dbData.data.externalUrl)) {
-                    const response = await fetch(this.dbData.data.externalUrl);
-                    text = await response.text();
-                } else {
-                    const absolutePath = window.resolveWorkspacePath(this.dbData.data.externalUrl);
-                    text = await this._loadLocalCsv(absolutePath);
-                }
+                const response = await fetch(this.dbData.data.externalUrl);
+                text = await response.text();
                 this.previewCacheData = this._parseCSV(text);
             } catch (e) {
                 console.error("Preview data load error", e);
@@ -528,20 +522,6 @@ class DatabaseEditor {
             this._populateSourceHeadersForConfig();
             this._renderPreview();
         }
-    }
-
-    _loadLocalCsv(path) {
-        return new Promise((resolve) => {
-            const reqId = 'preview-' + Date.now();
-            const listener = (e) => {
-                if (e.detail.payload.requestIdentifier === reqId) {
-                    window.removeEventListener('csvReadComplete', listener);
-                    resolve(e.detail.payload.content || '');
-                }
-            };
-            window.addEventListener('csvReadComplete', listener);
-            window.BAPI_IPC.readCSV(reqId, path);
-        });
     }
 
     _parseCSV(text) {
@@ -554,9 +534,10 @@ class DatabaseEditor {
     }
 
     _renderPreview() {
+        console.log("Rendering preview");
         const preset = this._getActivePreset();
-        if (!preset || this.previewCacheData.length === 0) {
-            this.elements.previewContainer.innerHTML = '<div style="padding:20px; color:var(--text-secondary);">No data or preset available for preview.</div>';
+        if (!preset) {
+            this.elements.previewContainer.innerHTML = '<div style="padding:20px; color:var(--text-secondary);">No preset available for preview.</div>';
             return;
         }
 
@@ -565,25 +546,32 @@ class DatabaseEditor {
         const fakeEditor = { BAPI_PE: {}, BAPI_WD: window.BAPI_WD, BAPI_IPC: window.BAPI_IPC };
 
         // 我们动态调用渲染子块
-        if (preset.type === 'tableView') {
-            // 直接创建具体子类型块而不是 DataBlock，因为 DataBlock 是用于在 Page 等文件中进行包裹显示 Database 用的块
-            const blockClass = window['blockRegistry'].get('tableView');
-            if (blockClass) {
-                // 伪造 blockData，将 preset 属性当做块属性传入
-                const blockData = { id: 'preview-1', type: 'tableView', properties: { ...preset } };
-                const instance = new blockClass(blockData, fakeEditor);
-                
-                // 强制植入数据，绕过它的 loadData()
-                instance._cachedData = this.previewCacheData;
-                instance.loadData = async () => this.previewCacheData; 
+        if (!this.previewBlockInstance) {
+            // 首次预览：实例化最外层的 DataBlock
+            const DataBlockClass = window['blockRegistry'].get('data');
+            if (DataBlockClass) {
+                const blockData = { id: 'preview-1', type: 'data', properties: { dbPath: this.filePath, presetId: preset.id } };
+                this.previewBlockInstance = new DataBlockClass(blockData, fakeEditor);
 
-                // 渲染 HTML
+                // 将编辑器的实时 JSON 状态注入（劫持它的默认缓存，防止它去磁盘读老数据）
+                this.previewBlockInstance._dbJsonCache = this.dbData;
+                this.previewBlockInstance._rawDataCache = null;
+
+                // 执行正常渲染周期
                 this.elements.previewContainer.innerHTML = '';
-                const el = instance.render();
-                // 由于 tableview 的 renderContent 是异步调用 loadData，我们需要等一下或者直接调用 _renderTable
-                instance._renderTable(this.previewCacheData);
-                this.elements.previewContainer.appendChild(instance.contentElement);
+                this.previewBlockInstance.render();
+                this.elements.previewContainer.appendChild(this.previewBlockInstance.contentElement);
             }
+        } else {
+            // 已存在实例：直接复用，更新配置并请求自身重绘
+            this.previewBlockInstance.properties.presetId = preset.id;
+            this.previewBlockInstance._dbJsonCache = this.dbData;
+
+            // 每次强制清空原始数据缓存，让 DataBlock 自己根据外部模式（embedded/external）去拿最新的
+            this.previewBlockInstance._rawDataCache = null;
+
+            // 触发块自身的内容重绘机制，它会自动跑 render -> _loadDatabaseAndRender
+            this.previewBlockInstance._renderContent();
         }
     }
 

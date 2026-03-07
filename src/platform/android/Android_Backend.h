@@ -38,7 +38,7 @@ public:
     std::wstring CombineIdentifier(const std::wstring& parent, const std::wstring& childFilename) override;
 
     void SetMainActivityInstance(jobject mainActivityInstance);
-    void OpenFileDialog() override;
+    void OpenFileDialog(const json& payload) override;
     void ToggleFullscreen() override;
     void MinimizeWindow() override;
     void MaximizeWindow() override;

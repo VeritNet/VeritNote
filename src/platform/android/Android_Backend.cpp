@@ -705,7 +705,7 @@ bool AndroidBackend::LoadResourceData(int resource_id, void*& pData, DWORD& dwSi
     return true;
 }
 
-void AndroidBackend::OpenFileDialog() {
+void AndroidBackend::OpenFileDialog(const json& payload) {
     json request;
     request["action"] = "openImagePicker";
 

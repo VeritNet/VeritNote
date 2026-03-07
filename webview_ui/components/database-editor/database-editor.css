@@ -61,6 +61,7 @@
     border-bottom: 1px solid var(--border-primary);
     padding: 5px 10px;
     overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .db-presets-tabs {

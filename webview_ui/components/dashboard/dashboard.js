@@ -121,7 +121,7 @@
             saveRecentWorkspaces(workspaces);
             renderList(searchInput.value);
         } else if (item) {
-            ipc.send('openWorkspace', { path: item.dataset.path });
+            ipc.openWorkspace(item.dataset.path);
         }
     });
 

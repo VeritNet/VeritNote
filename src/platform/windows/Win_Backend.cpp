@@ -114,60 +114,69 @@ void WinBackend::NavigateTo(const std::wstring& url) {
     }
 }
 
-void WinBackend::OpenFileDialog() {
-    // 这部分代码与旧 Backend.cpp 中的实现完全相同
-    IFileOpenDialog* pfd;
-    std::wstring selectedPath = L"";
+void WinBackend::OpenFileDialog(const json& payload) {
+   IFileOpenDialog* pfd;
+   std::wstring selectedPath = L"";
 
-    if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))) {
-        if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pfd)))) {
-            COMDLG_FILTERSPEC fileTypes[] = {
-                { L"Image Files", L"*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp" },
-                { L"All Files", L"*. *" }
-            };
-            pfd->SetFileTypes(ARRAYSIZE(fileTypes), fileTypes);
-            pfd->SetTitle(L"选择图片文件");
+   std::string type_str = payload.value("type", "");
 
-            if (SUCCEEDED(pfd->Show(m_hWnd))) {
-                IShellItem* psi;
-                if (SUCCEEDED(pfd->GetResult(&psi))) {
-                    PWSTR pszFilePath = NULL;
-                    if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath))) {
-                        selectedPath = pszFilePath;
-                        CoTaskMemFree(pszFilePath);
-                    }
-                    psi->Release();
-                }
-            }
-            pfd->Release();
-        }
-        CoUninitialize();
-    }
+   if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE))) {
+       if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pfd)))) {
+           // Define an array of COMDLG_FILTERSPEC
+           COMDLG_FILTERSPEC fileTypes[] = {
+               { L"Image Files", L"*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp" },
+               { L"CSV File", L"*.csv" },
+               { L"All Files", L"*.*" }
+           };
 
-    std::filesystem::path imagePath(selectedPath);
-    std::filesystem::path workspacePath(m_workspaceRoot);
-    std::string finalPathStr;
+           if (type_str == "Image Files") {
+               pfd->SetFileTypes(1, &fileTypes[0]);
+           } else if (type_str == "CSV File") {
+               pfd->SetFileTypes(1, &fileTypes[1]);
+           } else {
+               pfd->SetFileTypes(1, &fileTypes[2]);
+           }
 
-    if (!m_workspaceRoot.empty() && imagePath.wstring().find(workspacePath.wstring()) == 0) {
-        finalPathStr = std::filesystem::relative(imagePath, workspacePath).string();
-        std::replace(finalPathStr.begin(), finalPathStr.end(), '\\', '/');
-    }
-    else {
-        std::string path_utf8 = this->wstring_to_string(selectedPath);
-        std::ostringstream encoded;
-        encoded << std::hex;
-        for (char c : path_utf8) {
-            if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/' || c == ':') {
-                encoded << c;
-            }
-            else {
-                encoded << '%' << std::setw(2) << std::setfill('0') << (int)(unsigned char)c;
-            }
-        }
-        finalPathStr = "http://veritnote.localhost/local-file/" + encoded.str();
-    }
+           pfd->SetTitle(L"选择图片文件");
 
-    SendMessageToJS({ {"action", "fileDialogClosed"}, {"payload", {{"path", finalPathStr}}} });
+           if (SUCCEEDED(pfd->Show(m_hWnd))) {
+               IShellItem* psi;
+               if (SUCCEEDED(pfd->GetResult(&psi))) {
+                   PWSTR pszFilePath = NULL;
+                   if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath))) {
+                       selectedPath = pszFilePath;
+                       CoTaskMemFree(pszFilePath);
+                   }
+                   psi->Release();
+               }
+           }
+           pfd->Release();
+       }
+       CoUninitialize();
+   }
+
+   std::filesystem::path imagePath(selectedPath);
+   std::filesystem::path workspacePath(m_workspaceRoot);
+   std::string finalPathStr;
+
+   if (!m_workspaceRoot.empty() && imagePath.wstring().find(workspacePath.wstring()) == 0) {
+       finalPathStr = std::filesystem::relative(imagePath, workspacePath).string();
+       std::replace(finalPathStr.begin(), finalPathStr.end(), '\\', '/');
+   } else {
+       std::string path_utf8 = this->wstring_to_string(selectedPath);
+       std::ostringstream encoded;
+       encoded << std::hex;
+       for (char c : path_utf8) {
+           if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/' || c == ':') {
+               encoded << c;
+           } else {
+               encoded << '%' << std::setw(2) << std::setfill('0') << (int)(unsigned char)c;
+           }
+       }
+       finalPathStr = "http://veritnote.localhost/local-file/" + encoded.str();
+   }
+
+   SendMessageToJS({ {"action", "fileDialogClosed"}, {"payload", {{"path", finalPathStr}}} });
 }
 
 

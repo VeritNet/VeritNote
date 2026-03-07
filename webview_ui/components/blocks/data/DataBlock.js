@@ -17,6 +17,8 @@ class DataBlock extends Block {
         this._rawDataCache = null;
     }
 
+    _dbJsonCache = null; // Public
+
     static getPropertiesSchema() {
         return [...super.getPropertiesSchema()];
     }
@@ -46,7 +48,7 @@ class DataBlock extends Block {
 
     async _loadDatabaseAndRender() {
         // 1. 获取 DB JSON
-        if (!this._dbJsonCache) {
+        if (!this._dbJsonCache) { // 不可以删除此判断！不可以删除此判断！
             const absolutePath = window.resolveWorkspacePath(this.properties.dbPath);
             this._dbJsonCache = await this._fetchJson(absolutePath);
         }
@@ -77,7 +79,7 @@ class DataBlock extends Block {
         this.contentElement.innerHTML = '';
         renderInstance.render(); // 生成外壳
         // 将数据喂给它并强制其绘制内部结构
-        renderInstance._renderTable(this._rawDataCache);
+        renderInstance._renderDataContent(this._rawDataCache);
         this.contentElement.appendChild(renderInstance.contentElement);
     }
 
@@ -85,33 +87,19 @@ class DataBlock extends Block {
         return new Promise((resolve) => {
             const listener = (e) => {
                 if (e.detail.payload.path === this.properties.dbPath) {
-                    window.removeEventListener('dataLoaded', listener);
+                    window.removeEventListener('databaseLoaded', listener);
                     resolve(e.detail.payload.content);
                 }
             };
-            window.addEventListener('dataLoaded', listener);
-            ipc.send('loadData', { path: path }); // 复用 IPC loadData
+            window.addEventListener('databaseLoaded', listener);
+            ipc.loadDatabase(path);
         });
     }
 
     async _fetchExternalCsv(url) {
-        if (/^https?:\/\//i.test(url)) {
-            const res = await fetch(url);
-            const text = await res.text();
-            return this._parseCSV(text);
-        } else {
-            return new Promise((resolve) => {
-                const reqId = 'block-' + this.id;
-                const listener = (e) => {
-                    if (e.detail.payload.requestIdentifier === reqId) {
-                        window.removeEventListener('csvReadComplete', listener);
-                        resolve(this._parseCSV(e.detail.payload.content || ''));
-                    }
-                };
-                window.addEventListener('csvReadComplete', listener);
-                window.BAPI_IPC.readCSV(reqId, window.resolveWorkspacePath(url));
-            });
-        }
+        const res = await fetch(url);
+        const text = await res.text();
+        return this._parseCSV(text);
     }
 
     _parseCSV(text) {
@@ -154,37 +142,37 @@ class DataBlock extends Block {
     }
 
     onDetailsPanelOpen_custom(container) {
-        const browseBtn = container.querySelector('.db-browse-btn');
-        const presetSelect = container.querySelector('.db-preset-select');
-        const refreshBtn = container.querySelector('.db-refresh-btn');
+    //    const browseBtn = container.querySelector('.db-browse-btn');
+    //    const presetSelect = container.querySelector('.db-preset-select');
+    //    const refreshBtn = container.querySelector('.db-refresh-btn');
 
-        browseBtn.addEventListener('click', () => {
-            window.BAPI_IPC.openFileDialog = () => { ipc.send('openFileDialog'); };
-            const listener = (e) => {
-                window.removeEventListener('fileDialogClosed', listener);
-                if (e.detail.payload.path && e.detail.payload.path.endsWith('.veritnotedb')) {
-                    this.properties.dbPath = window.makePathRelativeToWorkspace(e.detail.payload.path);
-                    this.properties.presetId = ''; // Reset preset
-                    this._dbJsonCache = null; // Clear cache to reload
-                    this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
-                    this.BAPI_PE.emitChange(true, 'change-db', this);
-                }
-            };
-            window.addEventListener('fileDialogClosed', listener);
-            ipc.send('openFileDialog');
-        });
+    //    browseBtn.addEventListener('click', () => {
+    //        window.BAPI_IPC.openFileDialog = () => { ipc.send('openFileDialog'); };
+    //        const listener = (e) => {
+    //            window.removeEventListener('fileDialogClosed', listener);
+    //            if (e.detail.payload.path && e.detail.payload.path.endsWith('.veritnotedb')) {
+    //                this.properties.dbPath = window.makePathRelativeToWorkspace(e.detail.payload.path);
+    //                this.properties.presetId = ''; // Reset preset
+    //                this._dbJsonCache = null; // Clear cache to reload
+    //                this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
+    //                this.BAPI_PE.emitChange(true, 'change-db', this);
+    //            }
+    //        };
+    //        window.addEventListener('fileDialogClosed', listener);
+    //        ipc.send('openFileDialog');
+    //    });
 
-        presetSelect.addEventListener('change', (e) => {
-            this.properties.presetId = e.target.value;
-            this._renderContent();
-            this.BAPI_PE.emitChange(true, 'change-preset', this);
-        });
+    //    presetSelect.addEventListener('change', (e) => {
+    //        this.properties.presetId = e.target.value;
+    //        this._renderContent();
+    //        this.BAPI_PE.emitChange(true, 'change-preset', this);
+    //    });
 
-        refreshBtn.addEventListener('click', () => {
-            this._dbJsonCache = null;
-            this._rawDataCache = null;
-            this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
-        });
+    //    refreshBtn.addEventListener('click', () => {
+    //        this._dbJsonCache = null;
+    //        this._rawDataCache = null;
+    //        this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
+    //    });
     }
 }
 

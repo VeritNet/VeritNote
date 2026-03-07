@@ -330,15 +330,15 @@ window['initializeMainComponent'] = () => {
         console.log(e['detail']['payload']);
         const payload = e['detail']['payload'];
         const tab = tabManager.tabs.get(payload.path);
-        if (tab && tab.instance && tab.instance.onDataLoaded) {
-            tab.instance.onDataLoaded(payload);
+        if (tab && tab.instance && tab.instance.onDatabaseLoaded) {
+            tab.instance.onDatabaseLoaded(payload);
         }
     });
     window.addEventListener('databaseSaved', (e) => {
         const payload = e['detail']['payload'];
         const tab = tabManager.tabs.get(payload.path);
-        if (tab && tab.instance && tab.instance.onDataSaved) {
-            tab.instance.onDataSaved(payload);
+        if (tab && tab.instance && tab.instance.onDatabaseSaved) {
+            tab.instance.onDatabaseSaved(payload);
         }
     });
 
@@ -744,7 +744,7 @@ window['initializeMainComponent'] = () => {
             cancelBtn.onclick = () => {
                 window.isExportCancelled = true;
                 exportStatus.textContent = 'Cancelling...';
-                ipc.send('cancelExport');
+                ipc.cancelExport();
             };
             exportOverlay.querySelector('.export-modal').appendChild(cancelBtn);
         }
@@ -806,13 +806,13 @@ window['initializeMainComponent'] = () => {
         console.log("Starting workspace load:", workspacePath);
         if (workspacePath) {
             // This is the logic from the old window.initializeWorkspace
-            ipc.send('setWorkspace', { path: workspacePath });
-            ipc.send('listWorkspace');
+            ipc.setWorkspace(workspacePath);
+            ipc.listWorkspace();
             ipc.checkWindowState();
             ipc.ensureWorkspaceConfigs();
         } else {
             alert("Error: Workspace path was not provided.");
-            ipc.send('goToDashboard');
+            ipc.goToDashboard();
         }
     };
 

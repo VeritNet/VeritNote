@@ -11,7 +11,7 @@ class TableViewBlock extends Block {
     }
 
     // 由父块 DataBlock (或 DatabaseEditor) 手动调用
-    _renderTable(rawData) {
+    _renderDataContent(rawData) {
         if (!rawData || rawData.length === 0) {
             this.contentElement.innerHTML = '<div style="padding:10px; color:gray;">Empty data.</div>';
             return;

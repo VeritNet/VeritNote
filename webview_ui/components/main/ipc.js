@@ -74,6 +74,9 @@ const ipc = {
     exportPageAsHtml: (path, html) => {
         ipc.send('exportPageAsHtml', { 'path': path, 'html': html });
     },
+    cancelExport: () => {
+        ipc.send('cancelExport');
+    },
     createItem: (parentPath, name, type) => {
         ipc.send('createItem', { 'parentPath': parentPath, 'name': name, 'type': type });
     },
@@ -81,8 +84,8 @@ const ipc = {
         ipc.send('deleteItem', { 'path': path });
     },
 
-    openFileDialog: () => {
-        ipc.send('openFileDialog');
+    openFileDialog: (type) => {
+        ipc.send('openFileDialog', { 'type': type });
     },
 
     prepareExportLibs: (libPaths) => {

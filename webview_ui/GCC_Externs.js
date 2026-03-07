@@ -119,4 +119,5 @@ Block.children;
 
 class TextBlock extends Block { }
 class DataBlock extends Block { }
+DataBlock._dbJsonCache;
 class ParagraphBlock extends TextBlock { }

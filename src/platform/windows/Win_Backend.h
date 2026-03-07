@@ -14,7 +14,7 @@ public:
 
     // --- 实现 Backend 的纯虚函数 ---
     void SendMessageToJS(const json& message) override;
-    void OpenFileDialog() override;
+    void OpenFileDialog(const json& payload) override;
     void OpenWorkspace(const json& payload) override;
     void OpenWorkspaceDialog() override;
     void NavigateTo(const std::wstring& url) override;
