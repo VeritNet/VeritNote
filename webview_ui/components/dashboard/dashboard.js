@@ -116,12 +116,12 @@
 
         if (removeBtn) {
             e.stopPropagation(); // Prevent opening the workspace when removing
-            const pathToRemove = removeBtn.dataset.path;
+            const pathToRemove = removeBtn.dataset['path'];
             let workspaces = getRecentWorkspaces().filter(ws => ws.path !== pathToRemove);
             saveRecentWorkspaces(workspaces);
             renderList(searchInput.value);
         } else if (item) {
-            ipc.openWorkspace(item.dataset.path);
+            ipc.openWorkspace(item.dataset['path']);
         }
     });
 

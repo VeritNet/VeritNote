@@ -164,7 +164,7 @@ class TableViewBlock extends DataBlock {
 
         // 绑定 Resize 事件
         this.contentElement.querySelectorAll('.tv-col-resizer').forEach(handle => {
-            handle.addEventListener('mousedown', (e) => this.initResize(e, parseInt(handle.dataset.index)));
+            handle.addEventListener('mousedown', (e) => this.initResize(e, parseInt(handle.dataset['index'])));
         });
     }
 
@@ -473,12 +473,12 @@ class TableViewBlock extends DataBlock {
             }
 
             container.querySelectorAll('.col-source-select').forEach(select => {
-                const currentVal = select.dataset.current;
+                const currentVal = select.dataset['current'];
                 select.innerHTML = headers.map(h => `<option value="${h}" ${h === currentVal ? 'selected' : ''}>${h}</option>`).join('');
 
                 // 监听 Header 改变
                 select.addEventListener('change', (e) => {
-                    const idx = parseInt(e.target.dataset.index);
+                    const idx = parseInt(e.target.dataset['index']);
                     this.properties.columns[idx].sourceHeader = e.target.value;
                     // 如果 label 为空，自动填入 header
                     if (!this.properties.columns[idx].label) {
@@ -518,7 +518,7 @@ class TableViewBlock extends DataBlock {
 
             // Delete Column
             if (target.classList.contains('delete-col-btn')) {
-                const idx = parseInt(target.dataset.index);
+                const idx = parseInt(target.dataset['index']);
                 this.properties.columns.splice(idx, 1);
                 this._refreshDetailsPanel();
                 this._renderContent();
@@ -526,8 +526,8 @@ class TableViewBlock extends DataBlock {
             }
             // Move Column
             else if (target.classList.contains('move-col-btn')) {
-                const idx = parseInt(target.dataset.index);
-                const dir = parseInt(target.dataset.dir);
+                const idx = parseInt(target.dataset['index']);
+                const dir = parseInt(target.dataset['dir']);
                 const newIdx = idx + dir;
                 if (newIdx >= 0 && newIdx < this.properties.columns.length) {
                     const temp = this.properties.columns[idx];
@@ -540,15 +540,15 @@ class TableViewBlock extends DataBlock {
             }
             // Add Status Map
             else if (target.classList.contains('add-map-btn')) {
-                const idx = parseInt(target.dataset.colIndex);
+                const idx = parseInt(target.dataset['colIndex']);
                 if (!this.properties.columns[idx].statusMappings) this.properties.columns[idx].statusMappings = [];
                 this.properties.columns[idx].statusMappings.push({ condition: '', html: '' });
                 this._refreshDetailsPanel();
             }
             // Delete Status Map
             else if (target.classList.contains('delete-map-btn')) {
-                const colIdx = parseInt(target.dataset.colIndex);
-                const mapIdx = parseInt(target.dataset.mapIndex);
+                const colIdx = parseInt(target.dataset['colIndex']);
+                const mapIdx = parseInt(target.dataset['mapIndex']);
                 this.properties.columns[colIdx].statusMappings.splice(mapIdx, 1);
                 this._refreshDetailsPanel();
                 this._renderContent();
@@ -560,28 +560,28 @@ class TableViewBlock extends DataBlock {
         container.addEventListener('change', (e) => {
             const target = e.target;
             if (target.classList.contains('col-label-input')) {
-                const idx = parseInt(target.dataset.index);
+                const idx = parseInt(target.dataset['index']);
                 this.properties.columns[idx].label = target.value;
                 this._renderContent();
                 this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
             else if (target.classList.contains('col-type-select')) {
-                const idx = parseInt(target.dataset.index);
+                const idx = parseInt(target.dataset['index']);
                 this.properties.columns[idx].type = target.value;
                 this._refreshDetailsPanel(); // 类型改变需要刷新（显示/隐藏 status editor）
                 this._renderContent();
                 this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
             else if (target.classList.contains('map-condition')) {
-                const colIdx = parseInt(target.dataset.colIndex);
-                const mapIdx = parseInt(target.dataset.mapIndex);
+                const colIdx = parseInt(target.dataset['colIndex']);
+                const mapIdx = parseInt(target.dataset['mapIndex']);
                 this.properties.columns[colIdx].statusMappings[mapIdx].condition = target.value;
                 this._renderContent();
                 this.BAPI_PE.emitChange(true, 'edit-table-config', this);
             }
             else if (target.classList.contains('map-html')) {
-                const colIdx = parseInt(target.dataset.colIndex);
-                const mapIdx = parseInt(target.dataset.mapIndex);
+                const colIdx = parseInt(target.dataset['colIndex']);
+                const mapIdx = parseInt(target.dataset['mapIndex']);
                 this.properties.columns[colIdx].statusMappings[mapIdx].html = target.value;
                 this._renderContent();
                 this.BAPI_PE.emitChange(true, 'edit-table-config', this);

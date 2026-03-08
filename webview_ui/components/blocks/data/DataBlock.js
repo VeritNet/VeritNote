@@ -205,7 +205,7 @@ class DataBlock extends Block {
                 this._dbJsonCache = null;
 
                 if (newPath) {
-                    const absolutePath = window.resolveWorkspacePath(newPath);
+                    const absolutePath = this.BAPI_WD.resolveWorkspacePath(newPath);
                     this._fetchJson(absolutePath).then(json => {
                         this._dbJsonCache = json;
                         this._renderContent();
@@ -233,7 +233,7 @@ class DataBlock extends Block {
 
         // 仅有路径但没缓存时（例如首次通过外部输入打开细节），自动抓取以生成 Preset 的选项
         if (this.properties.dbPath && !this._dbJsonCache) {
-            const absolutePath = window.resolveWorkspacePath(this.properties.dbPath);
+            const absolutePath = this.BAPI_WD.resolveWorkspacePath(this.properties.dbPath);
             this._fetchJson(absolutePath).then(json => {
                 this._dbJsonCache = json;
                 this._refreshDetailsPanel();

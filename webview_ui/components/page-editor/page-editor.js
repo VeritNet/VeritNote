@@ -312,7 +312,7 @@ class PageEditor {
                 const blockEl = e.target.closest('.block-container');
                 if (blockEl) {
                     e.preventDefault(); // Prevent the default browser context menu
-                    const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset.id)?.block;
+                    const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset['id'])?.block;
                     if (blockInstance) {
                         this._showBlockDetails(blockInstance);
                     }
@@ -328,7 +328,7 @@ class PageEditor {
         this.elements.blockToolbarGraceArea.addEventListener('mouseout', this._onBlockMouseOut.bind(this));
         this.elements.modeToggle.addEventListener('click', (e) => {
             const option = e.target.closest('.mode-toggle-option');
-            if (option) { this.switchMode(option.dataset.mode); }
+            if (option) { this.switchMode(option.dataset['mode']); }
         });
         this.elements.saveBtn.addEventListener('click', () => this.savePage());
 
@@ -353,8 +353,8 @@ class PageEditor {
         this.elements.detailsView.addEventListener('click', (e) => {
             // Target the entire row for a larger click area
             const targetRow = e.target.closest('.details-hierarchy-row');
-            if (targetRow && targetRow.dataset.blockId) {
-                const blockId = targetRow.dataset.blockId;
+            if (targetRow && targetRow.dataset['blockId']) {
+                const blockId = targetRow.dataset['blockId'];
                 // 1. Update the selection using the selection manager
                 this.PageSelectionManager.set(blockId);
                 // 2. Find the block's element in the editor
@@ -441,10 +441,10 @@ class PageEditor {
                 } else if (isMultiSelectKey) {
                     // This is for multi-selecting by clicking the block's body
                     e.preventDefault();
-                    this.PageSelectionManager.toggle(clickedBlockEl.dataset.id);
+                    this.PageSelectionManager.toggle(clickedBlockEl.dataset['id']);
                 } else {
                     // This is for single-selecting by clicking the block's body
-                    this.PageSelectionManager.set(clickedBlockEl.dataset.id);
+                    this.PageSelectionManager.set(clickedBlockEl.dataset['id']);
                 }
             } else {
                 // This part handles clicking on the editor background, etc.
@@ -524,7 +524,7 @@ class PageEditor {
      */
     _postRenderProcess() {
         this.container.querySelectorAll('.block-content[data-type="columns"]').forEach(columnsEl => {
-            const columnsBlock = this._findBlockInstanceById(this.blocks, columnsEl.dataset.id)?.block;
+            const columnsBlock = this._findBlockInstanceById(this.blocks, columnsEl.dataset['id'])?.block;
             if (!columnsBlock || columnsBlock.children.length <= 1) return;
 
             for (let i = 1; i < columnsBlock.children.length; i++) {
@@ -764,7 +764,7 @@ class PageEditor {
         const blockEl = e.target.closest('[data-id]');
         if (!blockEl) return;
 
-        const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset.id)?.block;
+        const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset['id'])?.block;
         if (blockInstance && typeof blockInstance.onInput === 'function') {
             blockInstance.onInput(e);
         }
@@ -776,7 +776,7 @@ class PageEditor {
         if (dragHandle) {
             const blockContainerEl = dragHandle.closest('.block-container');
             if (blockContainerEl) {
-                const blockId = blockContainerEl.dataset.id;
+                const blockId = blockContainerEl.dataset['id'];
                 const isMultiSelectKey = e.ctrlKey || e.metaKey || e.shiftKey;
                 if (isMultiSelectKey) {
                     this.PageSelectionManager.toggle(blockId);
@@ -792,7 +792,7 @@ class PageEditor {
         const targetEl = e.target.closest('[data-id]');
 
         if (targetEl) {
-            const blockInstance = this._findBlockInstanceAndParent(targetEl.dataset.id)?.block;
+            const blockInstance = this._findBlockInstanceAndParent(targetEl.dataset['id'])?.block;
             // 只当点击了特定的“添加区域” (CSS控制的padding区) 时才触发
             // 或者当容器为空时点击容器体
             if (blockInstance && blockInstance.childrenContainer) {
@@ -1025,7 +1025,7 @@ class PageEditor {
         const contentEl = e.target.closest('.block-content, .list-item-text-area');
         if (!contentEl) return;
         
-        const blockId = contentEl.dataset.id || contentEl.closest('[data-id]')?.dataset.id;
+        const blockId = contentEl.dataset['id'] || contentEl.closest('[data-id]')?.dataset['id'];
         if (!blockId) return;
 
         const blockInstance = this._findBlockInstanceAndParent(blockId)?.block;
@@ -1210,7 +1210,7 @@ class PageEditor {
         const item = e.target.closest('.command-item');
         if (!item || !this.activeCommandBlock) return;
 
-        const newType = item.dataset.type;
+        const newType = item.dataset['type'];
         const targetBlock = this.activeCommandBlock;
         targetBlock.syncContentFromDOM();
 
@@ -1241,7 +1241,7 @@ class PageEditor {
     _onDragStart(e) {
         const blockContainer = e.target.closest('.block-container');
         if (blockContainer) {
-            const blockId = blockContainer.dataset.id;
+            const blockId = blockContainer.dataset['id'];
             const isMultiDrag = this.PageSelectionManager && this.PageSelectionManager.size() > 1 && this.PageSelectionManager.has(blockId);
 
             this.draggedBlock = blockContainer; // Keep this for visual feedback (opacity)
@@ -1336,7 +1336,7 @@ class PageEditor {
             return;
         }
 
-        const directBlockInstance = this._findBlockInstanceById(this.blocks, directTargetEl.dataset.id)?.block;
+        const directBlockInstance = this._findBlockInstanceById(this.blocks, directTargetEl.dataset['id'])?.block;
         if (!directBlockInstance) return;
 
         // ============================================================
@@ -1348,8 +1348,8 @@ class PageEditor {
         let ancestorEl = directTargetEl;
         while (ancestorEl && ancestorEl !== this.elements.editorAreaContainer) {
             // 如果是 block-container 或 table-cell
-            if (ancestorEl.dataset && ancestorEl.dataset.id) {
-                const ancestorInst = this._findBlockInstanceById(this.blocks, ancestorEl.dataset.id)?.block;
+            if (ancestorEl.dataset && ancestorEl.dataset['id']) {
+                const ancestorInst = this._findBlockInstanceById(this.blocks, ancestorEl.dataset['id'])?.block;
                 // 只有当它是容器时才激活
                 if (ancestorInst && ancestorInst.childrenContainer) {
                     ancestorInst.childrenContainer.classList.add('is-drag-active');
@@ -1377,7 +1377,7 @@ class PageEditor {
             // 找到了对应的容器块实例
             // 注意：e.target 是 childrenContainer，它的 parentElement 通常是 contentElement 或 blockElement
             const containerBlockEl = e.target.closest('[data-id]');
-            const containerInst = this._findBlockInstanceById(this.blocks, containerBlockEl.dataset.id)?.block;
+            const containerInst = this._findBlockInstanceById(this.blocks, containerBlockEl.dataset['id'])?.block;
 
             if (containerInst) {
                 // 命中容器空白区 -> 放入容器
@@ -2076,7 +2076,7 @@ class PageEditor {
         const targetEl = e.target.closest('.block-container');
         if (targetEl && targetEl !== this.activeToolbarBlock?.element) {
             clearTimeout(this.toolbarHideTimeout);
-            const blockInstance = this._findBlockInstanceById(this.blocks, targetEl.dataset.id)?.block;
+            const blockInstance = this._findBlockInstanceById(this.blocks, targetEl.dataset['id'])?.block;
             if (blockInstance) {
                 this._showBlockToolbar(blockInstance);
             }
@@ -2093,13 +2093,13 @@ class PageEditor {
         let curr = e.target;
         while (curr && curr !== this.elements.editorAreaContainer) {
             if (curr.classList.contains('block-children-container') ||
-                (curr.dataset && curr.dataset.id && this._findBlockInstanceById(this.blocks, curr.dataset.id)?.block?.childrenContainer)) {
+                (curr.dataset && curr.dataset['id'] && this._findBlockInstanceById(this.blocks, curr.dataset['id'])?.block?.childrenContainer)) {
 
                 // 这是一个容器相关的元素，记录下来
                 // 注意：如果 curr 是 childrenContainer 本身，我们需要找它的 Block 实例
                 // 如果 curr 是 Block 元素，直接找实例
-                let blockId = curr.dataset.id;
-                if (!blockId && curr.parentElement) blockId = curr.parentElement.closest('[data-id]')?.dataset.id;
+                let blockId = curr.dataset['id'];
+                if (!blockId && curr.parentElement) blockId = curr.parentElement.closest('[data-id]')?.dataset['id'];
 
                 if (blockId) activeContainerIds.add(blockId);
             }
@@ -2110,7 +2110,7 @@ class PageEditor {
         this.container.querySelectorAll('.show-add-area').forEach(el => {
             // 找到这个容器所属的 blockId
             const parentBlock = el.closest('[data-id]');
-            if (parentBlock && !activeContainerIds.has(parentBlock.dataset.id)) {
+            if (parentBlock && !activeContainerIds.has(parentBlock.dataset['id'])) {
                 el.classList.remove('show-add-area');
             }
         });
@@ -2218,9 +2218,9 @@ class PageEditor {
             }
             
             button.title = btnInfo.title;
-            button.dataset.action = btnInfo.action;
+            button.dataset['action'] = btnInfo.action;
             if (btnInfo.arg) {
-                button.dataset.arg = btnInfo.arg;
+                button.dataset['arg'] = btnInfo.arg;
             }
             button.addEventListener('mousedown', e => {
                 e.preventDefault();
@@ -2232,8 +2232,8 @@ class PageEditor {
 
     _handleToolbarClick(e, blockInstance) {
         const button = e.currentTarget;
-        const action = button.dataset.action;
-        const arg = button.dataset.arg;
+        const action = button.dataset['action'];
+        const arg = button.dataset['arg'];
 
         const forceRestoreAndExecute = (cmd, value = null) => {
             if (!this.richTextEditingState.isActive) return;
@@ -2481,13 +2481,13 @@ class PageEditor {
         for (const blockEl of blockElements) {
             const blockRect = blockEl.getBoundingClientRect();
             if (blockRect.top >= containerRect.top && blockRect.top < containerRect.bottom) {
-                return blockEl.dataset.id;
+                return blockEl.dataset['id'];
             }
         }
         for (const blockEl of blockElements) {
             const blockRect = blockEl.getBoundingClientRect();
             if (blockRect.bottom > containerRect.top && blockRect.top < containerRect.bottom) {
-                return blockEl.dataset.id;
+                return blockEl.dataset['id'];
             }
         }
         return null;
@@ -2567,7 +2567,7 @@ class PageEditor {
         this.elements.rightSidebarViewToggle.addEventListener('click', (e) => {
             const option = e.target.closest('.rs-view-option');
             if (option) {
-                this.switchRightSidebarView(option.dataset.view);
+                this.switchRightSidebarView(option.dataset['view']);
             }
         });
 
@@ -2705,7 +2705,7 @@ class PageEditor {
         }
     
         this.elements.rightSidebarViewToggle.querySelectorAll('.rs-view-option').forEach(opt => {
-            opt.classList.toggle('active', opt.dataset.view === viewName);
+            opt.classList.toggle('active', opt.dataset['view'] === viewName);
         });
     
         Object.values(views).forEach(view => {
@@ -2972,7 +2972,7 @@ class PageEditor {
         // --- Step 3: Delegate to Each Block for Specific Export Modifications ---
         const allBlockElements = Array.from(renderedContainer.querySelectorAll('.block-container'));
         for (const blockEl of allBlockElements) {
-            const blockId = blockEl.dataset.id;
+            const blockId = blockEl.dataset['id'];
             const blockInstance = this._findBlockInstanceById(this.blocks, blockId)?.block;
 
             if (blockInstance && typeof blockInstance.getExportHtml === 'function') {
@@ -3324,7 +3324,7 @@ class PageReferenceManager {
             
             const newReferences = [];
             this.container.querySelectorAll('.reference-item').forEach(itemEl => {
-                const blockId = itemEl.dataset.blockId;
+                const blockId = itemEl.dataset['blockId'];
                 // 从全局状态中查找
                 const refObject = window.globalState.references.find(r => r.blockData.id === blockId);
                 if (refObject) { newReferences.push(refObject); }
@@ -3363,7 +3363,7 @@ class PageReferenceManager {
         const item = e.target.closest('.reference-item');
         if (item) {
             this.draggedItem = item;
-            const blockId = item.dataset.blockId;
+            const blockId = item.dataset['blockId'];
             
             // 将 this.references 改为 globalState.references
             const refData = window.globalState.references.find(r => r.blockData.id === blockId);
@@ -3399,7 +3399,7 @@ class PageReferenceManager {
         if (this.isLinkingMode) {
             const itemEl = e.target.closest('.reference-item');
             if (itemEl && this.linkingCallback) {
-                const blockId = itemEl.dataset.blockId;
+                const blockId = itemEl.dataset['blockId'];
                 const refData = window.globalState.references.find(r => r.blockData.id === blockId);
                 if (refData) { this.linkingCallback(refData); }
             }
@@ -3409,14 +3409,14 @@ class PageReferenceManager {
         // Priority 2: Check for delete button click
         const deleteBtn = e.target.closest('.reference-item-delete-btn');
         if (deleteBtn) {
-            this.removeReference(deleteBtn.closest('.reference-item').dataset.blockId);
+            this.removeReference(deleteBtn.closest('.reference-item').dataset['blockId']);
             return;
         }
 
         // Default action: Navigate to the block
         const itemEl = e.target.closest('.reference-item');
         if (itemEl) {
-            const blockId = itemEl.dataset.blockId;
+            const blockId = itemEl.dataset['blockId'];
             const refData = window.globalState.references.find(r => r.blockData.id === blockId);
 
             if (refData) {
@@ -3461,7 +3461,7 @@ class PageReferenceManager {
             const fileName = ref.filePath.substring(ref.filePath.lastIndexOf('\\') + 1).replace('.veritnote', '');
             const itemEl = document.createElement('div');
             itemEl.className = 'reference-item';
-            itemEl.dataset.blockId = ref.blockData.id;
+            itemEl.dataset['blockId'] = ref.blockData.id;
             itemEl.draggable = true;
             
             const blockInstance = tempEditor.createBlockInstance(ref.blockData);

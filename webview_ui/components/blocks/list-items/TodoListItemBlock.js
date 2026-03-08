@@ -53,7 +53,7 @@ class TodoListItemBlock extends TextBlock {
         // 初始化文本区域
         this.textElement.contentEditable = 'true';
         this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset.placeholder = this.constructor.placeholder;
+        this.textElement.dataset['placeholder'] = this.constructor.placeholder;
 
         this._renderContent();
 

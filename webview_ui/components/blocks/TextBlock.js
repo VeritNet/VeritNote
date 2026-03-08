@@ -27,7 +27,7 @@ class TextBlock extends Block {
         this.contentElement.innerHTML = this.content || '';
 
         if (this.constructor.placeholder) {
-            this.contentElement.dataset.placeholder = this.constructor.placeholder;
+            this.contentElement.dataset['placeholder'] = this.constructor.placeholder;
         }
 
         // --- 应用文本样式 ---

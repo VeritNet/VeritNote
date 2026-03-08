@@ -10,7 +10,7 @@ class TableCellBlock extends Block {
         // 单元格不需要标准的 .block-container 包装或控件
         this.element = document.createElement('div');
         this.element.className = 'table-cell-content';
-        this.element.dataset.id = this.id;
+        this.element.dataset['id'] = this.id;
 
         // Cell 内部有唯一的容器
         this.childrenContainer = document.createElement('div');
@@ -39,7 +39,7 @@ class TableRowBlock extends Block {
         // 行也不需要标准的 .block-container 包装
         this.element = document.createElement('div');
         this.element.className = 'table-row-content';
-        this.element.dataset.id = this.id;
+        this.element.dataset['id'] = this.id;
         
         this._renderChildren(this.element);
 

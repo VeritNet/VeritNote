@@ -146,7 +146,7 @@ class ConfigModal {
                 button.classList.add('active');
                 
                 const customControl = group.parentElement.querySelector('.config-custom-control');
-                customControl.style.display = button.dataset.mode === 'custom' ? 'flex' : 'none';
+                customControl.style.display = button.dataset['mode'] === 'custom' ? 'flex' : 'none';
             });
         });
 
@@ -188,7 +188,7 @@ class ConfigModal {
                 e.preventDefault(); 
                 const item = e.target.closest('.combobox-item:not(.separator)');
                 if (item) {
-                    const value = item.dataset.value;
+                    const value = item.dataset['value'];
                     input.value = value === INHERIT_VALUE ? 'Inherit' : value;
                     toggleDropdown(false);
                 }
@@ -208,7 +208,7 @@ class ConfigModal {
                 
                 // 2. Get the input element
                 const input = group.parentElement.querySelector('.config-custom-input');
-                const selectedType = button.dataset.type;
+                const selectedType = button.dataset['type'];
 
                 // 3. Update all relevant attributes based on the selected type
                 if (selectedType === 'color') {
@@ -237,7 +237,7 @@ class ConfigModal {
         let hasVisibleItems = false;
         
         dropdown.querySelectorAll('.combobox-item').forEach(item => {
-            const itemValue = item.dataset.value || '';
+            const itemValue = item.dataset['value'] || '';
             const itemText = item.textContent.toLowerCase();
             const isVisible = item.classList.contains('separator') || itemText.includes(searchTerm) || itemValue.toLowerCase().includes(searchTerm);
             item.style.display = isVisible ? '' : 'none';
@@ -254,22 +254,22 @@ class ConfigModal {
     _save() {
         const finalConfig = {};
         this.element.querySelectorAll('.config-item').forEach(item => {
-            const category = item.dataset.category;
-            const key = item.dataset.key;
+            const category = item.dataset['category'];
+            const key = item.dataset['key'];
             if (!finalConfig[category]) finalConfig[category] = {};
 
             const isColorControl = !!item.querySelector('.config-item-control > .btn-group');
             
             if (isColorControl) {
                 // Logic for color/background controls
-                const mode = item.querySelector('.config-item-control > .btn-group button.active').dataset.mode;
+                const mode = item.querySelector('.config-item-control > .btn-group button.active').dataset['mode'];
                 if (mode === 'inherit') {
                     finalConfig[category][key] = INHERIT_VALUE;
                 } else { // Custom
                     if (key === 'background') {
                         const typeBtn = item.querySelector('.background-type-toggle button.active');
                         const input = item.querySelector('.config-custom-control input');
-                        finalConfig[category][key] = { type: typeBtn.dataset.type, value: input.value };
+                        finalConfig[category][key] = { type: typeBtn.dataset['type'], value: input.value };
                     } else {
                         const input = item.querySelector('.config-custom-control input, .config-custom-control .input-combobox input');
                         finalConfig[category][key] = input.value;

@@ -39,11 +39,11 @@ class TableViewBlock extends Block {
                     markDirtyCallback();
                     this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('col-delete')) {
-                    this.preset.columns.splice(parseInt(target.dataset.index), 1);
+                    this.preset.columns.splice(parseInt(target.dataset['index']), 1);
                     markDirtyCallback();
                     this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('col-move-up') || target.classList.contains('col-move-down')) {
-                    const idx = parseInt(target.dataset.index);
+                    const idx = parseInt(target.dataset['index']);
                     const newIdx = idx + (target.classList.contains('col-move-up') ? -1 : 1);
                     if (newIdx >= 0 && newIdx < this.preset.columns.length) {
                         const temp = this.preset.columns[idx];
@@ -53,13 +53,13 @@ class TableViewBlock extends Block {
                         this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                     }
                 } else if (target.classList.contains('add-map-btn')) {
-                    const idx = parseInt(target.dataset.colIndex);
+                    const idx = parseInt(target.dataset['colIndex']);
                     if (!this.preset.columns[idx].statusMappings) this.preset.columns[idx].statusMappings = [];
                     this.preset.columns[idx].statusMappings.push({ condition: '', html: '' });
                     markDirtyCallback();
                     this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('col-delete-map')) {
-                    this.preset.columns[parseInt(target.dataset.colIndex)].statusMappings.splice(parseInt(target.dataset.mapIndex), 1);
+                    this.preset.columns[parseInt(target.dataset['colIndex'])].statusMappings.splice(parseInt(target.dataset['mapIndex']), 1);
                     markDirtyCallback();
                     this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 }
@@ -86,23 +86,23 @@ class TableViewBlock extends Block {
                     markDirtyCallback();
                     this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('col-source-select')) {
-                    const idx = parseInt(target.dataset.index);
+                    const idx = parseInt(target.dataset['index']);
                     this.preset.columns[idx].sourceHeader = target.value;
                     if (this.preset.firstRowMode === 'header') this.preset.columns[idx].label = target.value;
                     markDirtyCallback();
                     this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('col-label-input')) {
-                    this.preset.columns[parseInt(target.dataset.index)].label = target.value;
+                    this.preset.columns[parseInt(target.dataset['index'])].label = target.value;
                     markDirtyCallback();
                 } else if (target.classList.contains('col-type-select')) {
-                    this.preset.columns[parseInt(target.dataset.index)].type = target.value;
+                    this.preset.columns[parseInt(target.dataset['index'])].type = target.value;
                     markDirtyCallback();
                     this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('map-condition')) {
-                    this.preset.columns[parseInt(target.dataset.colIndex)].statusMappings[parseInt(target.dataset.mapIndex)].condition = target.value;
+                    this.preset.columns[parseInt(target.dataset['colIndex'])].statusMappings[parseInt(target.dataset['mapIndex'])].condition = target.value;
                     markDirtyCallback();
                 } else if (target.classList.contains('map-html')) {
-                    this.preset.columns[parseInt(target.dataset.colIndex)].statusMappings[parseInt(target.dataset.mapIndex)].html = target.value;
+                    this.preset.columns[parseInt(target.dataset['colIndex'])].statusMappings[parseInt(target.dataset['mapIndex'])].html = target.value;
                     markDirtyCallback();
                 }
             });

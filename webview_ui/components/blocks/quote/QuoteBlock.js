@@ -66,7 +66,7 @@ class QuoteBlock extends Block {
 
     // --- 4. Rendering Logic ---
     _renderContent() {
-        this.contentElement.dataset.style = this.properties.style;
+        this.contentElement.dataset['style'] = this.properties.style;
         this.contentElement.innerHTML = `<div class="quote-preview-container"></div>`;
         this.previewContainer = this.contentElement.querySelector('.quote-preview-container');
 
@@ -217,7 +217,7 @@ class QuoteBlock extends Block {
     toggleStyle() {
         this.properties.style = this.properties.style === 'default' ? 'plain' : 'default';
         if (this.contentElement) {
-            this.contentElement.dataset.style = this.properties.style;
+            this.contentElement.dataset['style'] = this.properties.style;
         }
         this.BAPI_PE.emitChange(true, 'toggle-quote-style', this);
     }

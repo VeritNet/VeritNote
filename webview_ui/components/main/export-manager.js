@@ -269,7 +269,7 @@ window.ExportManager = class ExportManager {
 
                  sidebar.querySelectorAll('.tree-node.page').forEach(pageNode => {
                     pageNode.addEventListener('click', () => {
-                        let href = pageNode.dataset.href;
+                        let href = pageNode.dataset['href'];
                         if(href) {
                             if (appContainer.classList.contains('sidebar-peek')) href += '?peek=true';
                             window.location.href = href;

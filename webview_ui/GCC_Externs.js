@@ -26,6 +26,10 @@ payload.path;
 payload.success;
 payload.error;
 payload.quoteBlockId;
+payload.dataBlockId;
+payload.content.presets = [
+    { id: null, type: null, name: null }
+];
 payload.content;
 payload.config;
 

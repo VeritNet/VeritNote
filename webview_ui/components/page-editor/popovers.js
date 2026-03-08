@@ -123,7 +123,7 @@ class PopoverManager {
         }
 
         const setActiveMode = (mode) => {
-            this.popover.querySelectorAll('#link-popover-mode-toggle .popover-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+            this.popover.querySelectorAll('#link-popover-mode-toggle .popover-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset['mode'] === mode));
             
             if (mode === 'block') {
                 pageContent.style.display = 'none';
@@ -133,7 +133,7 @@ class PopoverManager {
                 // --- START: REVISED LOGIC ---
                 // 1. Remember the current view
                 const currentActiveOption = this.editor.elements.rightSidebarViewToggle.querySelector('.rs-view-option.active');
-                this.previousRightSidebarView = currentActiveOption ? currentActiveOption.dataset.view : 'references';
+                this.previousRightSidebarView = currentActiveOption ? currentActiveOption.dataset['view'] : 'references';
                 
                 // 2. Force switch to references view
                 this.editor.switchRightSidebarView('references');
@@ -169,12 +169,12 @@ class PopoverManager {
         };
 
         this.popover.querySelectorAll('#link-popover-mode-toggle .popover-mode-btn').forEach(btn => {
-            btn.onmousedown = (e) => { e.stopPropagation(); setActiveMode(btn.dataset.mode); };
+            btn.onmousedown = (e) => { e.stopPropagation(); setActiveMode(btn.dataset['mode']); };
         });
 
         popoverInput.addEventListener('input', () => this.editor.updateSearchResults(popoverInput.value, searchResults));
         popoverInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.currentPopoverCallback) this.currentPopoverCallback(popoverInput.value); this.hide(); } });
-        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && this.currentPopoverCallback) { const relativePath = window.makePathRelativeToWorkspace(item.dataset.path); this.currentPopoverCallback(relativePath); this.hide(); } });
+        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && this.currentPopoverCallback) { const relativePath = window.makePathRelativeToWorkspace(item.dataset['path']); this.currentPopoverCallback(relativePath); this.hide(); } });
 
         const initialMode = existingValue && existingValue.indexOf('#') > -1 && existingValue.split('#')[1].length > 0 ? 'block' : 'page';
         setActiveMode(initialMode);
@@ -269,7 +269,7 @@ class PopoverManager {
                 }
             };
             window.addEventListener('dataContentFetched', listener);
-            window.BAPI_IPC.fetchDataContent(reqId, absolutePath);
+            ipc.fetchDataContent(reqId, absolutePath);
         };
 
         dbInput.addEventListener('input', () => renderDbList(dbInput.value));
@@ -278,7 +278,7 @@ class PopoverManager {
             e.preventDefault();
             const item = e.target.closest('.search-result-item');
             if (item) {
-                const relativePath = window.makePathRelativeToWorkspace ? window.makePathRelativeToWorkspace(item.dataset.path) : item.dataset.path;
+                const relativePath = window.makePathRelativeToWorkspace ? window.makePathRelativeToWorkspace(item.dataset['path']) : item.dataset['path'];
                 fetchAndShowPresets(relativePath);
             }
         });
@@ -288,8 +288,8 @@ class PopoverManager {
             const item = e.target.closest('.search-result-item');
             if (item && this.currentPopoverCallback) {
                 this.currentPopoverCallback({
-                    dbPath: currentSelectedDbPath,
-                    presetId: item.dataset.presetId
+                    'dbPath': currentSelectedDbPath,
+                    'presetId': item.dataset['presetId']
                 });
                 this.hide();
             }
@@ -357,7 +357,7 @@ class PopoverManager {
             e.preventDefault(); 
             const swatch = e.target.closest('.color-swatch'); 
             if (swatch && this.currentPopoverCallback) { 
-                this.currentPopoverCallback(swatch.dataset.color); 
+                this.currentPopoverCallback(swatch.dataset['color']); 
                 this.hide(); 
             } 
         });
@@ -398,7 +398,7 @@ class PopoverManager {
         }
 
         const setActiveMode = (mode) => {
-            this.popover.querySelectorAll('#ref-popover-mode-toggle .popover-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+            this.popover.querySelectorAll('#ref-popover-mode-toggle .popover-mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset['mode'] === mode));
             
             if (mode === 'block') {
                 pageContent.style.display = 'none';
@@ -408,7 +408,7 @@ class PopoverManager {
                 // --- START: REVISED LOGIC (Identical to showLinkPopover) ---
                 // 1. Remember the current view state.
                 const currentActiveOption = this.editor.elements.rightSidebarViewToggle.querySelector('.rs-view-option.active');
-                this.previousRightSidebarView = currentActiveOption ? currentActiveOption.dataset.view : 'references';
+                this.previousRightSidebarView = currentActiveOption ? currentActiveOption.dataset['view'] : 'references';
                 
                 // 2. Force switch to the references view.
                 this.editor.switchRightSidebarView('references');
@@ -440,10 +440,10 @@ class PopoverManager {
         };
 
         this.popover.querySelectorAll('#ref-popover-mode-toggle .popover-mode-btn').forEach(btn => {
-            btn.onmousedown = (e) => { e.stopPropagation(); setActiveMode(btn.dataset.mode); };
+            btn.onmousedown = (e) => { e.stopPropagation(); setActiveMode(btn.dataset['mode']); };
         });
         
-        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && this.currentPopoverCallback) { this.currentPopoverCallback(item.dataset.path); this.hide(); } });
+        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && this.currentPopoverCallback) { this.currentPopoverCallback(item.dataset['path']); this.hide(); } });
 
         const initialMode = existingValue && existingValue.indexOf('#') > -1 && existingValue.split('#')[1].length > 0 ? 'block' : 'page';
         setActiveMode(initialMode);
@@ -481,7 +481,7 @@ class PopoverManager {
             event.preventDefault();
             const item = event.target.closest('.language-item');
             if (item && this.currentPopoverCallback) {
-                this.currentPopoverCallback(item.dataset.lang);
+                this.currentPopoverCallback(item.dataset['lang']);
                 this.hide();
             }
         });
@@ -512,7 +512,7 @@ class PopoverManager {
         this.popover.querySelectorAll('.context-menu-item').forEach(item => {
             item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                const action = e.target.dataset.action;
+                const action = e.target.dataset['action'];
                 if (this.currentPopoverCallback) {
                     this.currentPopoverCallback(action);
                 }

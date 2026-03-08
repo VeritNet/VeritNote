@@ -18,6 +18,11 @@ class Block {
         
         this.editor = editor;
         this.element = null;
+        /**
+         * 关于子块的2种情况
+         * 1. 如果一个块的父级没有交互容器(childrenContainer为null)，说明该块是父级不可分割的结构（如Row是Table的结构）块。page编辑器的_canAcceptSideDrop会拒绝尝试破坏其父块内容结构的行为
+         * 2. 如果一个块的父级有交互容器(childrenContainer不为null)，说明该块是容器区内的自由进出的块
+        */
         this.contentElement = null;
         this.childrenContainer = null; //如果为null，则不是容器块，一个容器块只能有一个容器区
 
@@ -217,7 +222,7 @@ class Block {
                 <div 
                     class="details-hierarchy-row" 
                     data-block-id="${item.block.id}" 
-                    style="--depth: ${item.depth};"  /* Now depth is always a positive integer */
+                    style="--depth: ${item.depth};"  /* Depth is always a positive integer */
                     title="Click to select ${item.block.type}"
                 >
                     <div class="details-hierarchy-indent"></div>
@@ -325,7 +330,7 @@ class Block {
         const inputs = container.querySelectorAll('.details-properties-view .details-input-field');
         inputs.forEach(input => {
             input.addEventListener('change', (e) => {
-                const key = e.target.dataset.propKey;
+                const key = e.target.dataset['propKey'];
                 const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
 
                 this.properties[key] = value;
@@ -352,23 +357,23 @@ class Block {
         if (cssContainer) {
             cssContainer.addEventListener('click', (e) => {
                 const target = e.target;
-                if (target.dataset.action === 'add-css-group-btn' || target.id === 'add-css-group-btn') {
+                if (target.dataset['action'] === 'add-css-group-btn' || target.id === 'add-css-group-btn') {
                     this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
                     this._refreshDetailsPanel();
                 }
-                else if (target.dataset.action === 'delete-group') {
-                    const idx = parseInt(target.dataset.group);
+                else if (target.dataset['action'] === 'delete-group') {
+                    const idx = parseInt(target.dataset['group']);
                     this.properties.customCSS.splice(idx, 1);
                     this._refreshDetailsPanel();
                 }
-                else if (target.dataset.action === 'add-rule') {
-                    const idx = parseInt(target.dataset.group);
+                else if (target.dataset['action'] === 'add-rule') {
+                    const idx = parseInt(target.dataset['group']);
                     this.properties.customCSS[idx].rules.push({ prop: '', val: '' });
                     this._refreshDetailsPanel();
                 }
-                else if (target.dataset.action === 'delete-rule') {
-                    const gIdx = parseInt(target.dataset.group);
-                    const rIdx = parseInt(target.dataset.rule);
+                else if (target.dataset['action'] === 'delete-rule') {
+                    const gIdx = parseInt(target.dataset['group']);
+                    const rIdx = parseInt(target.dataset['rule']);
                     this.properties.customCSS[gIdx].rules.splice(rIdx, 1);
                     this._refreshDetailsPanel();
                 }
@@ -377,20 +382,20 @@ class Block {
             cssContainer.addEventListener('input', (e) => {
                 const target = e.target;
                 if (target.classList.contains('css-selector')) {
-                    const idx = parseInt(target.dataset.group);
+                    const idx = parseInt(target.dataset['group']);
                     this.properties.customCSS[idx].selector = target.value;
                     this._applyCustomCSS();
                     // Debounce save? relying on blur or next action for history usually better, but for CSS visual feedback we update immediately.
                 }
                 else if (target.classList.contains('css-key')) {
-                    const gIdx = parseInt(target.dataset.group);
-                    const rIdx = parseInt(target.dataset.rule);
+                    const gIdx = parseInt(target.dataset['group']);
+                    const rIdx = parseInt(target.dataset['rule']);
                     this.properties.customCSS[gIdx].rules[rIdx].prop = target.value;
                     this._applyCustomCSS();
                 }
                 else if (target.classList.contains('css-val')) {
-                    const gIdx = parseInt(target.dataset.group);
-                    const rIdx = parseInt(target.dataset.rule);
+                    const gIdx = parseInt(target.dataset['group']);
+                    const rIdx = parseInt(target.dataset['rule']);
                     this.properties.customCSS[gIdx].rules[rIdx].val = target.value;
                     this._applyCustomCSS();
                 }
@@ -482,7 +487,7 @@ class Block {
     _createWrapperElement() {
         const element = document.createElement('div');
         element.className = 'block-container';
-        element.dataset.id = this.id;
+        element.dataset['id'] = this.id;
         element.draggable = true;
         element.innerHTML = `
             <div class="block-controls">
@@ -499,8 +504,8 @@ class Block {
     _createContentElement() {
         const content = document.createElement('div');
         content.className = 'block-content';
-        content.dataset.id = this.id;
-        content.dataset.type = this.type;
+        content.dataset['id'] = this.id;
+        content.dataset['type'] = this.type;
         return content;
     }
 

@@ -249,7 +249,7 @@ window['initializeMainComponent'] = () => {
                 const tab = this.tabs.get(path);
                 const tabItem = document.createElement('div');
                 tabItem.className = 'tab-item';
-                tabItem.dataset.path = path;
+                tabItem.dataset['path'] = path;
                 tabItem.title = path;
                 if (path === this.activeTabPath) { tabItem.classList.add('active'); }
                 if (tab.isUnsaved) { tabItem.classList.add('unsaved'); }
@@ -271,7 +271,7 @@ window['initializeMainComponent'] = () => {
         }
         handleDragStart(e, path) { e.dataTransfer.setData('text/plain', path); this.draggedElement = e.target; setTimeout(() => this.draggedElement.classList.add('dragging'), 0); }
         handleDragOver(e, targetPath) { e.preventDefault(); const draggingElem = this.draggedElement; if (!draggingElem || draggingElem === e.currentTarget) return; const targetElem = e.currentTarget; const rect = targetElem.getBoundingClientRect(); const isAfter = e.clientX > rect.left + rect.width / 2; if (isAfter) { dynamicTabsContainer.insertBefore(draggingElem, targetElem.nextSibling); } else { dynamicTabsContainer.insertBefore(draggingElem, targetElem); } }
-        handleDrop(e, path) { e.preventDefault(); const newOrder = []; dynamicTabsContainer.querySelectorAll('.tab-item').forEach(item => newOrder.push(item.dataset.path)); this.tabOrder = newOrder; }
+        handleDrop(e, path) { e.preventDefault(); const newOrder = []; dynamicTabsContainer.querySelectorAll('.tab-item').forEach(item => newOrder.push(item.dataset['path'])); this.tabOrder = newOrder; }
         handleDragEnd(e) { if (this.draggedElement) { this.draggedElement.classList.remove('dragging'); } this.draggedElement = null; this.render(); }
     }
 
@@ -295,7 +295,7 @@ window['initializeMainComponent'] = () => {
         if (workspaceData && workspaceData.path) {
             window.workspaceRootPath = workspaceData.path;
         }
-        sidebar.dataset.workspaceData = JSON.stringify(workspaceData);
+        sidebar.dataset['workspaceData'] = JSON.stringify(workspaceData);
         if (workspaceData && workspaceData.children && workspaceData.children.length > 0) {
             sidebar.innerHTML = renderWorkspaceTree(workspaceData);
         } else {
@@ -360,15 +360,15 @@ window['initializeMainComponent'] = () => {
         const settingsBtn = e.target.closest('.item-settings-btn');
         if (settingsBtn) {
             const parentNode = settingsBtn.closest('.tree-node');
-            const path = parentNode.dataset.path;
-            const type = settingsBtn.dataset.type;
+            const path = parentNode.dataset['path'];
+            const type = settingsBtn.dataset['type'];
             window.openConfigModal(type, path);
             return;
         }
 
         const target = e.target.closest('.tree-node');
         if (!target) return;
-        const path = target.dataset.path;
+        const path = target.dataset['path'];
         
         if (target.classList.contains('folder')) {
             target.classList.toggle('open');
@@ -559,7 +559,7 @@ window['initializeMainComponent'] = () => {
      * @returns {Array<{name: string, path: string}>}
      */
     window.getAllPageFiles = function () {
-        const workspaceDataStr = sidebar.dataset.workspaceData;
+        const workspaceDataStr = sidebar.dataset['workspaceData'];
         if (!workspaceDataStr) return [];
 
         try {
@@ -578,7 +578,7 @@ window['initializeMainComponent'] = () => {
      * @returns {Array<{name: string, path: string}>}
      */
     window.getAllDatabaseFiles = function () {
-        const workspaceDataStr = sidebar.dataset.workspaceData;
+        const workspaceDataStr = sidebar.dataset['workspaceData'];
         if (!workspaceDataStr) return [];
 
         try {
@@ -648,11 +648,11 @@ window['initializeMainComponent'] = () => {
 
     contextMenu.addEventListener('click', (e) => {
         if (!contextMenuTarget) return;
-        const action = e.target.dataset.action;
-        let targetPath = contextMenuTarget.dataset.path || '';
+        const action = e.target.dataset['action'];
+        let targetPath = contextMenuTarget.dataset['path'] || '';
         let parentPath = '';
-        if (contextMenuTarget.id === 'workspace-tree') { parentPath = JSON.parse(sidebar.dataset.workspaceData || '{}').path || ''; } else if (contextMenuTarget.classList.contains('folder')) { parentPath = targetPath; } else { parentPath = targetPath.substring(0, targetPath.lastIndexOf('\\')); }
-        if (!parentPath && sidebar.dataset.workspaceData) { parentPath = JSON.parse(sidebar.dataset.workspaceData).path; }
+        if (contextMenuTarget.id === 'workspace-tree') { parentPath = JSON.parse(sidebar.dataset['workspaceData'] || '{}').path || ''; } else if (contextMenuTarget.classList.contains('folder')) { parentPath = targetPath; } else { parentPath = targetPath.substring(0, targetPath.lastIndexOf('\\')); }
+        if (!parentPath && sidebar.dataset['workspaceData']) { parentPath = JSON.parse(sidebar.dataset['workspaceData']).path; }
         switch (action) {
             case 'newPage': { const name = prompt("Page Name", "MyPage"); if (name) { ipc.createItem(parentPath, name, 'page'); } break; }
             case 'newGraph': { const name = prompt("Graph Name", "MyGraph"); if (name) { ipc.createItem(parentPath, name, 'graph'); } break; }
@@ -767,7 +767,7 @@ window['initializeMainComponent'] = () => {
         };
         cookSettingsModal.style.display = 'none';
 
-        const workspaceData = JSON.parse(sidebar.dataset.workspaceData || '{}');
+        const workspaceData = JSON.parse(sidebar.dataset['workspaceData'] || '{}');
         const allFilesToExport = [];
         const getAllFiles = (node, list) => {
             if (node.type === 'page') list.push(node.path);
