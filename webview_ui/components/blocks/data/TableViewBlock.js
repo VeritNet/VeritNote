@@ -10,6 +10,190 @@ class TableViewBlock extends Block {
         if (!this.preset.columns) this.preset.columns = [];
     }
 
+    /**
+     * @private
+     */
+    async renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock) {
+        this.preset = preset; // 保持内部引用最新
+
+        // 1. 初始化容器与事件委托 (仅初始化一次)
+        if (!this.configContainer) {
+            this.configContainer = document.createElement('div');
+            this.configContainer.className = 'table-view-config-container';
+
+            // 监听点击事件
+            this.configContainer.addEventListener('click', async (e) => {
+                const target = e.target;
+                if (target.classList.contains('add-col-btn')) {
+                    const rawData = await parentDataBlock._getRawData();
+                    let defaultHeader = '';
+                    const colIdx = this.preset.columns.length;
+                    if (rawData && rawData.length > 0) {
+                        if (this.preset.firstRowMode === 'header') {
+                            defaultHeader = rawData[0][colIdx] || rawData[0][0] || '';
+                        } else {
+                            defaultHeader = `Column ${colIdx + 1}`;
+                        }
+                    }
+                    this.preset.columns.push({ sourceHeader: defaultHeader, type: 'string', label: defaultHeader, width: 0.2 });
+                    markDirtyCallback();
+                    this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                } else if (target.classList.contains('col-delete')) {
+                    this.preset.columns.splice(parseInt(target.dataset.index), 1);
+                    markDirtyCallback();
+                    this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                } else if (target.classList.contains('col-move-up') || target.classList.contains('col-move-down')) {
+                    const idx = parseInt(target.dataset.index);
+                    const newIdx = idx + (target.classList.contains('col-move-up') ? -1 : 1);
+                    if (newIdx >= 0 && newIdx < this.preset.columns.length) {
+                        const temp = this.preset.columns[idx];
+                        this.preset.columns[idx] = this.preset.columns[newIdx];
+                        this.preset.columns[newIdx] = temp;
+                        markDirtyCallback();
+                        this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                    }
+                } else if (target.classList.contains('add-map-btn')) {
+                    const idx = parseInt(target.dataset.colIndex);
+                    if (!this.preset.columns[idx].statusMappings) this.preset.columns[idx].statusMappings = [];
+                    this.preset.columns[idx].statusMappings.push({ condition: '', html: '' });
+                    markDirtyCallback();
+                    this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                } else if (target.classList.contains('col-delete-map')) {
+                    this.preset.columns[parseInt(target.dataset.colIndex)].statusMappings.splice(parseInt(target.dataset.mapIndex), 1);
+                    markDirtyCallback();
+                    this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                }
+            });
+
+            // 监听修改事件
+            this.configContainer.addEventListener('change', async (e) => {
+                const target = e.target;
+                if (target.classList.contains('first-row-mode-select')) {
+                    const newMode = target.value;
+                    if (newMode !== this.preset.firstRowMode) {
+                        const rawData = await parentDataBlock._getRawData();
+                        if (rawData && rawData.length > 0) {
+                            const realHeaders = rawData[0];
+                            const genericHeaders = realHeaders.map((_, i) => `Column ${i + 1}`);
+                            this.preset.columns.forEach(col => {
+                                let colIndex = realHeaders.indexOf(col.sourceHeader);
+                                if (colIndex === -1) colIndex = genericHeaders.indexOf(col.sourceHeader);
+                                if (colIndex !== -1) col.sourceHeader = (newMode === 'header') ? realHeaders[colIndex] : genericHeaders[colIndex];
+                            });
+                        }
+                    }
+                    this.preset.firstRowMode = newMode;
+                    markDirtyCallback();
+                    this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                } else if (target.classList.contains('col-source-select')) {
+                    const idx = parseInt(target.dataset.index);
+                    this.preset.columns[idx].sourceHeader = target.value;
+                    if (this.preset.firstRowMode === 'header') this.preset.columns[idx].label = target.value;
+                    markDirtyCallback();
+                    this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                } else if (target.classList.contains('col-label-input')) {
+                    this.preset.columns[parseInt(target.dataset.index)].label = target.value;
+                    markDirtyCallback();
+                } else if (target.classList.contains('col-type-select')) {
+                    this.preset.columns[parseInt(target.dataset.index)].type = target.value;
+                    markDirtyCallback();
+                    this.renderPresetConfigPanel(this.preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+                } else if (target.classList.contains('map-condition')) {
+                    this.preset.columns[parseInt(target.dataset.colIndex)].statusMappings[parseInt(target.dataset.mapIndex)].condition = target.value;
+                    markDirtyCallback();
+                } else if (target.classList.contains('map-html')) {
+                    this.preset.columns[parseInt(target.dataset.colIndex)].statusMappings[parseInt(target.dataset.mapIndex)].html = target.value;
+                    markDirtyCallback();
+                }
+            });
+        }
+
+        // 2. 每次渲染实时获取数据获取 Header 信息
+        const rawData = await parentDataBlock._getRawData();
+        let headers = [];
+        if (rawData && rawData.length > 0) {
+            if (preset.firstRowMode === 'header') {
+                headers = rawData[0];
+            } else {
+                headers = rawData[0].map((_, i) => `Column ${i + 1}`);
+            }
+        }
+
+        // 3. 构建 HTML (原 DatabaseEditor 里的拼装逻辑)
+        const modes = ['header', 'ignore', 'data'];
+        const modeOptions = modes.map(m => `<option value="${m}" ${preset.firstRowMode === m ? 'selected' : ''}>${m.charAt(0).toUpperCase() + m.slice(1)}</option>`).join('');
+
+        let html = `
+            <div style="margin-bottom:10px;">
+                <label style="font-size:12px;">First Row Mode:</label>
+                <select class="db-input first-row-mode-select">${modeOptions}</select>
+            </div>
+            <hr style="border:0; border-top:1px solid var(--border-primary); margin: 15px 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-weight:bold; font-size:12px;">Columns</span>
+                <button class="primary-btn add-col-btn" style="padding:4px 8px;">+ Add Col</button>
+            </div>
+            <div id="db-columns-list">
+        `;
+
+        (preset.columns || []).forEach((col, index) => {
+            const types = ['string', 'number', 'html', 'progress', 'status'];
+            const typeOptions = types.map(t => `<option value="${t}" ${col.type === t ? 'selected' : ''}>${t}</option>`).join('');
+            const isHeaderMode = preset.firstRowMode === 'header';
+
+            const headerOptions = headers.map(h => `<option value="${h}" ${h === col.sourceHeader ? 'selected' : ''}>${h}</option>`).join('');
+
+            let statusEditorHtml = '';
+            if (col.type === 'status') {
+                statusEditorHtml = `<div class="status-mappings-container" data-col-index="${index}" style="margin-top: 8px; border-top: 1px dashed var(--border-primary); padding-top: 8px;">`;
+                statusEditorHtml += `<div style="font-size:10px; color:var(--text-secondary); margin-bottom: 4px;">Use variable <code>data</code></div>`;
+                (col.statusMappings || []).forEach((map, mIndex) => {
+                    statusEditorHtml += `
+                        <div style="border:1px solid var(--border-primary); padding:6px; border-radius:4px; margin-bottom:6px; position:relative; background:rgba(0,0,0,0.1);">
+                            <button class="db-icon-btn delete col-delete-map" data-col-index="${index}" data-map-index="${mIndex}" style="position:absolute; top:2px; right:2px;">×</button>
+                            <div style="display:flex; align-items:center; margin-bottom:4px; margin-right: 20px;">
+                                <span style="font-size:10px; color:var(--text-accent); font-family:monospace; margin-right:4px;">if (</span>
+                                <input type="text" class="db-input map-condition" value="${map.condition.replace(/"/g, '&quot;')}" data-col-index="${index}" data-map-index="${mIndex}" style="margin:0; font-family:monospace; flex-grow:1; padding: 2px 4px;">
+                                <span style="font-size:10px; color:var(--text-accent); font-family:monospace; margin-left:4px;">)</span>
+                            </div>
+                            <div style="display:flex; align-items:center;">
+                                <span style="font-size:10px; color:var(--text-secondary); margin-right:8px;">Then:</span>
+                                <input type="text" class="db-input map-html" value="${map.html.replace(/"/g, '&quot;')}" data-col-index="${index}" data-map-index="${mIndex}" style="margin:0; flex-grow:1; padding: 2px 4px;">
+                            </div>
+                        </div>
+                    `;
+                });
+                statusEditorHtml += `<button class="db-btn add-map-btn" data-col-index="${index}" style="padding:2px 6px; font-size:11px;">+ Add Condition</button></div>`;
+            }
+
+            html += `
+                <div class="db-col-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:bold; font-size:12px;">Col ${index + 1}</span>
+                        <div style="display:flex; gap: 2px;">
+                            <button class="db-icon-btn col-move-up" data-index="${index}">↑</button>
+                            <button class="db-icon-btn col-move-down" data-index="${index}">↓</button>
+                            <button class="db-icon-btn delete col-delete" data-index="${index}">🗑</button>
+                        </div>
+                    </div>
+                    <label style="font-size:11px; color:var(--text-secondary);">Data Source Header:</label>
+                    <select class="db-input col-source-select" data-index="${index}">${headerOptions}</select>
+                    
+                    <label style="font-size:11px; color:var(--text-secondary);">Display Label:</label>
+                    <input type="text" class="db-input col-label-input" value="${col.label || ''}" data-index="${index}" ${isHeaderMode ? 'disabled style="opacity:0.6"' : ''}>
+                    
+                    <label style="font-size:11px; color:var(--text-secondary);">Type:</label>
+                    <select class="db-input col-type-select" data-index="${index}">${typeOptions}</select>
+                    ${statusEditorHtml}
+                </div>
+            `;
+        });
+        html += `</div>`;
+
+        this.configContainer.innerHTML = html;
+        return this.configContainer;
+    }
+
     // 由 DataBlock 调用
     _renderDataContent(rawData) {
         if (!rawData || rawData.length === 0) {

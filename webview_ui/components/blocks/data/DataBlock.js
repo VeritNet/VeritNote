@@ -15,9 +15,35 @@ class DataBlock extends Block {
 
         this._dbJsonCache = null;
         this._rawData = null;
+
+        this._currentInnerBlock = null;
     }
 
     _dbJsonCache = null; // Public
+
+
+    /**
+     * @param {object} preset
+     * @param {Function} markDirtyCallback
+     * @return {Promise<HTMLElement>}
+     * @public
+     */
+    async renderPresetConfigPanel(preset, markDirtyCallback) {
+        // 确保实例和数据已经加载
+        if (!this._currentInnerBlock) {
+            await this._loadDatabaseAndRender();
+        }
+
+        // 委派给具体的子块去生成面板
+        if (this._currentInnerBlock && this._currentInnerBlock.renderPresetConfigPanel) {
+            return await this._currentInnerBlock.renderPresetConfigPanel(preset, this._dbJsonCache, markDirtyCallback, this);
+        }
+
+        const div = document.createElement('div');
+        div.innerHTML = '<div class="empty-placeholder">No configuration panel for this view type.</div>';
+        return div;
+    }
+
 
     static getPropertiesSchema() {
         return [...super.getPropertiesSchema()];
@@ -41,46 +67,47 @@ class DataBlock extends Block {
 
         this.contentElement.innerHTML = '<div style="padding:10px;">Loading database view...</div>';
 
-        this._loadDatabaseAndRender().catch(e => {
-            this.contentElement.innerHTML = `<div style="color:red; padding:10px;">Error loading DB: ${e.message}</div>`;
-        });
+        this._loadDatabaseAndRender();
     }
 
-    async _loadDatabaseAndRender() {
+    async _getRawData() {
         // 1. 获取 DB JSON
         if (!this._dbJsonCache) { // 不可以删除此判断！不可以删除此判断！
             const absolutePath = window.resolveWorkspacePath(this.properties.dbPath);
             this._dbJsonCache = await this._fetchJson(absolutePath);
         }
 
-        console.log('DB JSON Cache:', this._dbJsonCache);
-        console.log('Selected Preset ID:', this.properties.presetId);
         const preset = this._dbJsonCache.presets.find(p => p.id === this.properties.presetId);
         if (!preset) throw new Error("Preset not found in DB.");
 
         // 2. 获取数据 (解析 Embedded 或 请求 External)
         const dbData = this._dbJsonCache.data;
         if (dbData.mode === 'embedded') {
-            this._rawData = dbData.embeddedData;
+            return dbData.embeddedData;
         } else if (dbData.mode === 'external' && dbData.externalUrl) {
-            this._rawData = await this._fetchExternalCsv(dbData.externalUrl);
+            return await this._fetchExternalCsv(dbData.externalUrl);
         } else {
-            this._rawData = [];
+            return [];
         }
+    }
 
-        // 3. 动态实例化对应类型的子渲染块
+    async _loadDatabaseAndRender() {
+        this._rawData = await this._getRawData();
+        const preset = this._dbJsonCache.presets.find(p => p.id === this.properties.presetId);
+
+        // 动态实例化对应类型的子渲染块
         const RendererClass = window['blockRegistry'].get(preset.type);
         if (!RendererClass) throw new Error(`Unknown preset type: ${preset.type}`);
 
         // 创建临时实例，仅用于渲染
         const blockData = { id: this.id + '-inner', type: preset.type, properties: { ...preset } };
-        const renderInstance = new RendererClass(blockData, this.editor);
+        this._currentInnerBlock = new RendererClass(blockData, this.editor);
 
         this.contentElement.innerHTML = '';
-        renderInstance.render(); // 生成外壳
+        this._currentInnerBlock.render(); // 生成外壳
         // 将数据喂给它并强制其绘制内部结构
-        renderInstance._renderDataContent(this._rawData);
-        this.contentElement.appendChild(renderInstance.contentElement);
+        this._currentInnerBlock._renderDataContent(this._rawData);
+        this.contentElement.appendChild(this._currentInnerBlock.contentElement);
     }
 
     _fetchJson(path) {

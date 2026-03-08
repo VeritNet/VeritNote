@@ -118,7 +118,15 @@ Block.childrenContainer;
 Block.children;
 
 class TextBlock extends Block { }
-class DataBlock extends Block { }
+class DataBlock extends Block {
+    /**
+     * @param {object} preset
+     * @param {Function} markDirtyCallback
+     * @return {Promise<HTMLElement>}
+     */
+    async renderPresetConfigPanel(preset, markDirtyCallback) {
+    }
+}
 DataBlock._dbJsonCache;
 DataBlock.properties.presetId;
 class ParagraphBlock extends TextBlock { }
