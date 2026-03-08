@@ -50,16 +50,37 @@ class DataBlock extends Block {
     }
 
     get toolbarButtons() {
-        const buttons = [{ icon: '⚙️', title: 'Config Source', action: 'showDetails' }];
+        const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
+        const buttons = [{ html: iconSvg, title: 'Config Source', action: 'selectDb' }];
         buttons.push(...super.toolbarButtons);
         return buttons;
     }
+
+    handleToolbarAction(action, buttonElement) {
+        if (action === 'selectDb') {
+            this.BAPI_PE.popoverManager.showDataFilePicker(
+                buttonElement,
+                this.properties.dbPath,
+                this.properties.presetId,
+                (result) => {
+                    if (result && (result.dbPath !== this.properties.dbPath || result.presetId !== this.properties.presetId)) {
+                        this.properties.dbPath = result.dbPath;
+                        this.properties.presetId = result.presetId;
+                        this._dbJsonCache = null;
+                        this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
+                        this.BAPI_PE.emitChange(true, 'change-db-preset', this);
+                    }
+                }
+            );
+        }
+    }
+
 
     _renderContent() {
         if (!this.properties.dbPath || !this.properties.presetId) {
             this.contentElement.innerHTML = `
                 <div style="border:1px dashed var(--border-primary); padding:20px; text-align:center; color:var(--text-secondary);">
-                    🗃️ Data Block: Right-click > Details to select Database and Preset.
+                    Select a Database and Preset.
                 </div>
             `;
             return;
@@ -73,7 +94,7 @@ class DataBlock extends Block {
     async _getRawData() {
         // 1. 获取 DB JSON
         if (!this._dbJsonCache) { // 不可以删除此判断！不可以删除此判断！
-            const absolutePath = window.resolveWorkspacePath(this.properties.dbPath);
+            const absolutePath = this.BAPI_WD.resolveWorkspacePath(this.properties.dbPath);
             this._dbJsonCache = await this._fetchJson(absolutePath);
         }
 
@@ -112,14 +133,20 @@ class DataBlock extends Block {
 
     _fetchJson(path) {
         return new Promise((resolve) => {
+            const reqId = this.id + '-' + Date.now();
             const listener = (e) => {
-                if (e.detail.payload.path === this.properties.dbPath) {
-                    window.removeEventListener('databaseLoaded', listener);
-                    resolve(e.detail.payload.content);
+                if (e.detail.payload.dataBlockId === reqId) {
+                    window.removeEventListener('dataContentFetched', listener);
+                    let content = e.detail.payload.content;
+                    if (typeof content === 'string') {
+                        try { content = JSON.parse(content); }
+                        catch (err) { content = { data: {}, presets: [] }; }
+                    }
+                    resolve(content);
                 }
             };
-            window.addEventListener('databaseLoaded', listener);
-            ipc.loadDatabase(path);
+            window.addEventListener('dataContentFetched', listener);
+            window.BAPI_IPC.fetchDataContent(reqId, path);
         });
     }
 
@@ -150,11 +177,8 @@ class DataBlock extends Block {
         return `
             <div class="details-section-header">Database Configuration</div>
             <div class="details-input-row">
-                <span class="details-input-label">DB File</span>
-                <div style="flex-grow: 1; display: flex; gap: 4px;">
-                    <input type="text" class="details-input-field db-path-input" value="${dbPath}" readonly placeholder="Select a .veritnotedb">
-                    <button class="details-btn-icon db-browse-btn" title="Browse">📂</button>
-                </div>
+                <span class="details-input-label">DB File Path</span>
+                <input type="text" class="details-input-field db-path-input" value="${dbPath}" placeholder="e.g. databases/my_data.veritnotedb">
             </div>
             <div class="details-input-row" style="margin-top: 8px;">
                 <span class="details-input-label">Preset View</span>
@@ -169,37 +193,52 @@ class DataBlock extends Block {
     }
 
     onDetailsPanelOpen_custom(container) {
-    //    const browseBtn = container.querySelector('.db-browse-btn');
-    //    const presetSelect = container.querySelector('.db-preset-select');
-    //    const refreshBtn = container.querySelector('.db-refresh-btn');
+        const pathInput = container.querySelector('.db-path-input');
+        const presetSelect = container.querySelector('.db-preset-select');
+        const refreshBtn = container.querySelector('.db-refresh-btn');
 
-    //    browseBtn.addEventListener('click', () => {
-    //        window.BAPI_IPC.openFileDialog = () => { ipc.send('openFileDialog'); };
-    //        const listener = (e) => {
-    //            window.removeEventListener('fileDialogClosed', listener);
-    //            if (e.detail.payload.path && e.detail.payload.path.endsWith('.veritnotedb')) {
-    //                this.properties.dbPath = window.makePathRelativeToWorkspace(e.detail.payload.path);
-    //                this.properties.presetId = ''; // Reset preset
-    //                this._dbJsonCache = null; // Clear cache to reload
-    //                this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
-    //                this.BAPI_PE.emitChange(true, 'change-db', this);
-    //            }
-    //        };
-    //        window.addEventListener('fileDialogClosed', listener);
-    //        ipc.send('openFileDialog');
-    //    });
+        pathInput.addEventListener('change', (e) => {
+            const newPath = e.target.value.trim();
+            if (newPath !== this.properties.dbPath) {
+                this.properties.dbPath = newPath;
+                this.properties.presetId = '';
+                this._dbJsonCache = null;
 
-    //    presetSelect.addEventListener('change', (e) => {
-    //        this.properties.presetId = e.target.value;
-    //        this._renderContent();
-    //        this.BAPI_PE.emitChange(true, 'change-preset', this);
-    //    });
+                if (newPath) {
+                    const absolutePath = window.resolveWorkspacePath(newPath);
+                    this._fetchJson(absolutePath).then(json => {
+                        this._dbJsonCache = json;
+                        this._renderContent();
+                        this._refreshDetailsPanel();
+                    });
+                } else {
+                    this._renderContent();
+                    this._refreshDetailsPanel();
+                }
+                this.BAPI_PE.emitChange(true, 'change-db', this);
+            }
+        });
 
-    //    refreshBtn.addEventListener('click', () => {
-    //        this._dbJsonCache = null;
-    //        this._rawData = null;
-    //        this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
-    //    });
+        presetSelect.addEventListener('change', (e) => {
+            this.properties.presetId = e.target.value;
+            this._renderContent();
+            this.BAPI_PE.emitChange(true, 'change-preset', this);
+        });
+
+        refreshBtn.addEventListener('click', () => {
+            this._dbJsonCache = null;
+            this._rawData = null;
+            this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
+        });
+
+        // 仅有路径但没缓存时（例如首次通过外部输入打开细节），自动抓取以生成 Preset 的选项
+        if (this.properties.dbPath && !this._dbJsonCache) {
+            const absolutePath = window.resolveWorkspacePath(this.properties.dbPath);
+            this._fetchJson(absolutePath).then(json => {
+                this._dbJsonCache = json;
+                this._refreshDetailsPanel();
+            });
+        }
     }
 }
 

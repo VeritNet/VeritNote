@@ -182,79 +182,137 @@ class PopoverManager {
         this._positionAndShow(targetElement);
     }
 
-    /*showDataFilePicker(targetElement, existingValue, callback) {
+    showDataFilePicker(targetElement, existingDbPath, existingPresetId, callback) {
         this.hide();
-        
         this.currentPopoverCallback = callback;
 
         this.popover.innerHTML = `
             <div class="popover-content">
-                <input type="text" id="data-popover-input" placeholder="Search file or enter path..." style="width:100%; margin-bottom:8px;">
-                <div id="data-popover-list" class="popover-search-results" style="max-height: 200px;"></div>
+                <div id="db-step">
+                    <input type="text" id="data-popover-input" placeholder="Search database file..." style="width:100%; margin-bottom:8px;">
+                    <div id="data-popover-list" class="popover-search-results" style="max-height: 150px;"></div>
+                </div>
+                <div id="preset-step" style="display: none;">
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Selected: <span id="selected-db-name" style="font-weight:bold; color:var(--text-primary);"></span></div>
+                    <div id="preset-popover-list" class="popover-search-results" style="max-height: 150px;"></div>
+                    <button id="back-to-db-btn" class="popover-button" style="margin-top: 8px;">Change Database</button>
+                </div>
             </div>
         `;
 
-        const input = this.popover.querySelector('#data-popover-input');
-        const listContainer = this.popover.querySelector('#data-popover-list');
+        const dbStep = this.popover.querySelector('#db-step');
+        const presetStep = this.popover.querySelector('#preset-step');
+        const dbInput = this.popover.querySelector('#data-popover-input');
+        const dbListContainer = this.popover.querySelector('#data-popover-list');
+        const presetListContainer = this.popover.querySelector('#preset-popover-list');
+        const selectedDbNameSpan = this.popover.querySelector('#selected-db-name');
+        const backBtn = this.popover.querySelector('#back-to-db-btn');
 
-        // 预填现有值
-        if (existingValue) {
-            input.value = existingValue;
-        }
+        let currentSelectedDbPath = existingDbPath || '';
+        let currentPresets = [];
+        const allDataFiles = window.getAllDatabaseFiles ? window.getAllDatabaseFiles() : [];
 
-        const allDataFiles = window.getAllDataFiles ? window.getAllDataFiles() : [];
-
-        const renderList = (filter = '') => {
+        const renderDbList = (filter = '') => {
             const lowerFilter = filter.toLowerCase();
             const filtered = allDataFiles.filter(f => f.name.toLowerCase().includes(lowerFilter));
 
             if (filtered.length === 0) {
-                // 如果没有搜索结果，且有输入内容，提示按回车使用
-                if (filter) {
-                    listContainer.innerHTML = `<div class="empty-details-placeholder" style="padding:5px; font-size:12px;">No files found. Press Enter to use "${filter}"</div>`;
-                } else {
-                    listContainer.innerHTML = '<div class="empty-details-placeholder" style="padding:5px;">Type to search...</div>';
-                }
+                dbListContainer.innerHTML = '<div class="empty-details-placeholder" style="padding:5px;">No files found.</div>';
                 return;
             }
 
-            listContainer.innerHTML = filtered.map(f => `
-                <div class="search-result-item" data-path="${f.path}">
-                    📄 ${f.name} <span style="color:var(--text-secondary); font-size:10px;">(${f.path})</span>
+            // 去除 .veritnotedb 后缀显示
+            dbListContainer.innerHTML = filtered.map(f => {
+                const displayName = f.name.replace('.veritnotedb', '');
+                const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
+                return `
+                <div class="search-result-item ${f.path === currentSelectedDbPath ? 'selected' : ''}" data-path="${f.path}" title="${f.path}">
+                    ${iconSvg + " " + displayName}
+                </div>
+            `}).join('');
+        };
+
+        const renderPresetList = () => {
+            if (currentPresets.length === 0) {
+                presetListContainer.innerHTML = '<div class="empty-details-placeholder" style="padding:5px;">No presets found in this DB.</div>';
+                return;
+            }
+            presetListContainer.innerHTML = currentPresets.map(p => `
+                <div class="search-result-item ${p.id === existingPresetId ? 'selected' : ''}" data-preset-id="${p.id}">
+                    👁️ ${p.name} <span style="font-size: 10px; color: var(--text-secondary);">(${p.type})</span>
                 </div>
             `).join('');
         };
 
-        // Input 事件：过滤列表
-        input.addEventListener('input', () => renderList(input.value));
+        const fetchAndShowPresets = (dbPath) => {
+            currentSelectedDbPath = dbPath;
+            const dbFile = allDataFiles.find(f => f.path === dbPath);
+            selectedDbNameSpan.textContent = dbFile ? dbFile.name.replace('.veritnotedb', '') : dbPath.split(/[\\/]/).pop().replace('.veritnotedb', '');
 
-        // Keydown 事件：回车直接使用当前输入值（无论是本地路径还是 URL）
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (this.currentPopoverCallback) {
-                    this.currentPopoverCallback(input.value);
-                    this.hide();
+            presetListContainer.innerHTML = '<div class="empty-details-placeholder" style="padding:5px;">Loading presets...</div>';
+            dbStep.style.display = 'none';
+            presetStep.style.display = 'block';
+
+            const absolutePath = window.resolveWorkspacePath(dbPath);
+            const reqId = 'popover-fetch-' + Date.now();
+
+            const listener = (e) => {
+                if (e.detail.payload.dataBlockId === reqId) {
+                    window.removeEventListener('dataContentFetched', listener);
+                    try {
+                        const contentObj = typeof e.detail.payload.content === 'string' ? JSON.parse(e.detail.payload.content) : e.detail.payload.content;
+                        currentPresets = contentObj.presets || [];
+                        renderPresetList();
+                    } catch (err) {
+                        presetListContainer.innerHTML = '<div class="empty-details-placeholder" style="padding:5px; color:red;">Failed to parse database.</div>';
+                    }
                 }
+            };
+            window.addEventListener('dataContentFetched', listener);
+            window.BAPI_IPC.fetchDataContent(reqId, absolutePath);
+        };
+
+        dbInput.addEventListener('input', () => renderDbList(dbInput.value));
+
+        dbListContainer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const item = e.target.closest('.search-result-item');
+            if (item) {
+                const relativePath = window.makePathRelativeToWorkspace ? window.makePathRelativeToWorkspace(item.dataset.path) : item.dataset.path;
+                fetchAndShowPresets(relativePath);
             }
         });
 
-        // Click 事件：从列表中选择
-        listContainer.addEventListener('mousedown', (e) => {
+        presetListContainer.addEventListener('mousedown', (e) => {
             e.preventDefault();
             const item = e.target.closest('.search-result-item');
             if (item && this.currentPopoverCallback) {
-                const relativePath = window.makePathRelativeToWorkspace ? window.makePathRelativeToWorkspace(item.dataset.path) : item.dataset.path;
-                this.currentPopoverCallback(relativePath);
+                this.currentPopoverCallback({
+                    dbPath: currentSelectedDbPath,
+                    presetId: item.dataset.presetId
+                });
                 this.hide();
             }
         });
 
-        renderList(input.value); // 初始渲染
-        input.focus();
+        backBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            presetStep.style.display = 'none';
+            dbStep.style.display = 'block';
+            renderDbList(dbInput.value);
+            dbInput.focus();
+        });
+
+        // 初始化判断
+        if (existingDbPath) {
+            fetchAndShowPresets(existingDbPath); // 如果已有库，直接跳到预设选择器
+        } else {
+            renderDbList(dbInput.value);
+            dbInput.focus();
+        }
 
         this._positionAndShow(targetElement);
-    }*/
+    }
     
     showImageSource(targetElement, existingValue, callback) {
         this.hide();

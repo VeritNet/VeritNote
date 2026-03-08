@@ -72,9 +72,9 @@ class PageEditor {
             ['showLink']: (targetElement, existingValue, callback) => {
                 return this.popoverManager.showLink(targetElement, existingValue, callback);
             },
-            /*['showDataFilePicker']: (targetElement, existingValue, callback) => {
-                return this.popoverManager.showDataFilePicker(targetElement, existingValue, callback);
-            },*/
+            ['showDataFilePicker']: (targetElement, existingDbPath, existingPresetId, callback) => {
+                return this.popoverManager.showDataFilePicker(targetElement, existingDbPath, existingPresetId, callback);
+            },
             ['showImageSource']: (targetElement, existingValue, callback) => {
                 return this.popoverManager.showImageSource(targetElement, existingValue, callback);
             },

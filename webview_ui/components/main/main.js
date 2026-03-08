@@ -574,9 +574,10 @@ window['initializeMainComponent'] = () => {
     };
 
     /**
+     * 获取当前工作区的所有 Database (.veritnotedb) 文件
      * @returns {Array<{name: string, path: string}>}
      */
-    /*window.getAllDataFiles = function () {
+    window.getAllDatabaseFiles = function () {
         const workspaceDataStr = sidebar.dataset.workspaceData;
         if (!workspaceDataStr) return [];
 
@@ -586,10 +587,10 @@ window['initializeMainComponent'] = () => {
             collectFilesByType(rootNode, 'database', results);
             return results;
         } catch (e) {
-            console.error("Failed to parse workspace tree for data search:", e);
+            console.error("Failed to parse workspace tree for database search:", e);
             return [];
         }
-    };*/
+    };
 
 
     function renderWorkspaceTree(node) {

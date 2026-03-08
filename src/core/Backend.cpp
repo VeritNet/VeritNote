@@ -634,10 +634,37 @@ void Backend::FetchDataContent(const json& payload) {
     response["payload"]["path"] = path_str;
     response["payload"]["dataBlockId"] = dataBlockId;
 
-    // 直接使用前端传来的路径（前端已处理好绝对路径）
-    std::string content = ReadFileContent(this->string_to_wstring(path_str));
+    // 读取前端传来的绝对路径文件
+    std::string file_content = ReadFileContent(this->string_to_wstring(path_str));
 
-    response["payload"]["content"] = content;
+    try {
+        json fullJson = json::parse(file_content);
+        json filteredJson;
+
+        // 仅提取 data 节点
+        if (fullJson.contains("data")) {
+            filteredJson["data"] = fullJson["data"];
+        }
+        else {
+            filteredJson["data"] = json::object();
+        }
+
+        // 仅提取 presets 节点
+        if (fullJson.contains("presets")) {
+            filteredJson["presets"] = fullJson["presets"];
+        }
+        else {
+            filteredJson["presets"] = json::array();
+        }
+
+        // 作为 JSON Object 下发给前端
+        response["payload"]["content"] = filteredJson;
+    }
+    catch (const std::exception& e) {
+        // 如果文件不存在或解析失败，发送空骨架防止前端崩溃
+        response["payload"]["error"] = "Failed to parse database file: " + std::string(e.what());
+        response["payload"]["content"] = json::object({ {"data", json::object()}, {"presets", json::array()} });
+    }
 
     SendMessageToJS(response);
 }
