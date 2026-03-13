@@ -310,12 +310,23 @@ class DatabaseEditor {
             return;
         }
 
-        // 核心：直接实例化 TableViewBlock 作为渲染器
-        // 伪造一个 editor 环境 (只提供需要的 API)
-        const fakeEditor = { BAPI_PE: {}, BAPI_WD: window.BAPI_WD, BAPI_IPC: window.BAPI_IPC };
-
         // 我们动态调用渲染子块
         if (!this.previewBlockInstance) {
+            // ！！临时方案！！：伪造一个 editor 环境 (只提供需要的 API)
+            const deepFakeEditor = {};
+            const fakeEditor = {
+                BAPI_PE: {
+                    ['createBlockInstance']: (blockData) => {
+                        const BlockClass = window['blockRegistry'].get(blockData.type);
+                        if (BlockClass) {
+                            return new BlockClass(blockData, deepFakeEditor);
+                        }
+                        console.error(`Block type "${blockData.type}" is not registered.`);
+                        return null;
+                    },
+                }
+            };
+
             // 首次预览：实例化最外层的 DataBlock
             const DataBlockClass = window['blockRegistry'].get('data');
             if (DataBlockClass) {
@@ -327,7 +338,7 @@ class DatabaseEditor {
                 // 执行正常渲染周期
                 this.elements.previewContainer.innerHTML = '';
                 this.previewBlockInstance.render();
-                this.elements.previewContainer.appendChild(this.previewBlockInstance.contentElement);
+                this.elements.previewContainer.appendChild(this.previewBlockInstance.element);
             }
         } else {
             // 已存在实例：直接复用，更新配置并请求自身重绘

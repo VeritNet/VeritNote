@@ -486,7 +486,7 @@ class PageEditor {
     }
 
     // --- ========================================================== ---
-    // --- 3. Block Management (from old Editor class)
+    // --- 3. Block Management
     // --- ========================================================== ---
     /**
      * Creates an instance of a registered block.

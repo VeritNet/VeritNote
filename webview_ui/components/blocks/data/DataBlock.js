@@ -13,10 +13,7 @@ class DataBlock extends Block {
         this.properties.dbPath = data.properties?.dbPath || '';
         this.properties.presetId = data.properties?.presetId || '';
 
-        this._dbJsonCache = null;
         this._rawData = null;
-
-        this._currentInnerBlock = null;
     }
 
     _dbJsonCache = null; // Public
@@ -30,18 +27,17 @@ class DataBlock extends Block {
      */
     async renderPresetConfigPanel(preset, markDirtyCallback) {
         // 确保实例和数据已经加载
-        if (!this._currentInnerBlock) {
+        if (this.children.length === 0) {
             await this._loadDatabaseAndRender();
         }
 
+        const childBlock = this.children[0];
         // 委派给具体的子块去生成面板
-        if (this._currentInnerBlock && this._currentInnerBlock.renderPresetConfigPanel) {
-            return await this._currentInnerBlock.renderPresetConfigPanel(preset, this._dbJsonCache, markDirtyCallback, this);
+        if (childBlock && childBlock.renderPresetConfigPanel) {
+            return await childBlock.renderPresetConfigPanel(preset, this._dbJsonCache, markDirtyCallback, this);
         }
 
         const div = document.createElement('div');
-        div.innerHTML = '<div class="empty-placeholder">No configuration panel for this view type.</div>';
-        return div;
     }
 
 
@@ -115,20 +111,34 @@ class DataBlock extends Block {
     async _loadDatabaseAndRender() {
         this._rawData = await this._getRawData();
         const preset = this._dbJsonCache.presets.find(p => p.id === this.properties.presetId);
+        if (!preset) return;
 
-        // 动态实例化对应类型的子渲染块
-        const RendererClass = window['blockRegistry'].get(preset.type);
-        if (!RendererClass) throw new Error(`Unknown preset type: ${preset.type}`);
+        if (!preset.config) preset.config = {};
 
-        // 创建临时实例，仅用于渲染
-        const blockData = { id: this.id + '-inner', type: preset.type, properties: { ...preset } };
-        this._currentInnerBlock = new RendererClass(blockData, this.editor);
+        let childBlock = this.children[0];
 
-        this.contentElement.innerHTML = '';
-        this._currentInnerBlock.render(); // 生成外壳
-        // 将数据喂给它并强制其绘制内部结构
-        this._currentInnerBlock._renderDataContent(this._rawData);
-        this.contentElement.appendChild(this._currentInnerBlock.contentElement);
+        // 检查是否需要重新创建子块（类型改变或首次加载）
+        if (!childBlock || childBlock.type !== preset.type) {
+            const RendererClass = window['blockRegistry'].get(preset.type);
+            if (!RendererClass) throw new Error(`Unknown preset type: ${preset.type}`);
+
+            // 创建真正的持久化结构子块，不再强塞 preset 数据到 properties 里
+            const blockData = { type: preset.type };
+            childBlock = this.BAPI_PE.createBlockInstance(blockData);
+
+            // 确立父子关系并清空旧块
+            this.children = [childBlock];
+            childBlock.parent = this;
+        }
+
+        this.element.innerHTML = '';
+
+        // 渲染子块的 DOM 框架
+        const childEl = childBlock.render();
+        this.element.appendChild(childEl);
+
+        // 将原始数据和 preset.config 动态喂给子块，命令其绘制内部结构
+        childBlock._renderDataContent(this._rawData, preset.config);
     }
 
     _fetchJson(path) {
@@ -187,7 +197,7 @@ class DataBlock extends Block {
                 </select>
             </div>
             <div style="margin-top: 8px; text-align:right;">
-                <button class="css-btn db-refresh-btn" style="width:auto;">↻ Reload DB</button>
+                <button class="css-btn db-refresh-btn" style="width:auto;">↻ Reload DataBase</button>
             </div>
         `;
     }
