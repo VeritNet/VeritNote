@@ -199,6 +199,11 @@ class DataBlock extends Block {
             <div style="margin-top: 8px; text-align:right;">
                 <button class="css-btn db-refresh-btn" style="width:auto;">↻ Reload DataBase</button>
             </div>
+            ${this.children[0] ? `
+                <div style="margin-top: 8px; text-align:right;">
+                    <button class="css-btn db-sub-focus-btn" style="width:auto;">⚙ Settings: ${this.children[0].constructor.label || this.children[0].type}</button>
+                </div>
+            ` : ''}
         `;
     }
 
@@ -206,6 +211,7 @@ class DataBlock extends Block {
         const pathInput = container.querySelector('.db-path-input');
         const presetSelect = container.querySelector('.db-preset-select');
         const refreshBtn = container.querySelector('.db-refresh-btn');
+        const subFocusBtn = container.querySelector('.db-sub-focus-btn');
 
         pathInput.addEventListener('change', (e) => {
             const newPath = e.target.value.trim();
@@ -239,6 +245,10 @@ class DataBlock extends Block {
             this._dbJsonCache = null;
             this._rawData = null;
             this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
+        });
+
+        subFocusBtn.addEventListener('click', () => {
+            if (this.children[0]) this.children[0].focus();
         });
 
         // 仅有路径但没缓存时（例如首次通过外部输入打开细节），自动抓取以生成 Preset 的选项

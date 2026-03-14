@@ -2,6 +2,7 @@
 class TableViewBlock extends Block {
     static type = 'tableView';
     static canBeToggled = false;
+    static label = 'Table View';
 
     constructor(data, editor) {
         super(data, editor);

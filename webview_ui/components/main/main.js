@@ -131,8 +131,8 @@ window['initializeMainComponent'] = () => {
                 }
 
                 this.switchTab(path);
-                if (blockIdToFocus && this.getActiveTab().instance.focusBlock) {
-                    this.getActiveTab().instance.focusBlock(blockIdToFocus);
+                if (blockIdToFocus) {
+                    this.getActiveTab().instance.PageSelectionManager.highlightBlock(blockIdToFocus);
                 }
                 return;
             }

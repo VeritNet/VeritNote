@@ -73,7 +73,7 @@ class TextBlock extends Block {
 
             // 如果找到了前一个块，就将光标聚焦到它上面
             if (blockToFocus) {
-                blockToFocus.focus();
+                this.BAPI_PE.selectBlock(blockToFocus.id);
             }
 
             return; // 已经处理完毕，退出函数

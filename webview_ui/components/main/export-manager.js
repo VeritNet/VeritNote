@@ -224,7 +224,12 @@ window.ExportManager = class ExportManager {
                     appContainer.classList.add('sidebar-collapsed');
                     if (toggleBtnSpan) toggleBtnSpan.textContent = 'Expand';
                     if (toggleBtnSvg) toggleBtnSvg.innerHTML = '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><polyline points="10 8 15 12 10 16"></polyline>';
-                    if (isPeekingOnLoad) appContainer.classList.add('sidebar-peek');
+                    if (isPeekingOnLoad) {
+                        appContainer.classList.add('sidebar-peek');
+                        const url = new URL(window.location);
+                        url.searchParams.delete('peek');
+                        window.history.replaceState({}, '', url.pathname + url.search);
+                    }
                 }
 
                 sidebar.querySelectorAll('.tree-node.folder').forEach(folder => {

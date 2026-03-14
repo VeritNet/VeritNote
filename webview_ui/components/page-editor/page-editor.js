@@ -67,6 +67,9 @@ class PageEditor {
         ['createBlockInstance']: (blockData) => {
             return this.createBlockInstance(blockData);
         },
+        ['selectBlock']: (blockId) => {
+            return this.PageSelectionManager.setSelect(blockId);
+        },
 
         ['popoverManager']: {
             ['showLink']: (targetElement, existingValue, callback) => {
@@ -144,7 +147,7 @@ class PageEditor {
     
         // 现在 pageData.blockIdToFocus 是有效的
         if (pageData.blockIdToFocus) {
-            this.focusBlock(pageData.blockIdToFocus);
+            this.PageSelectionManager.highlightBlock(pageData.blockIdToFocus);
         }
     }
 
@@ -356,7 +359,7 @@ class PageEditor {
             if (targetRow && targetRow.dataset['blockId']) {
                 const blockId = targetRow.dataset['blockId'];
                 // 1. Update the selection using the selection manager
-                this.PageSelectionManager.set(blockId);
+                this.PageSelectionManager.setSelect(blockId);
                 // 2. Find the block's element in the editor
                 const blockEl = this.elements.editorAreaContainer.querySelector(`.block-container[data-id="${blockId}"]`);
                 // 3. If found, scroll it into view
@@ -441,10 +444,10 @@ class PageEditor {
                 } else if (isMultiSelectKey) {
                     // This is for multi-selecting by clicking the block's body
                     e.preventDefault();
-                    this.PageSelectionManager.toggle(clickedBlockEl.dataset['id']);
+                    this.PageSelectionManager.toggleSelect(clickedBlockEl.dataset['id']);
                 } else {
                     // This is for single-selecting by clicking the block's body
-                    this.PageSelectionManager.set(clickedBlockEl.dataset['id']);
+                    this.PageSelectionManager.setSelect(clickedBlockEl.dataset['id']);
                 }
             } else {
                 // This part handles clicking on the editor background, etc.
@@ -452,7 +455,7 @@ class PageEditor {
                     '#sidebar, #right-sidebar, #tab-bar, #floating-toolbar, #popover, #context-menu, #block-toolbar, .block-controls'
                 );
                 if (!clickedUiChrome) {
-                    this.PageSelectionManager.clear();
+                    this.PageSelectionManager.clearSelect();
                 }
             }
         });
@@ -635,7 +638,7 @@ class PageEditor {
             this.elements.editorAreaContainer.appendChild(newBlockEl);
         }
         
-        newBlockInstance.focus();
+        this.PageSelectionManager.setSelect(newBlockInstance.id);
         this.emitChange(true, 'insert-block');
 
         return newBlockInstance;
@@ -779,9 +782,9 @@ class PageEditor {
                 const blockId = blockContainerEl.dataset['id'];
                 const isMultiSelectKey = e.ctrlKey || e.metaKey || e.shiftKey;
                 if (isMultiSelectKey) {
-                    this.PageSelectionManager.toggle(blockId);
+                    this.PageSelectionManager.toggleSelect(blockId);
                 } else {
-                    this.PageSelectionManager.set(blockId);
+                    this.PageSelectionManager.setSelect(blockId);
                 }
             }
             return;
@@ -864,7 +867,7 @@ class PageEditor {
         // 如果编辑器中已经有块，并且最后一个块是空的段落，则直接聚焦它，而不是创建新块
         const lastBlock = this.blocks[this.blocks.length - 1];
         if (lastBlock && lastBlock.type === 'paragraph' && (!lastBlock.content || lastBlock.content === '<br>')) {
-            lastBlock.focus();
+            this.PageSelectionManager.setSelect(lastBlock.id);
             return;
         }
 
@@ -875,7 +878,7 @@ class PageEditor {
         // 确保添加到 #editor-area-container，而不是 this.container
         this.elements.editorAreaContainer.appendChild(newBlockEl); 
         
-        newBlock.focus();
+        this.PageSelectionManager.setSelect(newBlock.id);
         this.emitChange(true, 'create-block');
     }
 
@@ -903,7 +906,7 @@ class PageEditor {
             containerBlock.element.appendChild(newBlockEl);
         }
         
-        newBlockInstance.focus();
+        this.PageSelectionManager.setSelect(newBlockInstance.id);
         this.emitChange(true, 'create-block');
     }
 
@@ -923,7 +926,7 @@ class PageEditor {
         if (!activeTab) return;
         const activeEditor = activeTab.editor;
     
-        if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.size() > 0) {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.getSelectionSize() > 0) {
             
             // First, check if the user is actively editing text.
             const activeEl = document.activeElement;
@@ -939,9 +942,9 @@ class PageEditor {
             
             e.preventDefault(); // Prevent default browser actions (like navigating back).
             
-            const idsToDelete = this.PageSelectionManager.get();
+            const idsToDelete = this.PageSelectionManager.getSelected();
             this.deleteMultipleBlocks(idsToDelete); // 'this' 就是 activeEditor
-            this.PageSelectionManager.clear();
+            this.PageSelectionManager.clearSelect();
             return; // We've handled the event, so we're done.
         }
     
@@ -997,7 +1000,7 @@ class PageEditor {
         
         // --- Priority 2: Deleting Selected Blocks ---
         // This logic is transplanted from the old main.js global keydown listener.
-        if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.size() > 0) {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.getSelectionSize() > 0) {
             // First, check if the user is actively editing text inside an input field or a contenteditable element.
             const activeEl = document.activeElement;
             const isEditingText = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
@@ -1012,9 +1015,9 @@ class PageEditor {
                 // it's safe to assume they intend to delete the selected block(s).
                 e.preventDefault(); // Prevent default browser actions (like navigating back).
                 
-                const idsToDelete = this.PageSelectionManager.get();
+                const idsToDelete = this.PageSelectionManager.getSelected();
                 this.deleteMultipleBlocks(idsToDelete);
-                this.PageSelectionManager.clear();
+                this.PageSelectionManager.clearSelect();
                 return; // We've handled the event, so we're done.
             }
         }
@@ -1226,7 +1229,7 @@ class PageEditor {
                 const newEl = newBlockInstance.render();
                 oldEl.parentElement.replaceChild(newEl, oldEl);
                 
-                newBlockInstance.focus();
+                this.PageSelectionManager.setSelect(newBlockInstance.id);
             }
         } else {
             // Insert a new block after (reusing the new partial-rendering function)
@@ -1242,7 +1245,7 @@ class PageEditor {
         const blockContainer = e.target.closest('.block-container');
         if (blockContainer) {
             const blockId = blockContainer.dataset['id'];
-            const isMultiDrag = this.PageSelectionManager && this.PageSelectionManager.size() > 1 && this.PageSelectionManager.has(blockId);
+            const isMultiDrag = this.PageSelectionManager && this.PageSelectionManager.getSelectionSize() > 1 && this.PageSelectionManager.hasSelected(blockId);
 
             this.draggedBlock = blockContainer; // Keep this for visual feedback (opacity)
 
@@ -1250,7 +1253,7 @@ class PageEditor {
                 // --- MULTI-DRAG LOGIC ---
                 // Get all selected IDs, but ensure the actually dragged block is first in the list.
                 // This helps in re-ordering them correctly on drop.
-                const selectedIds = this.PageSelectionManager.get();
+                const selectedIds = this.PageSelectionManager.getSelected();
                 const orderedIds = [blockId, ...selectedIds.filter(id => id !== blockId)];
                 
                 e.dataTransfer.setData('application/veritnote-block-ids', JSON.stringify(orderedIds));
@@ -1263,7 +1266,7 @@ class PageEditor {
                 
             } else {
                 // --- SINGLE-DRAG LOGIC (unchanged) ---
-                this.PageSelectionManager.clear(); // Clear selection if starting a single drag
+                this.PageSelectionManager.clearSelect(); // Clear selection if starting a single drag
                 e.dataTransfer.setData('text/plain', blockId);
                 setTimeout(() => blockContainer.style.opacity = '0.5', 0);
             }
@@ -1568,7 +1571,7 @@ class PageEditor {
         // --- Cleanup, render, save ---
         this.draggedBlock = null;
         this.currentDropInfo = null;
-        this.PageSelectionManager.clear();
+        this.PageSelectionManager.clearSelect();
         
         // --- 核心修改：统一事件通知 ---
         // 1. 从 _cleanupData 获取被修改的容器
@@ -2311,7 +2314,7 @@ class PageEditor {
         if (!blockInstance) return;
         
         // 1. Select the current block
-        this.PageSelectionManager.set(blockInstance.id);
+        this.PageSelectionManager.setSelect(blockInstance.id);
         
         // 2. Expand the right sidebar if collapsed
         const appContainer = this.container.closest('.app-container');
@@ -2720,10 +2723,10 @@ class PageEditor {
     * Updates the right sidebar's "Details" panel based on the currently selected blocks.
     */
     updateDetailsPanel() {
-        const editor = this.PageSelectionManager._getEditor();
+        const editor = this.PageSelectionManager.editor;
         if (!editor || !this.elements.detailsView) return;
 
-        const selectedIds = this.PageSelectionManager.get();
+        const selectedIds = this.PageSelectionManager.getSelected();
     
         // Clear previous content
         this.elements.detailsView.innerHTML = '';
@@ -2811,67 +2814,6 @@ class PageEditor {
                 mainContentEl.classList.remove('toolbar-peek');
             }
         }
-    }
-
-    // --- Block Highlighting ---
-    /**
-     * Finds a block by its ID within the current editor or preview view,
-     * scrolls it into the center of the viewport, and applies a temporary
-     * highlight effect.
-     *
-     * @param {string} blockId - The ID of the block to focus and highlight.
-     */
-    focusBlock(blockId) {
-        if (!blockId || !this.isReady) {
-            return;
-        }
-
-        // Use a short timeout to ensure the DOM has fully rendered after a potential
-        // mode switch or page load, preventing race conditions where the element
-        // might not be found immediately.
-        setTimeout(() => {
-            // Determine which view container is currently active (edit or preview).
-            const activeContainer = this.mode === 'edit' 
-                ? this.elements.editorAreaContainer 
-                : this.elements.previewView;
-
-            if (!activeContainer) return;
-
-            // Find the target block element within the active container.
-            const blockEl = activeContainer.querySelector(`.block-container[data-id="${blockId}"]`);
-        
-            if (blockEl) {
-                // 1. Remove highlight from any previously highlighted block.
-                const previouslyHighlighted = this.container.querySelector('.is-highlighted');
-                if (previouslyHighlighted) {
-                    previouslyHighlighted.classList.remove('is-highlighted');
-                }
-
-                // 2. Scroll the target block into the center of the view.
-                blockEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                // 3. Apply the highlight class.
-                blockEl.classList.add('is-highlighted');
-                
-                // 4. Set up a one-time event listener to remove the highlight.
-                // The highlight will be removed on the next click or keydown anywhere in the document.
-                const removeHighlight = () => {
-                    blockEl.classList.remove('is-highlighted');
-                    document.removeEventListener('click', removeHighlight, { capture: true });
-                    document.removeEventListener('keydown', removeHighlight, { capture: true });
-                };
-
-                // Use another short timeout before attaching the removal listeners.
-                // This prevents the same click that triggered the focus from immediately removing it.
-                setTimeout(() => {
-                    document.addEventListener('click', removeHighlight, { once: true, capture: true });
-                    document.addEventListener('keydown', removeHighlight, { once: true, capture: true });
-                }, 100);
-
-            } else {
-                console.warn(`PageEditor: Could not find block element with ID "${blockId}" to focus.`);
-            }
-        }, 200); // A slightly longer delay gives the UI more time to settle.
     }
     
     // --- ========================================================== ---
@@ -3108,89 +3050,6 @@ class PageEditor {
 // --- ========================================================== ---
 // --- In-file Helper Classes
 // --- ========================================================== ---
-
-class PageSelectionManager {
-    constructor(editor) { // 接收 editor 实例
-        this.selectedBlockIds = new Set();
-        this.editor = editor; // 保存 editor 实例的引用
-    }
-
-    _getEditor() {
-        return this.editor;
-    }
-
-    _updateVisuals() {
-        const editor = this._getEditor();
-        if (!editor || !editor.container) return;
-
-        editor.container.querySelectorAll('.is-selected').forEach(el => el.classList.remove('is-selected'));
-
-        this.selectedBlockIds.forEach(id => {
-            const blockEl = editor.container.querySelector(`.block-container[data-id="${id}"]`);
-            if (blockEl) {
-                blockEl.classList.add('is-selected');
-            }
-        });
-
-        // Update the details panel whenever the selection visuals change.
-        editor.updateDetailsPanel();
-    }
-
-    toggle(blockId) {
-        if (this.selectedBlockIds.has(blockId)) {
-            this.selectedBlockIds.delete(blockId);
-        } else {
-            this.selectedBlockIds.add(blockId);
-        }
-        this._updateVisuals();
-    }
-
-    set(blockId) {
-        // If this block is already the only one selected, do nothing.
-        // This allows clicking inside an already selected block to edit text.
-        if (this.selectedBlockIds.size === 1 && this.selectedBlockIds.has(blockId)) {
-            return;
-        }
-        this.selectedBlockIds.clear();
-        this.selectedBlockIds.add(blockId);
-        this._updateVisuals();
-    }
-
-    clear() {
-        if (this.selectedBlockIds.size === 0) return;
-        this.selectedBlockIds.clear();
-        this._updateVisuals();
-    }
-
-    get() {
-        return Array.from(this.selectedBlockIds);
-    }
-
-    has(blockId) {
-        return this.selectedBlockIds.has(blockId);
-    }
-
-    size() {
-        return this.selectedBlockIds.size;
-    }
-
-    validateAndRefresh() {
-        // 1. 过滤掉那些在当前 DOM 中已经不存在的 ID
-        // (例如：撤销了“创建新块”的操作，该块ID就不应该继续被选中)
-        const validIds = new Set();
-        this.selectedBlockIds.forEach(id => {
-            // 检查编辑器中是否真的还有这个块的 DOM
-            if (this.editor.container.querySelector(`.block-container[data-id="${id}"]`)) {
-                validIds.add(id);
-            }
-        });
-        this.selectedBlockIds = validIds;
-
-        // 2. 强制重新应用视觉样式（添加 .is-selected 类）并更新细节面板
-        this._updateVisuals();
-    }
-}
-
 class PageReferenceManager {
     constructor(editor) {
         this.editor = editor; // The PageEditor instance
@@ -3422,7 +3281,7 @@ class PageReferenceManager {
             if (refData) {
                 // Check if the reference is in the current file
                 if (refData.filePath === this.editor.filePath) {
-                    this.editor.focusBlock(blockId);
+                    this.editor.PageSelectionManager.highlightBlock(blockId);
                 } else {
                     // Open or switch to the other file's tab and focus the block
                     await this.editor.tabManager.openTab(refData.filePath, blockId);

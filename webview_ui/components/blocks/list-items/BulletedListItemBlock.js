@@ -127,7 +127,7 @@ class BulletedListItemBlock extends TextBlock {
             this.BAPI_PE.deleteBlock(this);
             // 如果找到了前一个块，就将光标聚焦到它上面
             if (blockToFocus) {
-                blockToFocus.focus();
+                this.BAPI_PE.selectBlock(blockToFocus.id);
             }
             return;
         }

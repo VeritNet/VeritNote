@@ -127,21 +127,6 @@ class Block {
     }
 
     /**
-     * Focuses the block's content element and moves cursor to the end.
-     */
-    focus() {
-        if (!this.contentElement || !this.contentElement.isContentEditable) return;
-
-        this.contentElement.focus();
-        const range = document.createRange();
-        const selection = window.getSelection();
-        range.selectNodeContents(this.contentElement);
-        range.collapse(false); // Move to the end
-        selection.removeAllRanges();
-        selection.addRange(range);
-    }
-
-    /**
      * Handles input events on the block.
      * @param {InputEvent} e The event object.
      */
