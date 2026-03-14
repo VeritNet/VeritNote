@@ -9,6 +9,7 @@ class TableViewBlock extends Block {
 
         this.properties.tableWidthScale = data.properties?.tableWidthScale || 1;
         this.properties.maxHeight = data.properties?.maxHeight || '';
+        this.properties.colWidths = data.properties?.colWidths || [];
 
         // 缓存父级传来的数据，用于 Details 面板修改属性后自身触发的重绘
         this._lastRawData = null;
@@ -264,31 +265,119 @@ class TableViewBlock extends Block {
             maxHeightStyle = `max-height: ${this.properties.maxHeight}; overflow-y: auto;`;
         }
 
-        // 3. 构建 HTML 框架
-        let html = `<div class="table-view-container" style="width:100%; overflow-x:auto; ${maxHeightStyle} border:1px solid var(--border-primary);">`;
-        html += `<table class="vn-table" style="table-layout:fixed; width:${totalWidthStyle};"><thead><tr>`;
+        // 强制归一化 colWidths，确保它们加起来永远等于 1.0 (100%)。
+        // 剥夺浏览器根据非 100% 比例自动隐式放大列宽的可能性，确保鼠标移动距离与视觉计算严丝合缝。
+        if (this.properties.colWidths.length !== totalCols) {
+            this.properties.colWidths = config.columns.map(col => col.width || (1 / totalCols));
+        }
+        const currentSum = this.properties.colWidths.reduce((sum, w) => sum + w, 0);
+        if (currentSum > 0 && Math.abs(currentSum - 1) > 0.001) {
+            this.properties.colWidths = this.properties.colWidths.map(w => w / currentSum);
+        }
 
-        // 渲染表头
-        config.columns.forEach(col => {
-            const label = (config.firstRowMode === 'header' ? col.sourceHeader : (col.label || col.sourceHeader)) || 'Untitled';
-            const widthPercent = (col.width || (1 / totalCols)) * 100;
-            html += `<th style="width: ${widthPercent}%;">${label}</th>`;
+        // 3. 构建 DOM 结构（采用 TableBlock 动态创建逻辑，以正确绑定拖拽事件）
+        const container = document.createElement('div');
+        container.className = 'table-view-container';
+        container.style.cssText = `width:100%; overflow-x:auto; ${maxHeightStyle} border:1px solid var(--border-primary);`;
+
+        const table = document.createElement('table');
+        table.className = 'vn-table';
+        table.style.cssText = `table-layout:fixed; width:${totalWidthStyle};`;
+
+        const thead = document.createElement('thead');
+        const trHead = document.createElement('tr');
+
+        // 渲染表头并动态绑定事件
+        config.columns.forEach((col, index) => {
+            const labelText = (config.firstRowMode === 'header' ? col.sourceHeader : (col.label || col.sourceHeader)) || 'Untitled';
+            const widthPercent = this.properties.colWidths[index] * 100;
+
+            const th = document.createElement('th');
+            th.style.cssText = `width: ${widthPercent}%; position: relative;`;
+
+            const span = document.createElement('span');
+            span.className = 'th-label';
+            span.textContent = labelText;
+            th.appendChild(span);
+
+            if (index < totalCols - 1) {
+                const resizer = document.createElement('div');
+                resizer.className = 'table-view-col-resizer';
+                // 【修复 Bug: 监听器无效】
+                // 直接向真实创建出来的 DOM 元素绑定事件，废除会导致元素和监听器丢失的 innerHTML 拼接表头。
+                resizer.addEventListener('mousedown', (e) => this.initResize(e, index));
+                th.appendChild(resizer);
+            }
+
+            trHead.appendChild(th);
         });
-        html += `</tr></thead><tbody>`;
 
-        // 渲染数据行
+        thead.appendChild(trHead);
+        table.appendChild(thead);
+
+        // 渲染数据行（数据部分仍用 innerHTML 拼装以保证大数据量的渲染性能）
+        const tbody = document.createElement('tbody');
+        let tbodyHtml = '';
         dataRows.forEach(row => {
-            html += `<tr>`;
+            tbodyHtml += `<tr>`;
             config.columns.forEach(col => {
                 let colIndex = sourceHeaders.indexOf(col.sourceHeader);
                 let cellValue = (colIndex > -1 && colIndex < row.length) ? row[colIndex] : '';
-                html += `<td>${this._processCellType(cellValue, col)}</td>`;
+                tbodyHtml += `<td>${this._processCellType(cellValue, col)}</td>`;
             });
-            html += `</tr>`;
+            tbodyHtml += `</tr>`;
         });
+        tbody.innerHTML = tbodyHtml;
+        table.appendChild(tbody);
 
-        html += `</tbody></table></div>`;
-        this.element.innerHTML = html;
+        container.appendChild(table);
+
+        // 清空原内容并挂载新 DOM
+        this.element.innerHTML = '';
+        this.element.appendChild(container);
+    }
+
+    initResize(e, colIndex) {
+        e.preventDefault();
+        const startX = e.clientX;
+        const tableEl = this.element.querySelector('.vn-table');
+        const tableWidth = tableEl.offsetWidth;
+
+        const leftColInitialWidth = this.properties.colWidths[colIndex];
+        const rightColInitialWidth = this.properties.colWidths[colIndex + 1];
+
+        const onMouseMove = (moveEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const deltaPercentage = deltaX / tableWidth;
+
+            let newLeftWidth = leftColInitialWidth + deltaPercentage;
+            let newRightWidth = rightColInitialWidth - deltaPercentage;
+
+            // 限制最小宽度为 5%
+            const minWidth = 0.05;
+            if (newLeftWidth < minWidth || newRightWidth < minWidth) return;
+
+            // 更新数据模型
+            this.properties.colWidths[colIndex] = newLeftWidth;
+            this.properties.colWidths[colIndex + 1] = newRightWidth;
+
+            // 实时更新 DOM 样式以获得平滑反馈
+            const ths = tableEl.querySelectorAll('thead th');
+            ths[colIndex].style.width = `${newLeftWidth * 100}%`;
+            ths[colIndex + 1].style.width = `${newRightWidth * 100}%`;
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            // 提交变更到历史记录
+            if (this.BAPI_PE) {
+                this.BAPI_PE.emitChange(true, 'resize-table-view-column', this);
+            }
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
     }
 
     _processCellType(value, config) {

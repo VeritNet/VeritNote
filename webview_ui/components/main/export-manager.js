@@ -151,7 +151,7 @@ window.ExportManager = class ExportManager {
         setTimeout(window.hideExportOverlay, 1500);
     }
 
-    // [复刻原逻辑] 生成侧边栏HTML
+    // 生成侧边栏HTML
     static _generateSidebarHtml(node, currentPath, pathPrefix, workspaceRootPath) {
         let html = '';
         if (node.type === 'folder') {

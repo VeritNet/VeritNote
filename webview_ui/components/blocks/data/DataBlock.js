@@ -247,9 +247,11 @@ class DataBlock extends Block {
             this._loadDatabaseAndRender().then(() => this._refreshDetailsPanel());
         });
 
-        subFocusBtn.addEventListener('click', () => {
-            if (this.children[0]) this.children[0].focus();
-        });
+        if (subFocusBtn) {
+            subFocusBtn.addEventListener('click', () => {
+                if (this.children[0]) this.BAPI_PE.selectBlock(this.children[0].id);
+            });
+        }
 
         // 仅有路径但没缓存时（例如首次通过外部输入打开细节），自动抓取以生成 Preset 的选项
         if (this.properties.dbPath && !this._dbJsonCache) {

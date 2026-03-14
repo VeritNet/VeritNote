@@ -315,7 +315,7 @@ class DatabaseEditor {
             // ！！临时方案！！：伪造一个 editor 环境 (只提供需要的 API)
             const deepFakeEditor = {};
             const fakeEditor = {
-                BAPI_PE: {
+                'BAPI_PE': {
                     ['createBlockInstance']: (blockData) => {
                         const BlockClass = window['blockRegistry'].get(blockData.type);
                         if (BlockClass) {

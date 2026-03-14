@@ -15,10 +15,15 @@ const DEFAULT_PAGE_CONFIG = {
     "line-height": "1.6"
 };
 
+const DEFAULT_DATABASE_CONFIG = {
+    "p-l-a-c-e-h-o-l-d-e-r": "placeholder",
+};
+
 // 未来可以添加其他文件类型的默认配置
 // const DEFAULT_GRAPH_CONFIG = { ... };
 
 window.DEFAULT_CONFIG = {
     page: DEFAULT_PAGE_CONFIG,
+    database: DEFAULT_DATABASE_CONFIG,
     // graph: DEFAULT_GRAPH_CONFIG
 };

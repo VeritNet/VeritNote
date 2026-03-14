@@ -1,12 +1,18 @@
 ﻿.table-view-container::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
 }
 
 .table-view-container::-webkit-scrollbar-thumb {
-    background-color: var(--bg-tertiary);
-    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
+
+    .table-view-container::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.25);
+    }
 
 .vn-table {
     width: 100%;
@@ -35,4 +41,19 @@
 
     .vn-table tr:hover {
         background-color: rgba(86, 156, 214, 0.05);
+    }
+
+
+.table-view-col-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 20;
+}
+
+    .table-view-col-resizer:hover {
+        background-color: var(--text-accent);
     }

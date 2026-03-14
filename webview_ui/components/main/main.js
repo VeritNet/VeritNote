@@ -433,7 +433,7 @@ window['initializeMainComponent'] = () => {
                 }
             };
             window.addEventListener('configFileRead', configFileReadHandler);
-        } else { // 'page'
+        } else if (type === 'page') {
             configPath = path;
             const tab = tabManager.tabs.get(path);
             if (!tab || !tab.instance) {
@@ -443,6 +443,16 @@ window['initializeMainComponent'] = () => {
             configData = tab.instance.fileConfig;
             availableSettings = { page: window.DEFAULT_CONFIG.page };
             activeConfigModalWithConfig(configData, availableSettings);
+        } else if (type === 'database') {
+            /*configPath = path;
+            const tab = tabManager.tabs.get(path);
+            if (!tab || !tab.instance) {
+                alert("Open the file before changing its settings.");
+                return;
+            }
+            // configData = tab.instance.fileConfig; // Database Editor fileConfig 待实现
+            availableSettings = { database: window.DEFAULT_CONFIG.database };
+            activeConfigModalWithConfig(configData, availableSettings);*/
         }
 
         function activeConfigModalWithConfig(configData, availableSettings) {
@@ -455,11 +465,13 @@ window['initializeMainComponent'] = () => {
                         ipc.writeConfigFile(configPath, newConfig);
                         // The path is the folder path, not the config file path.
                         broadcastConfigurationChange(path);
-                    } else { // page
+                    } else if (type === 'page') { // page
                         const tab = tabManager.tabs.get(path);
                         if (tab && tab.instance) {
                             tab.instance.setFileConfig(newConfig);
                         }
+                    } else if (type === 'database') {
+                        // !!!do something...!!!
                     }
 
                     // This part is for updating the currently selected item's config if it's open.
@@ -627,7 +639,8 @@ window['initializeMainComponent'] = () => {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
             html += `<div class="tree-node page" data-path="${node.path}">
                 <span class="icon">${iconSvg}</span>
-                <span class="name">${node.name.replace('.veritnotedb', '') }</span> 
+                <span class="name">${node.name.replace('.veritnotedb', '')}</span> 
+                <button class="item-settings-btn" data-type="database" title="Database Settings">${settingsIconSvg}</button>
              </div>`;
         }
         return html;
