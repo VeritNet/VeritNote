@@ -67,6 +67,7 @@ protected:
     // --- 业务逻辑处理函数 (平台无关) ---
     // 这些函数的实现放在 Backend.cpp 中，因为它们不直接依赖任何平台API。
     void ExportPageAsHtml(const json& payload);
+    void ExportDatabaseAsJs(const json& payload);
     void PrepareExportLibs(const json& payload);
     void ProcessExportImages(const json& payload);
     void GoToDashboard();

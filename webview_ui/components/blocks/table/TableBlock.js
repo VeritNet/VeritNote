@@ -56,6 +56,18 @@ class TableBlock extends Block {
     static description = 'Create a structured table.';
     static keywords = ['table', 'grid', 'data'];
     static canBeToggled = true;
+    static previewExclusionSelectors = [
+         '.table-controls-top',
+         '.table-controls-left',
+         '.table-add-col-btn',
+         '.table-add-row-btn'
+    ];
+    static exportExclusionSelectors = [
+        '.table-controls-top',
+        '.table-controls-left',
+        '.table-add-col-btn',
+        '.table-add-row-btn'
+    ];
 
     constructor(data, editor) {
         super(data, editor);

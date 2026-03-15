@@ -155,17 +155,7 @@ class TodoListItemBlock extends TextBlock {
     }
 
 
-    // --- NEW: Implement Export API ---
-    async getExportHtml(blockElement, options) {
-        const checkbox = blockElement.querySelector('.todo-checkbox');
-        if (checkbox) {
-            // Add a data-id for the script to target
-            checkbox.setAttribute('data-id', `todo-${this.id}`);
-        }
-        return blockElement;
-    }
-
-    static getExportScripts() {
+    getExportScripts(exportContext) {
         // The entire script logic is now self-contained here.
         return `
             const TODO_STORAGE_KEY = 'veritnote_todo_state';

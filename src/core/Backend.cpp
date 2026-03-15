@@ -103,6 +103,9 @@ void Backend::HandleWebMessage(const std::string& message) {
         else if (action == "exportPageAsHtml") {
             ExportPageAsHtml(payload);
         }
+        else if (action == "exportDatabaseAsJs") {
+            ExportDatabaseAsJs(payload);
+        }
         else if (action == "createItem") {
             CreateItem(payload);
         }
@@ -203,6 +206,37 @@ void Backend::ExportPageAsHtml(const json& payload) {
     }
     catch (const std::exception& e) {
 		LOG_DEBUG(std::string("Error exporting page as HTML: " + std::string(e.what())).c_str());
+    }
+}
+
+void Backend::ExportDatabaseAsJs(const json& payload) {
+    try {
+        std::string sourcePathStr = payload.value("path", "");
+        std::string jsContent = payload.value("js", "");
+
+        std::filesystem::path sourcePath(sourcePathStr);
+        std::filesystem::path workspacePath(m_workspaceRoot);
+        std::filesystem::path buildPath = workspacePath / "build";
+
+        // 计算相对路径
+        std::filesystem::path relativePath = std::filesystem::relative(sourcePath, workspacePath);
+
+        // 构建目标路径
+        std::filesystem::path targetPath = buildPath / relativePath;
+        targetPath.replace_extension(".js");
+
+        // 如果需要，创建父目录
+        if (targetPath.has_parent_path()) {
+            std::filesystem::create_directories(targetPath.parent_path());
+        }
+
+        // 写入文件
+        std::ofstream file(targetPath);
+        file << jsContent;
+        file.close();
+    }
+    catch (const std::exception& e) {
+        LOG_DEBUG(std::string("Error exporting database as JS: " + std::string(e.what())).c_str());
     }
 }
 

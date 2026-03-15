@@ -91,17 +91,20 @@ class QuoteBlock extends Block {
     loadQuoteContent() {
         if (!this.properties.referenceLink) return;
 
+        // [新增] 创建未决的 Promise 锁住导出流程
+        this.exportReadyPromise = new Promise(resolve => {
+            this.exportReadyResolve = resolve;
+        });
+
         this.previewContainer.innerHTML = '<div class="quote-loading-placeholder">Loading reference...</div>';
 
         const [pathPart, blockId] = this.properties.referenceLink.split('#');
         const absolutePath = this.BAPI_WD.resolveWorkspacePath(pathPart);
         const absoluteReferenceLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
 
-        // 定义一次性事件监听器
         const listener = (e) => {
-            const payload = e.detail.payload || e.detail; // 兼容不同的 IPC 封装
+            const payload = e.detail.payload || e.detail;
 
-            // 检查是否是当前块的请求
             if (payload.quoteBlockId === this.id) {
                 window.removeEventListener('quoteContentFetched', listener);
 
@@ -110,22 +113,21 @@ class QuoteBlock extends Block {
                 } else {
                     this.renderQuotedContent(payload.content);
                 }
+                // [新增] 渲染完成，释放导出锁
+                this.exportReadyResolve();
             }
         };
 
-        // 设置超时保护
         setTimeout(() => {
             window.removeEventListener('quoteContentFetched', listener);
-            if (this.previewContainer.innerHTML.includes('Loading')) {
-                // 仅当还在 Loading 状态时显示超时，避免覆盖已加载内容
-                // this.renderError("Request timeout"); 
+            if (this.previewContainer && this.previewContainer.innerHTML.includes('Loading')) {
+                this.renderError("Request timeout"); 
             }
-        }, 10000); // Quote 加载可能较慢，给 10秒
+            // 超时也必须释放锁，防止卡死导出
+            this.exportReadyResolve();
+        }, 10000);
 
-        // 监听 IPC 广播的事件
         window.addEventListener('quoteContentFetched', listener);
-
-        // 发起请求，传入 this.id 作为请求标识
         this.BAPI_IPC.fetchQuoteContent(this.id, absoluteReferenceLink);
     }
 
@@ -240,55 +242,6 @@ class QuoteBlock extends Block {
     onKeyDown(e) { /* no-op */ }
 
 
-    // --- NEW: Implement Export API ---
-
-    /**
-     * Renders the final static HTML for the exported Quote block.
-     * It replaces the "Loading..." placeholder with the actual referenced content,
-     * which is pre-fetched and passed in the `quoteContentCache`.
-     */
-    async getExportHtml(blockElement, options, imageSrcMap, pathPrefix, quoteContentCache) {
-        const previewContainer = blockElement.querySelector('.quote-preview-container');
-        if (previewContainer && this.properties.referenceLink) {
-            const referenceLink = this.properties.referenceLink;
-            const cachedBlockData = quoteContentCache.get(referenceLink);
-        
-            // Clear the "Loading..." placeholder
-            previewContainer.innerHTML = '';
-        
-            if (cachedBlockData && Array.isArray(cachedBlockData)) {
-                // The cache contains raw block data, so we must render it.
-                const blockInstances = cachedBlockData.map(data => this.BAPI_PE.createBlockInstance(data)).filter(Boolean);
-                
-                blockInstances.forEach(instance => {
-                    const renderedEl = instance.render(); // This creates the full block element with controls
-                    
-                    // --- Cleanup for Export ---
-                    // We must remove editor-specific UI from the rendered content.
-                    renderedEl.querySelectorAll('.block-controls, .column-resizer').forEach(el => el.remove());
-                    renderedEl.querySelectorAll('[contentEditable="true"]').forEach(el => el.removeAttribute('contentEditable'));
-        
-                    previewContainer.appendChild(renderedEl);
-                });
-            } else {
-                previewContainer.innerHTML = '<div class="quote-error-placeholder">Referenced content could not be found.</div>';
-            }
-        }
-        
-        if (this.properties.clickLink) {
-            const linkWrapper = document.createElement('a');
-
-            linkWrapper.setAttribute('href', this.properties.clickLink);
-            linkWrapper.className = 'quote-click-wrapper';
-
-            blockElement.parentNode.insertBefore(linkWrapper, blockElement);
-            linkWrapper.appendChild(blockElement);
-            
-            return linkWrapper;
-        }
-
-        return blockElement;
-    }
 }
 
 window['registerBlock'](QuoteBlock);

@@ -743,7 +743,9 @@ window['initializeMainComponent'] = () => {
     // Unchanged
     window.makePathRelativeToWorkspace = function (absolutePath) { if (!window.workspaceRootPath || !absolutePath || !absolutePath.startsWith(window.workspaceRootPath)) { return absolutePath; } let relative = absolutePath.substring(window.workspaceRootPath.length); if (relative.startsWith('\\') || relative.startsWith('/')) { relative = relative.substring(1); } return relative; }
     window.resolveWorkspacePath = function(path) { if (!path || !window.workspaceRootPath) { return path; } if (/^([a-zA-Z]:\\|\\\\|\/|https?:\/\/|file:\/\/\/)/.test(path)) { return path; } return [window.workspaceRootPath, path.replace(/\//g, '\\')].join('\\'); };
-    
+
+
+
     // --- Export Logic ---
     window.isExportCancelled = false;
 
@@ -783,8 +785,11 @@ window['initializeMainComponent'] = () => {
         const workspaceData = JSON.parse(sidebar.dataset['workspaceData'] || '{}');
         const allFilesToExport = [];
         const getAllFiles = (node, list) => {
-            if (node.type === 'page') list.push(node.path);
-            else if (node.type === 'folder' && node.children) node.children.forEach(child => getAllFiles(child, list));
+            if (node.type === 'folder' && node.children) {
+                node.children.forEach(child => getAllFiles(child, list));
+            } else {
+                list.push(node.path);
+            }
         };
         getAllFiles(workspaceData, allFilesToExport);
 
@@ -805,6 +810,7 @@ window['initializeMainComponent'] = () => {
         exportStatus.textContent = 'Cancelled.';
         setTimeout(window.hideExportOverlay, 1000);
     });
+
 
 
     // --- Window State & Dragging (Main component concern) ---

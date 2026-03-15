@@ -29,12 +29,16 @@ class Block {
         this.BAPI_PE = this.editor.BAPI_PE;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 PageEditor 定义和维护
         this.BAPI_WD = window.BAPI_WD;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 Window 定义和维护
         this.BAPI_IPC = window.BAPI_IPC;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 IPC 定义和维护
-        
-        // *** FIX: GUARANTEE that this.children is always an array. ***
+
+        // Children
         const childrenData = data.children || [];
         this.children = childrenData.map(childJson => this.BAPI_PE.createBlockInstance(childJson)).filter(Boolean);
         // Add parent property to children right away
         this.children.forEach(child => child.parent = this);
+
+        // 异步渲染锁，默认为已完成状态。子类如果有异步行为，需覆写这两个变量。
+        this.exportReadyResolve = () => { };
+        this.exportReadyPromise = Promise.resolve();
     }
 
 
@@ -51,6 +55,21 @@ class Block {
     static description = 'A generic block.'; // Default description for UI
     static keywords = []; // Keywords for search
     static canBeToggled = false; // Whether it appears in the slash command menu
+    // 定义预览/导出需要排除的 DOM 元素选择器
+    static previewExclusionSelectors = [
+        '.block-controls',
+        '.drag-handle',
+        '.drop-indicator',
+        '.drop-indicator-vertical',
+        '.quadrant-overlay'
+    ];
+    static exportExclusionSelectors = [
+        '.block-controls',
+        '.drag-handle',
+        '.drop-indicator',
+        '.drop-indicator-vertical',
+        '.quadrant-overlay'
+    ];
     element = null;
     content = null;
     properties = {};
@@ -393,58 +412,14 @@ class Block {
         }
     }
 
-    /**
-     * 生成当前块及其自定义属性对应的 CSS 字符串，用于导出。
-     * @returns {string}
-     */
-    getCustomCSSString() {
-        let cssString = '';
-
-        // 1. 处理 Custom CSS 面板中的规则 (如 :hover 等)
-        if (this.properties.customCSS && this.properties.customCSS.length > 0) {
-            this.properties.customCSS.forEach(group => {
-                // 确保选择器依然能选中这个块
-                // 注意：导出时 .block-container 和 data-id 都会保留，所以这个选择器是有效的
-                const selector = `.block-container[data-id="${this.id}"] ${group.selector}`;
-
-                const rules = group.rules
-                    .filter(r => r.prop && r.val)
-                    .map(r => `${r.prop}: ${r.val} !important;`)
-                    .join(' ');
-
-                if (rules) {
-                    cssString += `${selector} { ${rules} } \n`;
-                }
-            });
-        }
-
-        // 注意：通用的 _applyGenericStyles (背景、边距等) 是直接写在 element.style 上的，
-        // 它们会作为 inline style 自动包含在 innerHTML 中，所以这里不需要重复处理。
-
-        return cssString;
-    }
-
 
     // --- Export API ---
-
-    /**
-     * Generates the final, sanitized HTML for this block for export.
-     * Subclasses can override this to add special behaviors.
-     * @param {HTMLElement} blockElement - The pre-rendered, clean DOM element of the block.
-     * @param {object} options - The export options from the main process.
-     * @param {object} imageSrcMap - A map of original image sources to their new local paths.
-     * @param {string} pathPrefix - The relative path prefix (e.g., './' or '../') for assets.
-     */
-    async getExportHtml(blockElement, options, imageSrcMap, pathPrefix) {
-        return blockElement;
-    }
-
     /**
      * Returns any JavaScript code that needs to be injected into the final exported HTML file
      * to make this block interactive.
      * @returns {string|null} A string containing the script (without <script> tags), or null.
      */
-    static getExportScripts() {
+    getExportScripts(exportContext) {
         // Default is no scripts.
         return null;
     }
@@ -673,12 +648,15 @@ class Block {
     }
 
     _applyCustomCSS() {
-        // 1. Remove existing style element for this block if it exists
-        let styleTag = document.getElementById(`style-block-${this.id}`);
+        if (!this.element) return;
+
+        // 1. 在当前 Block 的 DOM 树内寻找或创建 style 标签
+        let styleTag = this.element.querySelector(`style#style-block-${this.id}`);
         if (!styleTag) {
             styleTag = document.createElement('style');
             styleTag.id = `style-block-${this.id}`;
-            document.head.appendChild(styleTag);
+            // 插入到块元素的最前面，这样导出时 cloneNode 会天然包含它
+            this.element.prepend(styleTag);
         }
 
         // 2. Generate CSS String

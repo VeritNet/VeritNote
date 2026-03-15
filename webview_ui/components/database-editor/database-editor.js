@@ -121,8 +121,10 @@ class DatabaseEditor {
                 id: 'preset-' + Date.now(),
                 name: name,
                 type: 'tableView', // 默认类型
-                firstRowMode: 'header',
-                columns: []
+                config: {
+                    firstRowMode: 'header',
+                    columns: []
+                }
             };
             this.dbData['presets'].push(newPreset);
             this.activePresetId = newPreset.id;

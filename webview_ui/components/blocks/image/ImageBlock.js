@@ -109,28 +109,6 @@ class ImageBlock extends Block {
             );
         }
     }
-
-
-    // --- NEW: Implement Export API ---
-    async getExportHtml(blockElement, options, imageSrcMap) {
-        const imgTag = blockElement.querySelector('img');
-        if (imgTag) {
-            const originalSrc = imgTag.getAttribute('src');
-            if (imageSrcMap[originalSrc]) {
-                imgTag.setAttribute('src', imageSrcMap[originalSrc]);
-            }
-            
-            if (this.properties.href) {
-                const linkWrapper = document.createElement('a');
-                
-                linkWrapper.setAttribute('href', this.properties.href);
-                
-                imgTag.parentNode.insertBefore(linkWrapper, imgTag);
-                linkWrapper.appendChild(imgTag);
-            }
-        }
-        return blockElement;
-    }
 }
 
 window['registerBlock'](ImageBlock);

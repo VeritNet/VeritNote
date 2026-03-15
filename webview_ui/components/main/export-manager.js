@@ -3,148 +3,72 @@
 window.ExportManager = class ExportManager {
     static async runExportProcess(exportConfig) {
         const { options, allFilesToExport, workspaceData, ui } = exportConfig;
-
         window.isExportCancelled = false;
-        ui.exportStatus.textContent = 'Collecting file information...';
+
+        ui.exportStatus.textContent = 'Initializing exporters...';
         ui.progressBar.style.width = '5%';
 
-        const allPagesContent = [];
+        const exporters = [];
 
-        // 阶段1：预拉取所有页面的纯数据内容
+        // 1. 初始化对应文件的导出器
         for (const path of allFilesToExport) {
-            if (window.isExportCancelled) return;
-            const pageData = await new Promise(resolve => {
-                const handler = (e) => {
-                    if (e['detail']['payload'] && e['detail']['payload'].path === path) {
-                        window.removeEventListener('pageLoaded', handler);
-                        resolve(e['detail']['payload']);
-                    }
-                };
-                window.addEventListener('pageLoaded', handler);
-                ipc.loadPage(path);
-            });
-            allPagesContent.push(pageData);
-        }
-
-        if (window.isExportCancelled) return;
-
-        ui.exportStatus.textContent = 'Preparing environment...';
-        ui.progressBar.style.width = '15%';
-
-        // 阶段2：全局收集 Quotes、Libs 和 过滤后的图片
-        const globalRequiredLibs = new Set();
-        const quoteContentCache = new Map();
-        const imageTasks = [];
-
-        allPagesContent.forEach(pageData => {
-            const scanBlocks = (blocks) => {
-                if (!blocks) return;
-                blocks.forEach(block => {
-                    // 收集依赖
-                    const BlockClass = window['blockRegistry'].get(block.type);
-                    if (BlockClass && BlockClass.requiredExportLibs.length > 0) {
-                        BlockClass.requiredExportLibs.forEach(lib => globalRequiredLibs.add(lib));
-                    }
-
-                    // 收集 Quote
-                    if (block.type === 'quote' && block.properties?.referenceLink) {
-                        const link = block.properties.referenceLink;
-                        if (!quoteContentCache.has(link)) {
-                            const [filePath, blockId] = link.split('#');
-                            const absoluteFilePath = window.resolveWorkspacePath(filePath);
-                            const sourcePageData = allPagesContent.find(p => p.path === absoluteFilePath);
-                            if (sourcePageData) {
-                                let contentToCache = sourcePageData.content;
-                                if (blockId) {
-                                    const findBlockById = (blks, id) => {
-                                        for (const b of blks) {
-                                            if (b.id === id) return b;
-                                            if (b.children) { const f = findBlockById(b.children, id); if (f) return f; }
-                                        }
-                                        return null;
-                                    };
-                                    const foundBlock = findBlockById(sourcePageData.content, blockId);
-                                    contentToCache = foundBlock ? [foundBlock] : null;
-                                }
-                                quoteContentCache.set(link, contentToCache);
-                            }
-                        }
-                    }
-
-                    // 收集图片 (修复Bug 2: 严格根据选项过滤)
-                    if (block.type === 'image' && block.properties?.src) {
-                        const src = block.properties.src;
-                        const isLocalHttp = src.includes('http://veritnote.localhost');
-                        const isOnline = (src.startsWith('http://') || src.startsWith('https://')) && !isLocalHttp;
-                        if ((isOnline && options.downloadOnline) || (!isOnline && options.copyLocal)) {
-                            imageTasks.push({ 'originalSrc': src, 'pagePath': pageData.path });
-                        }
-                    }
-
-                    if (block.children) scanBlocks(block.children);
-                });
-            };
-            scanBlocks(pageData.content);
-
-            // 检查背景图片
-            const pageConfig = pageData.config?.page || {};
-            if (pageConfig.background?.type === 'image' && pageConfig.background.value) {
-                const src = pageConfig.background.value;
-                const isOnline = src.startsWith('http://') || src.startsWith('https://');
-                if ((isOnline && options.downloadOnline) || (!isOnline && options.copyLocal)) {
-                    imageTasks.push({ 'originalSrc': src, 'pagePath': pageData.path });
-                }
-            }
-        });
-
-        // 阶段3：初始化输出目录 (修复Bug 1 & 3: 必须在处理图片前调用)
-        ipc.prepareExportLibs(Array.from(globalRequiredLibs));
-        await new Promise(resolve => window.addEventListener('exportLibsReady', resolve, { once: true }));
-        if (window.isExportCancelled) return;
-
-        // 阶段4：处理图片
-        let imageSrcMap = {};
-        const uniqueImageTasks = Array.from(new Map(imageTasks.map(task => [task.originalSrc, task])).values());
-        if (uniqueImageTasks.length > 0) {
-            ui.exportStatus.textContent = 'Processing images...';
-            ipc.processExportImages(uniqueImageTasks);
-            imageSrcMap = await new Promise(resolve => {
-                window.addEventListener('exportImagesProcessed', (e) => resolve(e['detail']['payload']['srcMap']), { once: true });
-            });
-            console.log(imageSrcMap);
-        }
-        if (window.isExportCancelled) return;
-
-        // 阶段5：遍历生成 HTML 并直接写入
-        ui.exportStatus.textContent = 'Generating HTML pages...';
-
-        for (let i = 0; i < allFilesToExport.length; i++) {
-            if (window.isExportCancelled) return;
-            const path = allFilesToExport[i];
-            const progress = 20 + ((i + 1) / allFilesToExport.length) * 80;
-
-            ui.exportStatus.textContent = `Cooking: ${path.substring(path.lastIndexOf('\\') + 1)}`;
-
             const relativePathStr = path.substring(workspaceData.path.length + 1);
             const depth = (relativePathStr.match(/\\/g) || []).length;
             const pathPrefix = depth > 0 ? '../'.repeat(depth) : './';
 
             if (path.endsWith('.veritnote')) {
-                // 将准备好的全局数据传入
-                const pageResult = await window.PageExporter.process(path, options, pathPrefix, allPagesContent, imageSrcMap, quoteContentCache);
-                if (window.isExportCancelled) return;
-
-                const filteredWorkspaceData = { ...workspaceData };
-                if (filteredWorkspaceData.children) {
-                    filteredWorkspaceData.children = filteredWorkspaceData.children.filter(child => child.name !== 'build');
-                }
-                const sidebarHtml = this._generateSidebarHtml(filteredWorkspaceData, path, pathPrefix, workspaceData.path);
-                const finalHtml = this._assembleFinalHtml(path, pageResult, sidebarHtml, pathPrefix);
-
-                // 直接写入，环境已经准备好了
-                ipc.exportPageAsHtml(path, finalHtml);
-                ui.progressBar.style.width = `${progress}%`;
+                exporters.push(new window.PageExporter(path, options, workspaceData, pathPrefix));
+            } else if (path.endsWith('.veritnotedb')) {
+                exporters.push(new window.DatabaseExporter(path, options, workspaceData, pathPrefix));
             }
+        }
+
+        if (window.isExportCancelled) return;
+        ui.exportStatus.textContent = 'Preparing file resources...';
+        ui.progressBar.style.width = '20%';
+
+        // 2. 预检阶段：收集全局资源依赖
+        const allLibs = new Set();
+        const allImageTasks = [];
+        for (const exp of exporters) {
+            if (window.isExportCancelled) return;
+            const { libs, imageTasks } = await exp.prepare();
+            libs.forEach(l => allLibs.add(l));
+            if (imageTasks) allImageTasks.push(...imageTasks);
+        }
+
+        if (window.isExportCancelled) return;
+        ui.exportStatus.textContent = 'Processing external assets...';
+
+        // 3. 全局资源打包 (Libs & Images)
+        if (allLibs.size > 0) {
+            ipc.prepareExportLibs(Array.from(allLibs));
+            await new Promise(resolve => window.addEventListener('exportLibsReady', resolve, { once: true }));
+        }
+
+        let imageSrcMap = {};
+        if (allImageTasks.length > 0) {
+            const uniqueTasks = Array.from(new Map(allImageTasks.map(t => [t.originalSrc, t])).values());
+            ipc.processExportImages(uniqueTasks);
+            imageSrcMap = await new Promise(resolve => window.addEventListener('exportImagesProcessed', (e) => resolve(e.detail.payload.srcMap), { once: true }));
+        }
+
+        // 4. 生成与导出最终文件
+        for (let i = 0; i < exporters.length; i++) {
+            if (window.isExportCancelled) return;
+            const exp = exporters[i];
+
+            ui.exportStatus.textContent = `Cooking: ${exp.path.substring(exp.path.lastIndexOf('\\') + 1)}`;
+
+            const { content, savePath, exportType } = await exp.generate(imageSrcMap);
+
+            if (exportType === 'page_html') {
+                ipc.exportPageAsHtml(savePath, content);
+            } else if (exportType === 'database_js') {
+                ipc.exportDatabaseAsJs(savePath, content);
+            }
+
+            ui.progressBar.style.width = `${30 + ((i + 1) / exporters.length) * 70}%`;
         }
 
         ui.exportStatus.textContent = 'Done!';
@@ -313,59 +237,137 @@ window.ExportManager = class ExportManager {
 
 // 专门处理 Page 类型导出的处理器
 window.PageExporter = class PageExporter {
-    static async process(path, options, pathPrefix, allPagesContent, imageSrcMap, quoteContentCache) {
-        const pageData = allPagesContent.find(p => p.path === path);
-        if (!pageData) throw new Error(`Data not found for page: ${path}`);
+    constructor(path, options, workspaceData, pathPrefix) {
+        this.path = path;
+        this.options = options;
+        this.workspaceData = workspaceData;
+        this.pathPrefix = pathPrefix;
+        this.tempEditor = null;
+    }
 
-        // 1. 创建唯一的临时 Editor 实例
-        const tempEditorContainer = document.createElement('div');
-        const tempEditor = new PageEditor(tempEditorContainer, path, null);
-        await tempEditor.loadContentForRender(pageData.content);
-
-        // 2. 提纯核心 HTML
-        const exportContext = { options, imageSrcMap, quoteContentCache, pathPrefix };
-        const mainContentHtml = await tempEditor.getSanitizedHtml(true, exportContext);
-
-        // 3. 收集该页面所需依赖 Libraries (用于组装 <head>)
-        const requiredLibsForThisPage = new Set();
-        const findBlockTypesRecursive = (blocks) => {
-            if (!blocks) return;
-            blocks.forEach(block => {
-                const BlockClass = window['blockRegistry'].get(block.type);
-                if (BlockClass && BlockClass.requiredExportLibs.length > 0) {
-                    BlockClass.requiredExportLibs.forEach(libPath => requiredLibsForThisPage.add(libPath));
-                }
-                if (block.children) findBlockTypesRecursive(block.children);
-            });
-        };
-        findBlockTypesRecursive(pageData.content);
-
-        let libIncludes = '';
-        requiredLibsForThisPage.forEach(libPath => {
-            const libRelativePath = `${pathPrefix}${libPath}`;
-            if (libPath.endsWith('.css')) libIncludes += `    <link rel="stylesheet" href="${libRelativePath}">\n`;
-            else if (libPath.endsWith('.js')) libIncludes += `    <script src="${libRelativePath}"><\/script>\n`;
-        });
-
-        // 4. 处理 CSS 配置重载 (背景图片映射等)
-        ipc.resolveFileConfiguration(path)
-        const resolved = await new Promise((resolve, reject) => {
-            const fileConfigurationResolvedHandler = (e) => {
-                const payload = e['detail']['payload'];
-                if (payload.path === path) {
-                    resolve(payload);
-                    window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler); // 移除监听器，防止多次触发
+    // 阶段1：加载内容并收集所有需要的资源
+    async prepare() {
+        const pageData = await new Promise(resolve => {
+            const handler = (e) => {
+                if (e.detail.payload && e.detail.payload.path === this.path) {
+                    window.removeEventListener('pageLoaded', handler);
+                    resolve(e.detail.payload);
                 }
             };
-            window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
+            window.addEventListener('pageLoaded', handler);
+            ipc.loadPage(this.path);
+        });
+
+        const container = document.createElement('div');
+        this.tempEditor = new PageEditor(container, this.path, null);
+        await this.tempEditor.loadContentForRender(pageData.content);
+
+        // 等待所有异步块渲染完毕 (通过之前加入的 exportReadyPromise)
+        const gatherPromises = (blocks) => {
+            let promises = [];
+            blocks.forEach(b => {
+                promises.push(b.exportReadyPromise);
+                if (b.children) promises.push(...gatherPromises(b.children));
+            });
+            return promises;
+        };
+        await Promise.all(gatherPromises(this.tempEditor.blocks));
+
+        const libs = new Set();
+        const imageTasks = [];
+
+        // 收集组件库和图片
+        const scan = (blocks) => {
+            if (!blocks) return;
+            blocks.forEach(b => {
+                const BlockClass = window['blockRegistry'].get(b.type);
+                if (BlockClass && BlockClass.requiredExportLibs) {
+                    BlockClass.requiredExportLibs.forEach(l => libs.add(l));
+                }
+                // 图片收集逻辑
+                if (b.type === 'image' && b.properties?.src) {
+                    const src = b.properties.src;
+                    const isLocalHttp = src.includes('http://veritnote.localhost');
+                    const isOnline = (src.startsWith('http://') || src.startsWith('https://')) && !isLocalHttp;
+                    if ((isOnline && this.options.downloadOnline) || (!isOnline && this.options.copyLocal)) {
+                        imageTasks.push({ originalSrc: src, pagePath: this.path });
+                    }
+                }
+                if (b.children) scan(b.children);
+            });
+        };
+        scan(this.tempEditor.blocks);
+
+        // 收集背景图片
+        const pageConfig = pageData.config?.page || {};
+        if (pageConfig.background?.type === 'image' && pageConfig.background.value) {
+            const src = pageConfig.background.value;
+            const isOnline = src.startsWith('http://') || src.startsWith('https://');
+            if ((isOnline && this.options.downloadOnline) || (!isOnline && this.options.copyLocal)) {
+                imageTasks.push({ originalSrc: src, pagePath: this.path });
+            }
+        }
+
+        return { libs: Array.from(libs), imageTasks };
+    }
+
+    // 阶段2：利用获取到的映射生成最终 HTML
+    async generate(imageSrcMap) {
+        // 在生成 HTML 前，遍历更新编辑器所有图片块的链接
+        const updateBlockImages = (blocks) => {
+            if (!blocks) return;
+            blocks.forEach(b => {
+                // 定位图片块及其 src 属性
+                if (b.type === 'image' && b.properties?.src) {
+                    const originalSrc = b.properties.src;
+                    if (imageSrcMap[originalSrc]) {
+                        const newSrc = this.pathPrefix + imageSrcMap[originalSrc];
+                        // 更新数据模型
+                        b.properties.src = newSrc;
+
+                        // 同步更新底层 DOM 节点（兼容 getsanitizedhtml 依赖 DOM 序列化的情况）
+                        const blockEl = b.element || b.container;
+                        if (blockEl) {
+                            const imgTags = blockEl.querySelectorAll('img');
+                            imgTags.forEach(img => {
+                                if (img.getAttribute('src') === originalSrc) {
+                                    img.setAttribute('src', newSrc);
+                                }
+                            });
+                        }
+                    }
+                }
+                // 递归处理嵌套子块
+                if (b.children) updateBlockImages(b.children);
+            });
+        };
+        updateBlockImages(this.tempEditor.blocks);
+
+        // 调用 getSanitizedHtml
+        const mainContentHtml = await this.tempEditor.getSanitizedHtml(true, {
+            options: this.options,
+            pathPrefix: this.pathPrefix
+        });
+
+        // 获取并重载配置 (用于生成自定义 Style)
+        ipc.resolveFileConfiguration(this.path)
+        const resolved = await new Promise(resolve => {
+            const handler = (e) => {
+                if (e.detail.payload.path === this.path) {
+                    window.removeEventListener('fileConfigurationResolved', handler);
+                    resolve(e.detail.payload);
+                }
+            };
+            window.addEventListener('fileConfigurationResolved', handler);
         });
 
         const computedConfig = window.computeFinalConfig(resolved.config);
 
+        // 背景图片路径替换
         if (computedConfig.background?.type === 'image' && computedConfig.background.value) {
             const originalSrc = computedConfig.background.value;
             if (imageSrcMap[originalSrc]) {
-                computedConfig.background.value = pathPrefix + imageSrcMap[originalSrc];
+                computedConfig.background.value = this.pathPrefix + imageSrcMap[originalSrc];
             }
         }
 
@@ -377,29 +379,101 @@ window.PageExporter = class PageExporter {
                 if (key === 'background' && typeof value === 'object') {
                     const bgColor = (value.type === 'color') ? value.value : 'transparent';
                     const bgImage = (value.type === 'image' && value.value) ? `url('${value.value.replace(/\\/g, '/')}')` : 'none';
-                    backgroundStyleContent += `    background-color: ${bgColor};\n`;
-                    backgroundStyleContent += `    background-image: ${bgImage};\n`;
+                    backgroundStyleContent += `    background-color: ${bgColor};\n    background-image: ${bgImage};\n`;
                 } else {
                     customStyleContent += `    --page-${key}: ${value};\n`;
                 }
             }
         }
 
-        let customStyleTag = '';
         let styleRules = [];
         if (backgroundStyleContent) styleRules.push(`.page-background-container {\n${backgroundStyleContent}}`);
         if (customStyleContent) styleRules.push(`.editor-view {\n${customStyleContent}}`);
+        const customStyleTag = styleRules.length > 0 ? `<style id="veritnote-custom-styles">\n/* Page overrides */\n${styleRules.join('\n\n')}\n</style>` : '';
 
-        if (styleRules.length > 0) {
-            customStyleTag = `<style id="veritnote-custom-styles">\n/* Page-specific overrides */\n${styleRules.join('\n\n    ')}\n</style>`;
+        // 组装 Lib
+        const requiredLibsForThisPage = new Set();
+        const scanLibs = (blocks) => {
+            if (!blocks) return;
+            blocks.forEach(b => {
+                const BC = window['blockRegistry'].get(b.type);
+                if (BC && BC.requiredExportLibs) BC.requiredExportLibs.forEach(l => requiredLibsForThisPage.add(l));
+                if (b.children) scanLibs(b.children);
+            });
+        }
+        scanLibs(this.tempEditor.blocks);
+
+        let libIncludes = '';
+        requiredLibsForThisPage.forEach(libPath => {
+            const libRel = `${this.pathPrefix}${libPath}`;
+            if (libPath.endsWith('.css')) libIncludes += `    <link rel="stylesheet" href="${libRel}">\n`;
+            else if (libPath.endsWith('.js')) libIncludes += `    <script src="${libRel}"><\/script>\n`;
+        });
+
+        const filteredWorkspaceData = { ...this.workspaceData };
+        if (filteredWorkspaceData.children) {
+            filteredWorkspaceData.children = filteredWorkspaceData.children.filter(c => c.name !== 'build');
         }
 
+        // 调用 ExportManager 的静态方法生成侧边栏
+        const sidebarHtml = window.ExportManager._generateSidebarHtml(filteredWorkspaceData, this.path, this.pathPrefix, this.workspaceData.path);
+        const finalHtml = window.ExportManager._assembleFinalHtml(this.path, { mainContentHtml, customStyleTag, libIncludes, cssRelativePath: `${this.pathPrefix}style.css` }, sidebarHtml, this.pathPrefix);
+
         return {
-            mainContentHtml,
-            customStyleTag,
-            libIncludes,
-            cssRelativePath: `${pathPrefix}style.css`,
-            requiredLibs: requiredLibsForThisPage
+            content: finalHtml,
+            savePath: this.path.replace('.veritnote', '.html'),
+            exportType: 'page_html'
         };
     }
-};
+}
+
+
+window.DatabaseExporter = class DatabaseExporter {
+    constructor(path, options, workspaceData, pathPrefix) {
+        this.path = path;
+        this.options = options;
+        this.workspaceData = workspaceData;
+        this.pathPrefix = pathPrefix;
+    }
+
+    // 阶段1：收集资产
+    async prepare() {
+        return { libs: [], imageTasks: [] };
+    }
+
+    // 阶段2：生成静态内容
+    async generate(imageSrcMap) {
+        const jsonString = await new Promise((resolve) => {
+            const reqId = 'export-db-' + Date.now() + Math.random();
+            const listener = (e) => {
+                if (e.detail.payload.dataBlockId === reqId) {
+                    window.removeEventListener('dataContentFetched', listener);
+                    let content = e.detail.payload.content;
+                    if (typeof content === 'string') {
+                        try { content = JSON.parse(content); } catch (err) { }
+                    }
+                    // 提纯 DB：只保留 Data 和 Presets
+                    const exportData = {
+                        data: content.data || { mode: 'embedded', embeddedData: [] },
+                        presets: content.presets || []
+                    };
+                    resolve(JSON.stringify(exportData, null, 2));
+                }
+            };
+            window.addEventListener('dataContentFetched', listener);
+            window.BAPI_IPC.fetchDataContent(reqId, this.path);
+        });
+
+        const relativeWorkspacePath = this.path.substring(this.workspaceData.path.length + 1).replace(/\\/g, '/');
+        const dbKey = relativeWorkspacePath.replace('.veritnotedb', '.js');
+
+        // 拼接出浏览器可直接执行的 JavaScript 代码，将数据挂载到全局变量
+        const jsContent = `window.__VN_DB__ = window.__VN_DB__ || {};\nwindow.__VN_DB__['${dbKey}'] = ${jsonString};`;
+
+        return {
+            content: jsContent,
+            savePath: this.path.replace('.veritnotedb', '.js'),
+            exportType: 'database_js'
+        };
+    }
+}

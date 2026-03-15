@@ -1339,8 +1339,16 @@ class PageEditor {
             return;
         }
 
-        const directBlockInstance = this._findBlockInstanceById(this.blocks, directTargetEl.dataset['id'])?.block;
+        let directBlockInstance = this._findBlockInstanceById(this.blocks, directTargetEl.dataset['id'])?.block;
         if (!directBlockInstance) return;
+
+        // --- 结构目标自动提升 ---
+        // 如果当前悬停的是像 TableView、TableRow 这样不可分割的结构子块（_canAcceptSideDrop 为 false）
+        // 我们不应该在它周围执行任何插入，而是应该将判定目标直接提升为它的父级（DataBlock 或 Table）。
+        while (directBlockInstance && directBlockInstance.parent && !this._canAcceptSideDrop(directBlockInstance)) {
+            directBlockInstance = directBlockInstance.parent;
+            directTargetEl = directBlockInstance.element;
+        }
 
         // ============================================================
         // 逻辑层级 1: 视觉反馈 - 激活所有父级容器 (蓝色虚线框)
@@ -1366,7 +1374,7 @@ class PageEditor {
         // ============================================================
 
         let finalTargetId = directBlockInstance.id;
-        let position = 'after'; // 默认值
+        let position = '';
 
         // 我们需要判断鼠标到底在哪个“区域”：
         // A. 某块的 childrenContainer 的“空白区” (无子块覆盖，或子块间隙)
@@ -1408,11 +1416,9 @@ class PageEditor {
         const yMidpoint = rect.top + rect.height / 2;
         const xZone = rect.width * 0.15; // 左右分栏触发区
 
-        const allowSideDrop = this._canAcceptSideDrop(directBlockInstance);
-
-        if (allowSideDrop && e.clientX < rect.left + xZone) {
+        if (e.clientX < rect.left + xZone) {
             position = 'left';
-        } else if (allowSideDrop && e.clientX > rect.right - xZone) {
+        } else if (e.clientX > rect.right - xZone) {
             position = 'right';
         } else if (e.clientY < yMidpoint) {
             position = 'before';
@@ -1479,6 +1485,24 @@ class PageEditor {
         
         const draggedIds = multiDragData ? JSON.parse(multiDragData) : [singleDragId];
         if (draggedIds.includes(targetId)) return;
+
+        // --- 防止将父块拖入其自身或其子孙块中（结构死循环会导致块消失） ---
+        let isDescendant = false;
+        let checkParent = targetBlockInfo.parentInstance;
+        while (checkParent) {
+            if (draggedIds.includes(checkParent.id)) {
+                isDescendant = true;
+                break;
+            }
+            // 向上追溯所有的父级
+            const parentInfo = this._findBlockInstanceAndParent(checkParent.id);
+            checkParent = parentInfo ? parentInfo.parentInstance : null;
+        }
+        if (isDescendant) {
+            this.draggedBlock = null; // 发现目标落点在自己肚子里，立刻终止操作
+            console.warn('Do Not Try To Set Block As its Child\'s Child');
+            return;
+        }
     
         draggedIds.forEach(id => {
             const blockInfo = this._findBlockInstanceAndParent(id);
@@ -2331,73 +2355,6 @@ class PageEditor {
     // --- ========================================================== ---
 
     // --- Mode Switching & Toolbar State ---
-
-
-    /**
-     * 预加载所有 QuoteBlock 的内容，用于预览或导出
-     * @returns {Promise<Map>} 引用链接 -> 块数据数组 的映射
-     */
-    async _preloadQuoteContents(blocks) {
-        const quoteContentCache = new Map();
-        const pendingRequests = [];
-
-        const collectQuotes = (blockList) => {
-            blockList.forEach(block => {
-                if (block.type === 'quote' && block.properties.referenceLink) {
-                    const refLink = block.properties.referenceLink;
-                    // 避免重复请求
-                    if (!quoteContentCache.has(refLink)) {
-                        // 创建一个 Promise 来处理单个请求
-                        const requestPromise = new Promise((resolve) => {
-                            const [pathPart, blockId] = refLink.split('#');
-                            const absolutePath = window.resolveWorkspacePath(pathPart);
-                            const absoluteRefLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
-
-                            // 定义一次性监听器
-                            const listener = (e) => {
-                                const payload = e.detail.payload || e.detail;
-                                // 使用 absoluteRefLink 作为唯一标识可能不够，最好后端回传请求时的 refLink
-                                // 这里简化逻辑：假设后端按顺序返回或者通过 quoteBlockId 匹配
-                                // 由于 ipc 是全局的，这里用 quoteBlockId 匹配最稳妥
-                                if (payload.quoteBlockId === `preload-${refLink}`) { // 使用特殊 ID
-                                    window.removeEventListener('quoteContentFetched', listener);
-                                    if (!payload.error && payload.content) {
-                                        quoteContentCache.set(refLink, payload.content);
-                                    }
-                                    resolve();
-                                }
-                            };
-
-                            // 超时处理
-                            setTimeout(() => {
-                                window.removeEventListener('quoteContentFetched', listener);
-                                resolve(); // 超时也 resolve，以免阻塞整个流程
-                            }, 5000);
-
-                            window.addEventListener('quoteContentFetched', listener);
-                            // 发送请求，使用特殊 ID 标识这是预加载
-                            ipc.fetchQuoteContent(`preload-${refLink}`, absoluteRefLink);
-                        });
-                        pendingRequests.push(requestPromise);
-                        // 占位，防止重复添加
-                        quoteContentCache.set(refLink, null);
-                    }
-                }
-                if (block.children) {
-                    collectQuotes(block.children);
-                }
-            });
-        };
-
-        collectQuotes(blocks);
-
-        if (pendingRequests.length > 0) {
-            await Promise.all(pendingRequests);
-        }
-
-        return quoteContentCache;
-    }
-
     /**
      * Switches the editor between 'edit' and 'preview' modes.
      * It handles rendering the preview HTML, swapping view visibility,
@@ -2411,7 +2368,6 @@ class PageEditor {
         const wasInPreviewMode = this.mode === 'preview';
         if (this.mode === mode && !forceRefresh) return;
     
-        // --- RE-APPLYING LOGIC FOR SEPARATED STRUCTURE ---
         let topBlockId = null;
         const editScrollContainer = this.elements.editBackgroundContainer;
         const previewScrollContainer = this.elements.previewBackgroundContainer;
@@ -2425,48 +2381,19 @@ class PageEditor {
         this.mode = mode;
     
         if (mode === 'edit') {
-            editScrollContainer.style.display = 'flex'; // Use 'flex' to match the CSS
+            editScrollContainer.style.display = 'flex';
             previewScrollContainer.style.display = 'none';
-            
             requestAnimationFrame(() => { this._scrollToBlock(editScrollContainer, topBlockId); });
-    
-            if (wasInPreviewMode) {
-                const triggerQuoteFetchRecursive = (blocks) => {
-                    if (!blocks) return;
-                    blocks.forEach(block => {
-                        if (block.type === 'quote' && block.properties.referenceLink) {
-                            const referenceLink = block.properties.referenceLink;
-                            const [pathPart, blockId] = referenceLink.split('#');
-                            const absolutePath = window.resolveWorkspacePath(pathPart);
-                            const absoluteReferenceLink = blockId ? `${absolutePath}#${blockId}` : absolutePath;
-                            
-                            ipc.fetchQuoteContent(block.id, absoluteReferenceLink);
-                        }
-                        if (block.children) {
-                            triggerQuoteFetchRecursive(block.children);
-                        }
-                    });
-                };
-                triggerQuoteFetchRecursive(this.blocks);
-            }
-    
         } else { // preview
-            // 在生成 HTML 前，预加载引用内容
-            const quoteContentCache = await this._preloadQuoteContents(this.blocks);
-
-            // 将 cache 传递给 getSanitizedHtml
-            // 注意：我们需要修改 getSanitizedHtml 签名或通过 context 对象传递
-            this.elements.previewView.innerHTML = await this.getSanitizedHtml(false, {
-                quoteContentCache
-            });
+            // 因为现在支持原生异步渲染，不需要传预载 Cache 了
+            this.elements.previewView.innerHTML = await this.getSanitizedHtml(false, { options: {} });
             
             editScrollContainer.style.display = 'none';
-            previewScrollContainer.style.display = 'flex'; // Use 'flex' to match the CSS
+            previewScrollContainer.style.display = 'flex'; 
             
             this._scrollToBlock(previewScrollContainer, topBlockId);
         }
         
-        // Finally, update the toolbar UI to reflect the new mode.
         this.updateToolbarState();
     }
 
@@ -2880,64 +2807,83 @@ class PageEditor {
      * @param {boolean} [isForExport=false] - If true, applies export-specific transformations.
      * @param {object} [exportContext={}] - An object containing data needed for the export process.
      * @param {object} [exportContext.options={}] - Export options (e.g., disableDrag).
-     * @param {object} [exportContext.imageSrcMap={}] - A map of original image URLs to new local paths.
-     * @param {Map} [exportContext.quoteContentCache=new Map()] - A map of pre-rendered HTML for quote blocks.
      * @param {string} [exportContext.pathPrefix='./'] - The relative path prefix for assets.
      * @returns {Promise<string>} A promise that resolves to the final HTML string.
      */
     async getSanitizedHtml(isForExport = false, exportContext = {}) {
         const {
             options = {},
-            imageSrcMap = {},
-            quoteContentCache = new Map(),
             pathPrefix = './'
         } = exportContext;
 
-        // --- 核心修复：直接克隆当前编辑器的容器 DOM，杜绝创建多余实例 ---
+        // --- Step 1: 等待所有 Block 异步渲染完成 ---
+        const gatherPromises = (blocks) => {
+            let promises = [];
+            blocks.forEach(b => {
+                promises.push(b.exportReadyPromise);
+                if (b.children && b.children.length > 0) {
+                    promises.push(...gatherPromises(b.children));
+                }
+            });
+            return promises;
+        };
+        await Promise.all(gatherPromises(this.blocks));
+
+        // --- Step 2: 浅拷贝容器 ---
         const renderedContainer = this.elements.editorAreaContainer.cloneNode(true);
 
-        // --- Step 2: Perform Universal Cleanup ---
-        renderedContainer.querySelectorAll('.block-controls, .column-resizer, .drop-indicator, .drop-indicator-vertical, .quadrant-overlay, .table-controls-top, .table-controls-left, .table-add-col-btn, .table-add-row-btn').forEach(el => el.remove());
-        renderedContainer.querySelectorAll('.block-content[data-type="code"] .code-block-input').forEach(el => el.remove());
-        renderedContainer.querySelectorAll('[contentEditable="true"]').forEach(el => {
-            el.removeAttribute('contentEditable');
-            el.removeAttribute('data-placeholder');
-        });
-        renderedContainer.querySelectorAll('.toolbar-active, .vn-active, .is-highlighted').forEach(el => {
-            el.classList.remove('toolbar-active', 'vn-active', 'is-highlighted');
-        });
+        // --- Step 3: 收集排除选择器并执行 Universal Cleanup ---
+        let allExclusions = new Set();
+        if (isForExport) {
+            const collectExclusions = (blocks) => {
+                blocks.forEach(b => {
+                    if (b.constructor.exportExclusionSelectors) {
+                        b.constructor.exportExclusionSelectors.forEach(sel => allExclusions.add(sel));
+                    }
+                    if (b.children) collectExclusions(b.children);
+                });
+            };
+            collectExclusions(this.blocks);
+        } else {
+            const collectExclusions = (blocks) => {
+                blocks.forEach(b => {
+                    if (b.constructor.previewExclusionSelectors) {
+                        b.constructor.previewExclusionSelectors.forEach(sel => allExclusions.add(sel));
+                    }
+                    if (b.children) collectExclusions(b.children);
+                });
+            };
+            collectExclusions(this.blocks);
+        }
+
+        // 特殊的通用处理
+        allExclusions.add('[contentEditable="true"]');
+        allExclusions.add('.toolbar-active');
+        allExclusions.add('.vn-active');
+        allExclusions.add('.is-highlighted');
+        allExclusions.add('.column-resizer');
+
+        // 执行删除
+        const exclusionSelectorString = Array.from(allExclusions).join(', ');
+        if (exclusionSelectorString) {
+            renderedContainer.querySelectorAll(exclusionSelectorString).forEach(el => {
+                // 如果是 contentEditable，我们只是移除属性而不是删除元素
+                if (el.hasAttribute('contentEditable')) {
+                    el.removeAttribute('contentEditable');
+                    el.removeAttribute('data-placeholder');
+                } else if (el.classList.contains('toolbar-active') || el.classList.contains('vn-active') || el.classList.contains('is-highlighted')) {
+                    el.classList.remove('toolbar-active', 'vn-active', 'is-highlighted');
+                } else {
+                    el.remove();
+                }
+            });
+        }
 
         if (isForExport && options.disableDrag) {
             renderedContainer.querySelectorAll('[draggable="true"]').forEach(el => el.removeAttribute('draggable'));
         }
 
-        // --- Step 3: Delegate to Each Block for Specific Export Modifications ---
-        const allBlockElements = Array.from(renderedContainer.querySelectorAll('.block-container'));
-        for (const blockEl of allBlockElements) {
-            const blockId = blockEl.dataset['id'];
-            const blockInstance = this._findBlockInstanceById(this.blocks, blockId)?.block;
-
-            if (blockInstance && typeof blockInstance.getExportHtml === 'function') {
-                await blockInstance.getExportHtml(blockEl, options, imageSrcMap, pathPrefix, quoteContentCache);
-            }
-        }
-
-        // 收集所有块的自定义 CSS
-        let allCustomCSS = '';
-        const collectCSSRecursive = (blocks) => {
-            if (!blocks) return;
-            blocks.forEach(block => {
-                if (typeof block.getCustomCSSString === 'function') {
-                    allCustomCSS += block.getCustomCSSString();
-                }
-                if (block.children && block.children.length > 0) {
-                    collectCSSRecursive(block.children);
-                }
-            });
-        };
-        collectCSSRecursive(this.blocks);
-
-        // --- Step 4: Universally Process All Links ---
+        // --- Step 4: 统一处理链接与内部跳转 ---
         renderedContainer.querySelectorAll('a').forEach(el => {
             let href = el.getAttribute('href');
             if (!href) return;
@@ -2947,11 +2893,9 @@ class PageEditor {
                     let [pathPart, hashPart] = href.split('#');
                     hashPart = hashPart ? '#' + hashPart : '';
 
-                    // 如果是链接到当前页面的 Block
                     if (pathPart === this.filePath) {
                         el.setAttribute('href', hashPart);
                     } else {
-                        // 跨页面链接，转换为相对 .html 路径
                         const normalizedHref = pathPart.replace(/\\/g, '/');
                         const relativeHtmlPath = normalizedHref.replace('.veritnote', '.html');
                         el.setAttribute('href', pathPrefix + relativeHtmlPath + hashPart);
@@ -2964,22 +2908,16 @@ class PageEditor {
             }
         });
 
-        //----------------------
         let finalHtml = renderedContainer.innerHTML;
 
-        // --- Step 5 (Export Only): Collect and Inject Block-Specific Scripts ---
+        // --- Step 5 (Export Only): 收集 Block Specific Scripts ---
         if (isForExport) {
-            if (allCustomCSS) {
-                finalHtml = `<style>\n/* VeritNote Custom CSS */\n${allCustomCSS}\n</style>\n` + finalHtml;
-            }
-
             const scriptModules = new Set();
             const collectScriptsRecursive = (blocks) => {
                 if (!blocks) return;
                 blocks.forEach(block => {
-                    const BlockClass = block.constructor;
-                    if (typeof BlockClass.getExportScripts === 'function') {
-                        const script = BlockClass.getExportScripts();
+                    if (typeof block.getExportScripts === 'function') {
+                        const script = block.getExportScripts(exportContext);
                         if (script) scriptModules.add(script.trim());
                     }
                     if (block.children && block.children.length > 0) collectScriptsRecursive(block.children);
@@ -2989,7 +2927,7 @@ class PageEditor {
 
             if (scriptModules.size > 0) {
                 const finalScript = Array.from(scriptModules).join('\n\n');
-                finalHtml += `<script>document.addEventListener('DOMContentLoaded', () => { \n${finalScript}\n });<\/script>`;
+                finalHtml += `<script>document.addEventListener('DOMContentLoaded', async () => { \n${finalScript}\n });<\/script>`;
             }
 
             const highlightScript = `
@@ -3003,7 +2941,7 @@ class PageEditor {
                         if (targetEl) {
                             targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             targetEl.classList.add('is-highlighted');
-                             removeHighlight = () => {
+                            let removeHighlight = () => {
                                 targetEl.classList.remove('is-highlighted');
                                 document.removeEventListener('click', removeHighlight, true);
                                 document.removeEventListener('keydown', removeHighlight, true);

@@ -25,7 +25,7 @@ class TableViewBlock extends Block {
 
     _renderContent() {
         if (this._lastRawData && this._lastConfig) {
-            this._renderDataContent(this._lastRawData, this._lastConfig);
+            this._renderDataContent(this._lastRawData, this._lastConfig, this.element, this.properties);
         }
     }
 
@@ -41,7 +41,11 @@ class TableViewBlock extends Block {
      * @private
      */
     async renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock) {
-        if (!preset.config) preset.config = {};
+        // ！！重要：子块在切换预设时会被复用，因此不能在事件监听器中直接闭包预设上下文数据，否则会导致切换预设后事件处理逻辑仍然作用于旧预设数据。必须每次事件触发时动态解构出当前最新的预设上下文数据。
+        // 每次渲染面板时，将当前最新的上下文数据缓存到类实例上
+        this._cfgCtx = { preset, dbJsonCache, markDirtyCallback, parentDataBlock };
+
+        if (!preset.config) preset.config = { };
         const config = preset.config;
         if (!config.columns) config.columns = [];
 
@@ -50,6 +54,9 @@ class TableViewBlock extends Block {
             this.configContainer.className = 'table-view-config-container';
 
             this.configContainer.addEventListener('click', async (e) => {
+                // 每次点击时，动态解构出当前真正激活的预设上下文
+                const { preset, dbJsonCache, markDirtyCallback, parentDataBlock } = this._cfgCtx;
+                const config = preset.config;
                 const target = e.target;
                 if (target.classList.contains('add-col-btn')) {
                     const rawData = await parentDataBlock._getRawData();
@@ -93,6 +100,9 @@ class TableViewBlock extends Block {
             });
 
             this.configContainer.addEventListener('change', async (e) => {
+                // 每次更改时，动态解构出当前真正激活的预设上下文
+                const { preset, dbJsonCache, markDirtyCallback, parentDataBlock } = this._cfgCtx;
+                const config = preset.config;
                 const target = e.target;
                 if (target.classList.contains('first-row-mode-select')) {
                     const newMode = target.value;
@@ -220,7 +230,7 @@ class TableViewBlock extends Block {
 
     // 由 DataBlock 调用
     // 由 DataBlock 调用
-    _renderDataContent(rawData, config) {
+    _renderDataContent(rawData, config, element, properties) {
         // 缓存数据，以便在 Details 面板修改属性后触发 _renderContent 时重绘
         this._lastRawData = rawData;
         this._lastConfig = config;
@@ -229,7 +239,7 @@ class TableViewBlock extends Block {
         if (!config.columns) config.columns = [];
 
         if (!rawData || rawData.length === 0) {
-            this.element.innerHTML = '<div style="padding:10px; color:gray;">Empty data.</div>';
+            element.innerHTML = '<div style="padding:10px; color:gray;">Empty data.</div>';
             return;
         }
 
@@ -250,29 +260,29 @@ class TableViewBlock extends Block {
 
         const totalCols = config.columns.length;
         if (totalCols === 0) {
-            this.element.innerHTML = '<div style="padding:10px;">No columns configured in this preset.</div>';
+            element.innerHTML = '<div style="padding:10px;">No columns configured in this preset.</div>';
             return;
         }
 
         // 1. 计算宽度比例样式
-        let scale = parseFloat(this.properties.tableWidthScale);
+        let scale = parseFloat(properties.tableWidthScale);
         if (isNaN(scale) || scale <= 0 || scale > 1) scale = 1;
         const totalWidthStyle = scale === 1 ? '100%' : `${(1 / scale) * 100}%`;
 
         // 2. 计算最大高度样式
         let maxHeightStyle = '';
-        if (this.properties.maxHeight) {
-            maxHeightStyle = `max-height: ${this.properties.maxHeight}; overflow-y: auto;`;
+        if (properties.maxHeight) {
+            maxHeightStyle = `max-height: ${properties.maxHeight}; overflow-y: auto;`;
         }
 
         // 强制归一化 colWidths，确保它们加起来永远等于 1.0 (100%)。
         // 剥夺浏览器根据非 100% 比例自动隐式放大列宽的可能性，确保鼠标移动距离与视觉计算严丝合缝。
-        if (this.properties.colWidths.length !== totalCols) {
-            this.properties.colWidths = config.columns.map(col => col.width || (1 / totalCols));
+        if (properties.colWidths.length !== totalCols) {
+            properties.colWidths = config.columns.map(col => col.width || (1 / totalCols));
         }
-        const currentSum = this.properties.colWidths.reduce((sum, w) => sum + w, 0);
+        const currentSum = properties.colWidths.reduce((sum, w) => sum + w, 0);
         if (currentSum > 0 && Math.abs(currentSum - 1) > 0.001) {
-            this.properties.colWidths = this.properties.colWidths.map(w => w / currentSum);
+            properties.colWidths = properties.colWidths.map(w => w / currentSum);
         }
 
         // 3. 构建 DOM 结构（采用 TableBlock 动态创建逻辑，以正确绑定拖拽事件）
@@ -290,7 +300,7 @@ class TableViewBlock extends Block {
         // 渲染表头并动态绑定事件
         config.columns.forEach((col, index) => {
             const labelText = (config.firstRowMode === 'header' ? col.sourceHeader : (col.label || col.sourceHeader)) || 'Untitled';
-            const widthPercent = this.properties.colWidths[index] * 100;
+            const widthPercent = properties.colWidths[index] * 100;
 
             const th = document.createElement('th');
             th.style.cssText = `width: ${widthPercent}%; position: relative;`;
@@ -303,7 +313,6 @@ class TableViewBlock extends Block {
             if (index < totalCols - 1) {
                 const resizer = document.createElement('div');
                 resizer.className = 'table-view-col-resizer';
-                // 【修复 Bug: 监听器无效】
                 // 直接向真实创建出来的 DOM 元素绑定事件，废除会导致元素和监听器丢失的 innerHTML 拼接表头。
                 resizer.addEventListener('mousedown', (e) => this.initResize(e, index));
                 th.appendChild(resizer);
@@ -315,6 +324,64 @@ class TableViewBlock extends Block {
         thead.appendChild(trHead);
         table.appendChild(thead);
 
+
+        const _processCellType = function(value, config) {
+            if (value === null || value === undefined) return '';
+
+            switch (config.type) {
+                case 'number':
+                    const num = parseFloat(String(value).replace(/[^0-9.-]+/g, ""));
+                    return isNaN(num) ? '' : num;
+
+                case 'html':
+                    return value; // 信任源 HTML
+
+                case 'progress':
+                    const percent = parseFloat(value);
+                    if (isNaN(percent)) return '';
+                    const clamped = Math.max(0, Math.min(1, percent));
+                    return `
+                    <div style="display: flex; align-items: center; width: 100%; height: 100%;">
+                        <div style="flex-grow: 1; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-right: 8px;">
+                            <div style="width: ${clamped * 100}%; height: 100%; background: var(--text-accent);"></div>
+                        </div>
+                        <span style="font-size: 12px; color: var(--text-secondary); min-width: 35px; text-align: right; flex-shrink: 0;">
+                            ${Math.round(clamped * 100)}%
+                        </span>
+                    </div>
+                `;
+
+                case 'status':
+                    if (!config.statusMappings) return value;
+                    for (const map of config.statusMappings) {
+                        try {
+                            const condition = map.condition.trim();
+                            if (!condition) continue;
+
+                            let valForEval = value;
+                            if (!isNaN(parseFloat(value))) valForEval = parseFloat(value);
+                            else valForEval = String(value);
+
+                            const checkFunc = new Function('data', `try { return ${condition}; } catch(e) { return false; }`);
+                            if (checkFunc(valForEval)) {
+                                return map.html;
+                            }
+                        } catch (e) {
+                            console.warn("Status mapping error", e);
+                        }
+                    }
+                    return value;
+
+                case 'string':
+                default:
+                    return String(value)
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;");
+            }
+        }
+
+
         // 渲染数据行（数据部分仍用 innerHTML 拼装以保证大数据量的渲染性能）
         const tbody = document.createElement('tbody');
         let tbodyHtml = '';
@@ -323,7 +390,7 @@ class TableViewBlock extends Block {
             config.columns.forEach(col => {
                 let colIndex = sourceHeaders.indexOf(col.sourceHeader);
                 let cellValue = (colIndex > -1 && colIndex < row.length) ? row[colIndex] : '';
-                tbodyHtml += `<td>${this._processCellType(cellValue, col)}</td>`;
+                tbodyHtml += `<td>${_processCellType(cellValue, col)}</td>`;
             });
             tbodyHtml += `</tr>`;
         });
@@ -333,8 +400,8 @@ class TableViewBlock extends Block {
         container.appendChild(table);
 
         // 清空原内容并挂载新 DOM
-        this.element.innerHTML = '';
-        this.element.appendChild(container);
+        element.innerHTML = '';
+        element.appendChild(container);
     }
 
     initResize(e, colIndex) {
@@ -378,62 +445,6 @@ class TableViewBlock extends Block {
 
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
-    }
-
-    _processCellType(value, config) {
-        if (value === null || value === undefined) return '';
-
-        switch (config.type) {
-            case 'number':
-                const num = parseFloat(String(value).replace(/[^0-9.-]+/g, ""));
-                return isNaN(num) ? '' : num;
-
-            case 'html':
-                return value; // 信任源 HTML
-
-            case 'progress':
-                const percent = parseFloat(value);
-                if (isNaN(percent)) return '';
-                const clamped = Math.max(0, Math.min(1, percent));
-                return `
-                    <div style="display: flex; align-items: center; width: 100%; height: 100%;">
-                        <div style="flex-grow: 1; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-right: 8px;">
-                            <div style="width: ${clamped * 100}%; height: 100%; background: var(--text-accent);"></div>
-                        </div>
-                        <span style="font-size: 12px; color: var(--text-secondary); min-width: 35px; text-align: right; flex-shrink: 0;">
-                            ${Math.round(clamped * 100)}%
-                        </span>
-                    </div>
-                `;
-
-            case 'status':
-                if (!config.statusMappings) return value;
-                for (const map of config.statusMappings) {
-                    try {
-                        const condition = map.condition.trim();
-                        if (!condition) continue;
-
-                        let valForEval = value;
-                        if (!isNaN(parseFloat(value))) valForEval = parseFloat(value);
-                        else valForEval = String(value);
-
-                        const checkFunc = new Function('data', `try { return ${condition}; } catch(e) { return false; }`);
-                        if (checkFunc(valForEval)) {
-                            return map.html;
-                        }
-                    } catch (e) {
-                        console.warn("Status mapping error", e);
-                    }
-                }
-                return value;
-
-            case 'string':
-            default:
-                return String(value)
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;");
-        }
     }
 }
 

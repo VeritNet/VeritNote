@@ -8,6 +8,13 @@ class DataBlock extends Block {
                        'table', 'tableview'];
     static canBeToggled = true;
 
+    // 导出时，要把整个真正渲染数据的子块容器清理掉，只留下 DataBlock 自己的壳子，导出脚本会重新动态生成子块内容
+    static previewExclusionSelectors = [
+    ];
+    static exportExclusionSelectors = [
+        '.data-child-container'
+    ];
+
     constructor(data, editor) {
         super(data, editor);
         this.properties.dbPath = data.properties?.dbPath || '';
@@ -82,6 +89,10 @@ class DataBlock extends Block {
             return;
         }
 
+        // 将路径信息挂载到 DOM 上，供导出后的外置脚本读取
+        this.contentElement.dataset.dbPath = this.properties.dbPath;
+        this.contentElement.dataset.presetId = this.properties.presetId;
+
         this.contentElement.innerHTML = '<div style="padding:10px;">Loading database view...</div>';
 
         this._loadDatabaseAndRender();
@@ -122,7 +133,6 @@ class DataBlock extends Block {
             const RendererClass = window['blockRegistry'].get(preset.type);
             if (!RendererClass) throw new Error(`Unknown preset type: ${preset.type}`);
 
-            // 创建真正的持久化结构子块，不再强塞 preset 数据到 properties 里
             const blockData = { type: preset.type };
             childBlock = this.BAPI_PE.createBlockInstance(blockData);
 
@@ -131,14 +141,15 @@ class DataBlock extends Block {
             childBlock.parent = this;
         }
 
-        this.element.innerHTML = '';
+        this.contentElement.innerHTML = '';
 
-        // 渲染子块的 DOM 框架
+        // 渲染子块的 DOM
         const childEl = childBlock.render();
-        this.element.appendChild(childEl);
+        childEl.classList.add('data-child-container'); // 这个类名用于导出时识别删除
+        this.contentElement.appendChild(childEl);
 
         // 将原始数据和 preset.config 动态喂给子块，命令其绘制内部结构
-        childBlock._renderDataContent(this._rawData, preset.config);
+        childBlock._renderDataContent(this._rawData, preset.config, childBlock.element, childBlock.properties);
     }
 
     _fetchJson(path) {
@@ -261,6 +272,122 @@ class DataBlock extends Block {
                 this._refreshDetailsPanel();
             });
         }
+    }
+
+
+    // 为导出页面生成数据初始化脚本
+    getExportScripts(exportContext = {}) {
+        const dbPath = this.properties.dbPath;
+        const presetId = this.properties.presetId;
+
+        if (!dbPath || !presetId) return null;
+
+        // 获取页面相对根目录的前缀，默认为当前目录
+        const pathPrefix = exportContext.pathPrefix || './';
+
+        // 统一斜杠并作为全局唯一标识 Key
+        const dbKey = dbPath.replace(/\\/g, '/').replace('.veritnotedb', '.js');
+        // HTML 引入时实际的相对网络请求 URL
+        const scriptUrl = pathPrefix + dbKey;
+
+        let childProps = {};
+        let childType = 'unknown';
+        if (this.children && this.children.length > 0) {
+            childProps = this.children[0].properties || {};
+            childType = this.children[0].type;
+        }
+
+        // 修复: 将 _renderDataContent(...) { 转换为 function( ... ) {
+        let renderersSetup = '';
+        window['blockRegistry'].forEach((BlockClass, type) => {
+            if (BlockClass.prototype._renderDataContent) {
+                let funcStr = BlockClass.prototype._renderDataContent.toString();
+                // 匹配方法名并替换为 function 关键字
+                funcStr = funcStr.replace(/^(async\s+)?_renderDataContent\s*\(/, '$1function(');
+                renderersSetup += `window.DataBlockRenderers['${type}'] = ${funcStr};\n`;
+            }
+        });
+
+        // 核心脚本生成
+        const script = `
+            // 1. 初始化全局基础设施 (确保只执行一次)
+            if (!window.VeritNoteDBLoader) {
+                window.DataBlockRenderers = {};
+                ${renderersSetup}
+
+                // 全局 DB 加载器：防止同一个 DB.js 被加载多次
+                window.VeritNoteDBLoader = {
+                    cache: {}, // dbKey -> Promise
+                    load: function(url, dbKey) {
+                        if (this.cache[dbKey]) return this.cache[dbKey];
+                        
+                        this.cache[dbKey] = new Promise((resolve, reject) => {
+                            const scriptEl = document.createElement('script');
+                            scriptEl.src = url;
+                            scriptEl.onload = () => {
+                                if (window.__VN_DB__ && window.__VN_DB__[dbKey]) {
+                                    resolve(window.__VN_DB__[dbKey]);
+                                } else {
+                                    reject(new Error('DB Data not found for key: ' + dbKey));
+                                }
+                            };
+                            scriptEl.onerror = () => reject(new Error('Failed to load DB script: ' + url));
+                            document.head.appendChild(scriptEl);
+                        });
+                        return this.cache[dbKey];
+                    }
+                };
+                window.__VN_DB__ = window.__VN_DB__ || {};
+            }
+
+            // 2. 当前 DataBlock 实例的执行逻辑
+                try {
+                    const blockId = '${this.id}';
+                    const scriptUrl = '${scriptUrl}';
+                    const dbKey = '${dbKey}';
+                    const presetId = '${presetId}';
+                    const childType = '${childType}';
+                    const childProperties = ${JSON.stringify(childProps)};
+
+                    // 通过全局加载器获取 DB 数据（多块复用同一个 Promise），传入请求URL和唯一标识Key
+                    const dbJson = await window.VeritNoteDBLoader.load(scriptUrl, dbKey);
+                    
+                    const preset = dbJson.presets.find(p => p.id === presetId);
+                    if (!preset) throw new Error('Preset not found in DB');
+                      
+                    const dbData = dbJson.data;
+                    if (dbData.mode === 'embedded' && dbData.embeddedData) {
+                        rawData = dbData.embeddedData;
+                    } else if (dbData.mode === 'external' && dbData.externalUrl) {
+                        const res = await fetch(dbData.externalUrl);
+                        const text = await res.text();
+                        const rows = [];
+                        text.split('\\n').forEach(line => {
+                            if (line.trim()) rows.push(line.split(',').map(s => s.trim().replace(/^"|"$/g, '')));
+                        });
+                        rawData = rows;
+                    } else {
+                        rawData = [];
+                    }
+                    
+                    const container = document.querySelector('.block-container[data-id="' + blockId + '"]');
+                    if (!container) return;
+                    
+                    const contentEl = container.querySelector('.block-content[data-type="data"]');
+                    if (!contentEl) return;
+
+                    contentEl.innerHTML = '<div class="data-child-container" data-type="' + childType + '"></div>';
+                    const childElement = contentEl.querySelector('.data-child-container');
+
+                    if (window.DataBlockRenderers[childType]) {
+                        window.DataBlockRenderers[childType](rawData, preset.config, childElement, childProperties);
+                    }
+                } catch(e) {
+                    console.error('DataBlock export init failed for block ' + '${this.id}', e);
+                }
+        `;
+
+        return script;
     }
 }
 

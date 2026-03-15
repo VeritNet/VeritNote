@@ -6,6 +6,12 @@ class CodeBlock extends Block {
     static description = 'Capture and highlight code snippets.';
     static keywords = ['code', 'snippet', 'pre', 'highlight'];
     static canBeToggled = true;
+    static previewExclusionSelectors = [
+        '.code-block-input',
+    ];
+    static exportExclusionSelectors = [
+        '.code-block-input',
+    ];
 
     constructor(data, editor) {
         super(data, editor);
@@ -214,24 +220,13 @@ class CodeBlock extends Block {
      * This static method is used so the main export process only needs to include
      * the script once, even if there are many code blocks on the page.
      */
-    static getExportScripts() {
+    getExportScripts(exportContext) {
         // This script will run once per exported page.
         return `
             if (typeof hljs !== 'undefined') {
                 hljs.highlightAll();
             }
         `;
-    }
-
-    /**
-     * Modifies the block's DOM element for export.
-     * For CodeBlock, the default rendered HTML is already perfect for export,
-     * so no modifications are needed here.
-     */
-    async getExportHtml(blockElement, options) {
-        // The default `render()` method already produces clean <pre><code>...</code></pre>
-        // which is exactly what highlight.js needs. So, no changes are required.
-        return blockElement;
     }
 }
 

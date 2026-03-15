@@ -151,26 +151,11 @@ class ToggleListItemBlock extends TextBlock {
     }
 
 
-     // --- NEW: Implement Export API ---
-
-    /**
-     * Modifies the block's DOM element for export.
-     * Adds a data-id to the toggle triangle for the script to find it.
-     */
-    async getExportHtml(blockElement, options) {
-        const toggleTriangle = blockElement.querySelector('.toggle-triangle');
-        if (toggleTriangle) {
-            // Add a unique ID for the export script to target.
-            toggleTriangle.setAttribute('data-id', `toggle-${this.id}`);
-        }
-        return blockElement;
-    }
-
     /**
      * Provides the necessary JavaScript to make the toggle list interactive in the exported HTML.
      * This script handles click events, toggles a CSS class, and saves the state to localStorage.
      */
-    static getExportScripts() {
+    getExportScripts(exportContext) {
         // The entire script logic is now self-contained in this block.
         return `
             const TOGGLE_STORAGE_KEY = 'veritnote_toggle_state';

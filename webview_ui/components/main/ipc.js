@@ -74,6 +74,9 @@ const ipc = {
     exportPageAsHtml: (path, html) => {
         ipc.send('exportPageAsHtml', { 'path': path, 'html': html });
     },
+    exportDatabaseAsJs: (path, js) => {
+        ipc.send('exportDatabaseAsJs', { 'path': path, 'js': js });
+    },
     cancelExport: () => {
         ipc.send('cancelExport');
     },

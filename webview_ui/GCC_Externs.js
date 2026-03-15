@@ -82,23 +82,10 @@ class Block {
     onDetailsPanelOpen(container) {
     }
     /**
-     * @returns {string}
-     */
-    getCustomCSSString() {
-    }
-    /**
-     * @param {HTMLElement} blockElement
-     * @param {object} options
-     * @param {object} imageSrcMap
-     * @param {string} pathPrefix
-     * @return {Promise<string>}
-     */
-    async getExportHtml(blockElement, options, imageSrcMap, pathPrefix) {
-    }
-    /**
+     * @param {Object} exportContext
      * @returns {string|null}
      */
-    static getExportScripts() {
+    getExportScripts(exportContext) {
     }
     /**
      * @returns {Array<string>}
@@ -108,6 +95,9 @@ class Block {
 }
 
 Block.canBeToggled;
+Block.previewExclusionSelectors;
+Block.exportExclusionSelectors;
+Block.exportReadyPromise;
 Block.type;
 Block.label;
 Block.description;
