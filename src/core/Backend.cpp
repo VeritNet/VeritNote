@@ -557,26 +557,6 @@ void Backend::SaveDatabase(const json& payload) {
     SendMessageToJS(response);
 }
 
-//void Backend::ReadCSV(const json& payload) {
-//    std::string requestIdentifier = payload.value("requestIdentifier", "");
-//    std::string path_str = payload.value("path", "");
-//    std::wstring path = this->string_to_wstring(path_str);
-//
-//    json response;
-//    response["action"] = "csvReadComplete";
-//    response["payload"]["requestIdentifier"] = requestIdentifier;
-//
-//    std::string content = ReadFileContent(path);
-//    if (!content.empty()) {
-//        response["payload"]["content"] = content;
-//    }
-//    else {
-//        response["error"] = "Failed to read CSV or file is empty.";
-//    }
-//    SendMessageToJS(response);
-//}
-
-
 void Backend::FetchQuoteContent(const json& payload) {
     json response;
     response["action"] = "quoteContentFetched";

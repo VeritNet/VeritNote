@@ -461,7 +461,7 @@ window.DatabaseExporter = class DatabaseExporter {
                 }
             };
             window.addEventListener('dataContentFetched', listener);
-            window.BAPI_IPC.fetchDataContent(reqId, this.path);
+            ipc.fetchDataContent(reqId, this.path);
         });
 
         const relativeWorkspacePath = this.path.substring(this.workspaceData.path.length + 1).replace(/\\/g, '/');

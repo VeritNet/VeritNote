@@ -63,10 +63,6 @@ const ipc = {
         ipc.send('saveDatabase', { 'path': path, 'content': content });
     },
 
-    readCSV: (requestIdentifier, path) => {
-        ipc.send('readCSV', { 'requestIdentifier': requestIdentifier, 'path': path });
-    },
-
 
     startExport: () => {
         ipc.send('exportPages');
@@ -149,7 +145,4 @@ window['BAPI_IPC'] = {
     ['fetchDataContent']: (requestIdentifier, path) => {
         return ipc.fetchDataContent(requestIdentifier, path);
     },
-    ['readCSV']: (requestIdentifier, path) => {
-        return ipc.readCSV(requestIdentifier, path);
-    }
 };

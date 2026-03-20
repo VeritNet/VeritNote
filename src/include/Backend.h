@@ -84,8 +84,6 @@ protected:
     void LoadDatabase(const json& payload);
     void SaveDatabase(const json& payload);
 
-    //void ReadCSV(const json& payload);
-
     bool ExtractResourceToFile(const std::wstring& resourceUrlPath, const std::filesystem::path& destinationPath);
 
 protected:
