@@ -84,6 +84,12 @@ export class PageEditor extends Editor {
             ['showImageSource']: (targetElement, existingValue, callback) => {
                 return this.popoverManager.showImageSource(targetElement, existingValue, callback);
             },
+            ['showVideoSource']: (targetElement, existingValue, callback) => {
+                return this.popoverManager.showVideoSource(targetElement, existingValue, callback);
+            },
+            ['showAudioSource']: (targetElement, existingValue, callback) => {
+                return this.popoverManager.showAudioSource(targetElement, existingValue, callback);
+            },
             ['showColorPicker']: (targetElement, callback) => {
                 return this.popoverManager.showColorPicker(targetElement, callback);
             },

@@ -1,4 +1,4 @@
-﻿// js/blocks/Block.js
+﻿// components/blocks/Block.js
 class Block {
     /**
      * @param {object} data - The block's data object (id, type, content, etc.).

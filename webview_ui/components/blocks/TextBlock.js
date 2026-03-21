@@ -1,4 +1,4 @@
-﻿// js/blocks/TextBlock.js
+﻿// components/blocks/TextBlock.js
 class TextBlock extends Block {
     constructor(data, editor) {
         super(data, editor);

@@ -1,4 +1,4 @@
-﻿// js/blocks/TableBlock.js
+﻿// components/blocks/TableBlock.js
 
 // --- 内部块：TableCellBlock ---
 // 每个单元格都是一个功能齐全的容器块

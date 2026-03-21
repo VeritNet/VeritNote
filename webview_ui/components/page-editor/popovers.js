@@ -335,7 +335,67 @@ export class PopoverManager {
         imageInput.focus();
         
         imageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.currentPopoverCallback) this.currentPopoverCallback(e.target.value); this.hide(); } });
-        localBtn.addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog("Image Files"); });
+        localBtn.addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog("Image File"); });
+        const listener = (e) => {
+            window.removeEventListener('fileDialogClosed', listener);
+            this.currentPopoverCallback(e.detail.payload.path);
+            this.hide();
+        }
+        window.addEventListener('fileDialogClosed', listener);
+
+        this._positionAndShow(targetElement);
+    }
+
+    showVideoSource(targetElement, existingValue, callback) {
+        this.hide();
+
+        this.currentPopoverCallback = callback;
+
+        this.popover.innerHTML = `
+            <div class="popover-content">
+                <input type="text" id="video-popover-input" placeholder="Enter video URL...">
+                <button id="video-popover-local-btn" class="popover-button">Select Local File</button>
+            </div>
+        `;
+
+        const videoInput = this.popover.querySelector('#video-popover-input');
+        const localBtn = this.popover.querySelector('#video-popover-local-btn');
+
+        videoInput.value = existingValue || '';
+        videoInput.focus();
+
+        videoInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.currentPopoverCallback) this.currentPopoverCallback(e.target.value); this.hide(); } });
+        localBtn.addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog("Video File"); });
+        const listener = (e) => {
+            window.removeEventListener('fileDialogClosed', listener);
+            this.currentPopoverCallback(e.detail.payload.path);
+            this.hide();
+        }
+        window.addEventListener('fileDialogClosed', listener);
+
+        this._positionAndShow(targetElement);
+    }
+
+    showAudioSource(targetElement, existingValue, callback) {
+        this.hide();
+
+        this.currentPopoverCallback = callback;
+
+        this.popover.innerHTML = `
+            <div class="popover-content">
+                <input type="text" id="audio-popover-input" placeholder="Enter audio URL...">
+                <button id="audio-popover-local-btn" class="popover-button">Select Local File</button>
+            </div>
+        `;
+
+        const audioInput = this.popover.querySelector('#audio-popover-input');
+        const localBtn = this.popover.querySelector('#audio-popover-local-btn');
+
+        audioInput.value = existingValue || '';
+        audioInput.focus();
+
+        audioInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.currentPopoverCallback) this.currentPopoverCallback(e.target.value); this.hide(); } });
+        localBtn.addEventListener('click', (e) => { e.preventDefault(); ipc.openFileDialog("Audio File"); });
         const listener = (e) => {
             window.removeEventListener('fileDialogClosed', listener);
             this.currentPopoverCallback(e.detail.payload.path);

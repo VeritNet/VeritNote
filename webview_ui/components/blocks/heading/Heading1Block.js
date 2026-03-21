@@ -1,4 +1,4 @@
-﻿// js/blocks/Heading1Block.js
+﻿// components/blocks/Heading1Block.js
 class Heading1Block extends TextBlock {
     static type = 'heading1';
     static icon = 'H1';

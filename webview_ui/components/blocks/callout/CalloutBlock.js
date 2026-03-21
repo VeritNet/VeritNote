@@ -1,4 +1,4 @@
-﻿// js/blocks/CalloutBlock.js
+﻿// components/blocks/CalloutBlock.js
 class CalloutBlock extends Block {
     static type = 'callout';
     static icon = '💡';

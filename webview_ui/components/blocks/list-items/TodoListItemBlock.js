@@ -1,4 +1,4 @@
-﻿// js/blocks/TodoListItemBlock.js
+﻿// components/blocks/TodoListItemBlock.js
 
 class TodoListItemBlock extends TextBlock {
     // --- 1. 静态属性定义 ---

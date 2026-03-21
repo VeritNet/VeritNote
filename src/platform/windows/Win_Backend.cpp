@@ -124,20 +124,30 @@ void WinBackend::OpenFileDialog(const json& payload) {
        if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pfd)))) {
            // Define an array of COMDLG_FILTERSPEC
            COMDLG_FILTERSPEC fileTypes[] = {
-               { L"Image Files", L"*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp" },
-               { L"CSV File", L"*.csv" },
-               { L"All Files", L"*.*" }
+               { L"All File", L"*.*" },
+               { L"Image File", L"*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp" },
+               { L"Video File", L"*.mp4;*.ogg;*.ogv;*.webm;*.avi" },
+               { L"Audio File", L"*.mp3;*.ogg;*.wav;*.aac;*.flac;*.webm" },
+               { L"CSV File", L"*.csv" }
            };
 
-           if (type_str == "Image Files") {
-               pfd->SetFileTypes(1, &fileTypes[0]);
-           } else if (type_str == "CSV File") {
+           if (type_str == "Image File") {
                pfd->SetFileTypes(1, &fileTypes[1]);
-           } else {
+           }
+           else if (type_str == "Video File") {
                pfd->SetFileTypes(1, &fileTypes[2]);
            }
+           else if (type_str == "Audio File") {
+               pfd->SetFileTypes(1, &fileTypes[3]);
+           }
+           else if (type_str == "CSV File") {
+               pfd->SetFileTypes(1, &fileTypes[4]);
+           }
+           else {
+               pfd->SetFileTypes(1, &fileTypes[0]);
+           }
 
-           pfd->SetTitle(L"选择图片文件");
+           pfd->SetTitle((L"Select " + this->string_to_wstring(type_str)).c_str());
 
            if (SUCCEEDED(pfd->Show(m_hWnd))) {
                IShellItem* psi;

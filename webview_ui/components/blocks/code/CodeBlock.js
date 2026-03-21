@@ -1,4 +1,4 @@
-﻿// js/blocks/CodeBlock.js
+﻿// components/blocks/CodeBlock.js
 class CodeBlock extends Block {
     static type = 'code';
     static icon = '&lt;/&gt;';

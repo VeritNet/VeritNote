@@ -1,4 +1,4 @@
-﻿// js/blocks/ParagraphBlock.js
+﻿// components/blocks/ParagraphBlock.js
 class ParagraphBlock extends TextBlock {
     static type = 'paragraph';
     static icon = '¶';

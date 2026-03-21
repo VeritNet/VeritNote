@@ -1,4 +1,4 @@
-﻿// js/blocks/ToggleListItemBlock.js
+﻿// components/blocks/ToggleListItemBlock.js
 
 class ToggleListItemBlock extends TextBlock {
     // --- 1. Static properties definition ---

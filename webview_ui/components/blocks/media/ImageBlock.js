@@ -1,4 +1,4 @@
-﻿// js/blocks/ImageBlock.js
+﻿// components/blocks/media/ImageBlock.js
 class ImageBlock extends Block {
     static type = 'image';
     static icon = '🖼️';

@@ -1,4 +1,4 @@
-﻿// js/blocks/ColumnsBlock.js
+﻿// components/blocks/ColumnsBlock.js
 class ColumnsBlock extends Block {
     static type = 'columns';
     static canBeToggled = false;

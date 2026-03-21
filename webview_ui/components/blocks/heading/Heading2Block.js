@@ -1,4 +1,4 @@
-﻿// js/blocks/Heading2Block.js
+﻿// components/blocks/Heading2Block.js
 class Heading2Block extends TextBlock {
     static type = 'heading2';
     static icon = 'H2';

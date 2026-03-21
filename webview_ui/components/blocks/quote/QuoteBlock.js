@@ -1,4 +1,4 @@
-﻿// js/blocks/QuoteBlock.js
+﻿// components/blocks/QuoteBlock.js
 class QuoteBlock extends Block {
     // --- 1. Static properties ---
     static type = 'quote';

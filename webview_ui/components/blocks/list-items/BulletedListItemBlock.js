@@ -1,4 +1,4 @@
-﻿// js/blocks/BulletedListItemBlock.js
+﻿// components/blocks/BulletedListItemBlock.js
 
 class BulletedListItemBlock extends TextBlock {
     // --- 1. 静态属性定义 ---

@@ -1,4 +1,4 @@
-﻿// js/blocks/NumberedListItemBlock.js
+﻿// components/blocks/NumberedListItemBlock.js
 
 class NumberedListItemBlock extends TextBlock {
     // --- 1. Static properties definition ---
