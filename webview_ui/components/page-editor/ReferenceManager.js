@@ -1,4 +1,8 @@
-class PageReferenceManager {
+import { ipc } from '../main/ipc.js';
+
+import { PageEditor } from './page-editor.js';
+
+export class PageReferenceManager {
     constructor(editor) {
         this.editor = editor; // The PageEditor instance
 
@@ -232,7 +236,7 @@ class PageReferenceManager {
                     this.editor.PageSelectionManager.highlightBlock(blockId);
                 } else {
                     // Open or switch to the other file's tab and focus the block
-                    await this.editor.tabManager.openTab(refData.filePath, blockId);
+                    await this.editor.tabManager.openTab(refData.filePath, { blockIdToFocus: blockId }, 'page');
                 }
             }
         }
@@ -356,7 +360,7 @@ class PageReferenceManager {
 
         const onPageRevertedListener = (loadEvent) => {
             if (loadEvent.detail.payload?.path === filePath) {
-                window.removeEventListener('pageLoaded', onPageRevertedListener);
+                window.removeEventListener('fileLoaded', onPageRevertedListener);
 
                 const savedContent = loadEvent.detail.payload.content;
                 if (!savedContent) return;
@@ -390,8 +394,8 @@ class PageReferenceManager {
             }
         };
 
-        window.addEventListener('pageLoaded', onPageRevertedListener);
-        ipc.loadPage(filePath, null);
+        window.addEventListener('fileLoaded', onPageRevertedListener);
+        ipc.loadFile(filePath, {});
     }
 
     updateReferenceItemDOM(itemEl, refData) {

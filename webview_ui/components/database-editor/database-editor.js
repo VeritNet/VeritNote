@@ -1,15 +1,17 @@
 ﻿// components/data-editor/database-editor.js
 
-class DatabaseEditor {
-    constructor(container, filePath, tabManager) {
-        this.container = container;
-        this.filePath = filePath;
-        this.tabManager = tabManager;
+import { Editor } from '../editor.js';
+import { ipc } from '../main/ipc.js';
+export class DatabaseEditor extends Editor {
+    constructor(container, filePath, tabManager, computedConfig, context) {
+        super(container, filePath, tabManager, computedConfig, context);
+
+        this.type = 'database'; // 基类变量赋值
 
         // DB 数据结构
         this.dbData = {
             'config': {},
-            'data': { mode: 'embedded', embeddedData: [], externalUrl: '' },
+            'data': { 'mode': 'embedded', 'embeddedData': [], 'externalUrl': '' },
             'presets': []
         };
 
@@ -23,7 +25,8 @@ class DatabaseEditor {
         this.container.innerHTML = await response.text();
         this._acquireElements();
         this._initListeners();
-        ipc.loadDatabase(this.filePath);
+
+        super.load(); // 调基类发起 Load
     }
 
     _acquireElements() {
@@ -170,9 +173,11 @@ class DatabaseEditor {
         });
     }
 
-    onDatabaseLoaded(payload) {
-        if (payload.path !== this.filePath) return;
-        this.dbData = payload.content;
+    onContentParsed(content, context) {
+        // 如果后端传回的 content 为空对象，说明是新建的，使用默认的 this.dbData
+        if (content && Object.keys(content).length > 0) {
+            this.dbData = content;
+        }
 
         if (!this.dbData['presets']) this.dbData['presets'] = [];
         if (!this.dbData['data']) this.dbData['data'] = { 'mode': 'embedded', 'embeddedData': [], 'externalUrl': '' };
@@ -184,26 +189,28 @@ class DatabaseEditor {
         this._updateDataSourceUI();
         this._renderTabs();
         this._refreshPreviewData();
-        this.tabManager.setUnsavedStatus(this.filePath, false);
     }
 
     _markDirty() {
         this.tabManager.setUnsavedStatus(this.filePath, true);
     }
 
-    save() {
-        this.elements.saveBtn.disabled = true;
-        ipc.saveDatabase(this.filePath, this.dbData);
+    getSavableContent() {
+        return this.dbData;
     }
 
-    onDatabaseSaved(payload) {
-        if (payload.path !== this.filePath) return;
-        this.elements.saveBtn.disabled = false;
-        if (payload.success) {
-            this.tabManager.setUnsavedStatus(this.filePath, false);
-        } else {
-        }
+    save() {
+        super.save();
     }
+
+    onBeforeSave() {
+        this.elements.saveBtn.disabled = true;
+    }
+
+    onAfterSave(success) {
+        this.elements.saveBtn.disabled = false;
+    }
+
 
     // --- UI 渲染逻辑 ---
 

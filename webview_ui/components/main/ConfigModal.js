@@ -1,4 +1,6 @@
 ﻿// --- Converts any valid color string to #rrggbb format ---
+import { INHERIT_VALUE } from './default-config.js';
+
 function toHexColor(colorStr) {
     if (!colorStr || typeof colorStr !== 'string') return '#000000';
     if (colorStr.startsWith('#')) {
@@ -14,7 +16,7 @@ function toHexColor(colorStr) {
 }
 
 
-class ConfigModal {
+export class ConfigModal {
     constructor({ title, configData, defaults, onSave, onClose }) {
         this.title = title;
         this.configData = JSON.parse(JSON.stringify(configData)); // Deep copy

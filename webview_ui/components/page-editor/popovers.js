@@ -1,5 +1,7 @@
 ﻿// components/page-editor/popovers.js
 
+import { ipc } from '../main/ipc.js';
+
 const PRESET_COLORS = [
     '#000000', '#444444', '#666666', '#999999', '#CCCCCC', '#EEEEEE', '#F3F3F3', '#FFFFFF',
     '#FF0000', '#FF9900', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#9900FF', '#FF00FF',
@@ -7,7 +9,7 @@ const PRESET_COLORS = [
     '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'
 ];
 
-class PopoverManager {
+export class PopoverManager {
     constructor(editorInstance) {
         this.editor = editorInstance;
         this.popover = this.editor.elements.popover; // Get popover from the editor's elements

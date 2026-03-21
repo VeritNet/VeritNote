@@ -85,20 +85,13 @@ void Backend::HandleWebMessage(const std::string& message) {
             ListWorkspace(payload);
         }
 
-        // Page
-        else if (action == "loadPage") {
-            LoadPage(payload);
+        // File IO
+        else if (action == "loadFile") {
+            LoadFile(payload);
         }
-        else if (action == "savePage") {
-            SavePage(payload);
-        }
-		// Data
-        else if (action == "loadDatabase") {
-            LoadDatabase(payload);
-        }
-        else if (action == "saveDatabase") {
-            SaveDatabase(payload);
-        }
+        else if (action == "saveFile") {
+            SaveFile(payload);
+		}
 
         else if (action == "exportPageAsHtml") {
             ExportPageAsHtml(payload);
@@ -448,34 +441,27 @@ void Backend::CancelExport() {
     }
 }
 
-
-// LoadPage：通用实现
-void Backend::LoadPage(const json& payload) {
+void Backend::LoadFile(const json& payload) {
     std::string path_str = payload.value("path", "");
     std::wstring path = this->string_to_wstring(path_str);
-    bool fromPreview = payload.value("fromPreview", false);
-    std::string blockIdToFocus = "";
-    if (payload.contains("blockIdToFocus") && payload["blockIdToFocus"].is_string()) {
-        blockIdToFocus = payload["blockIdToFocus"].get<std::string>();
-    }
+
+    // 通用透传上下文（解耦前端的特殊需求，如 blockIdToFocus）
+    json context = payload.value("context", json::object());
 
     json response;
-    response["action"] = "pageLoaded";
+    response["action"] = "fileLoaded";
     response["payload"]["path"] = path_str;
-    response["payload"]["fromPreview"] = fromPreview;
-    if (!blockIdToFocus.empty()) response["payload"]["blockIdToFocus"] = blockIdToFocus;
+    response["payload"]["context"] = context;
 
-    std::string content = ReadFileContent(path);
-    if (!content.empty()) {
+    std::string contentStr = ReadFileContent(path);
+    if (!contentStr.empty()) {
         try {
-            json pageJson = json::parse(content);
-            if (pageJson.is_array()) {
-                response["payload"]["content"] = pageJson;
-                response["payload"]["config"] = json::object();
-            }
-            else {
-                response["payload"]["content"] = pageJson.value("blocks", json::array());
-                response["payload"]["config"] = pageJson.value("config", json::object());
+            json fileJson = json::parse(contentStr);
+            response["payload"]["config"] = fileJson.value("config", json::object());
+
+            // 格式统一化
+            if (fileJson.contains("content")) {
+                response["payload"]["content"] = fileJson["content"];
             }
         }
         catch (const std::exception& e) {
@@ -483,73 +469,29 @@ void Backend::LoadPage(const json& payload) {
         }
     }
     else {
-        response["error"] = "Failed to read file or file is empty.";
+        // 空文件默认结构
+        response["payload"]["config"] = json::object();
+        response["payload"]["content"] = json::object(); // 前端再根据具体编辑器自行决定空状态
     }
     SendMessageToJS(response);
 }
 
-// SavePage：通用实现
-void Backend::SavePage(const json& payload) {
+void Backend::SaveFile(const json& payload) {
     std::string path_str = payload.value("path", "");
     std::wstring path = this->string_to_wstring(path_str);
-    json blocks = payload.value("blocks", json::array());
+
+    // 格式统一化
     json config = payload.value("config", json::object());
+    json content = payload.value("content", json::object()); // 数组也会被解析为json对象的一种
 
     json fileContent;
     fileContent["config"] = config;
-    fileContent["blocks"] = blocks;
+    fileContent["content"] = content;
 
     bool success = WriteFileContent(path, fileContent.dump(2));
 
     json response;
-    response["action"] = "pageSaved";
-    response["payload"]["path"] = path_str;
-    response["payload"]["success"] = success;
-    if (!success) response["error"] = "Failed to write file.";
-
-    SendMessageToJS(response);
-}
-
-void Backend::LoadDatabase(const json& payload) {
-    std::string path_str = payload.value("path", "");
-    std::wstring path = this->string_to_wstring(path_str);
-
-    json response;
-    response["action"] = "databaseLoaded";
-    response["payload"]["path"] = path_str;
-
-    std::string content = ReadFileContent(path);
-    if (!content.empty()) {
-        try {
-            json dbJson = json::parse(content);
-            response["payload"]["content"] = dbJson;
-        }
-        catch (const std::exception& e) {
-            response["error"] = std::string("JSON Parse Error: ") + e.what();
-        }
-    }
-    else {
-        // 如果是新文件，返回默认的空结构
-        json defaultDb = {
-            {"config", json::object()},
-            {"data", {{"mode", "embedded"}, {"embeddedData", json::array()}, {"externalUrl", ""}}},
-            {"presets", json::array()}
-        };
-        response["payload"]["content"] = defaultDb;
-    }
-
-    SendMessageToJS(response);
-}
-
-void Backend::SaveDatabase(const json& payload) {
-    std::string path_str = payload.value("path", "");
-    std::wstring path = this->string_to_wstring(path_str);
-    json content = payload.value("content", json::object());
-
-    bool success = WriteFileContent(path, content.dump(2));
-
-    json response;
-    response["action"] = "databaseSaved";
+    response["action"] = "fileSaved";
     response["payload"]["path"] = path_str;
     response["payload"]["success"] = success;
     if (!success) response["error"] = "Failed to write file.";
@@ -586,11 +528,13 @@ void Backend::FetchQuoteContent(const json& payload) {
 
         json blocksArray;
         // Determine where the array of blocks is located
-        if (pageJson.is_array()) {
-            blocksArray = pageJson; // Old format, the whole file is the array
-        }
-        else if (pageJson.is_object() && pageJson.contains("blocks")) {
-            blocksArray = pageJson["blocks"]; // New format, it's in the "blocks" key
+        if (pageJson.contains("content")) {
+            if (pageJson["content"].contains("blocks")) {
+                blocksArray = pageJson["content"]["blocks"];
+            }
+            else {
+				blocksArray = json::array(); // No blocks found, treat as empty
+            }
         }
         else {
             blocksArray = json::array(); // Not a valid format, treat as empty
@@ -656,18 +600,24 @@ void Backend::FetchDataContent(const json& payload) {
         json filteredJson;
 
         // 仅提取 data 节点
-        if (fullJson.contains("data")) {
-            filteredJson["data"] = fullJson["data"];
+        if (fullJson.contains("content")) {
+            if (fullJson["content"].contains("data")) {
+                filteredJson["data"] = fullJson["content"]["data"];
+            }
+            else {
+                filteredJson["data"] = json::object();
+            }
+
+            // 仅提取 presets 节点
+            if (fullJson["content"].contains("presets")) {
+                filteredJson["presets"] = fullJson["content"]["presets"];
+            }
+            else {
+                filteredJson["presets"] = json::array();
+            }
         }
         else {
             filteredJson["data"] = json::object();
-        }
-
-        // 仅提取 presets 节点
-        if (fullJson.contains("presets")) {
-            filteredJson["presets"] = fullJson["presets"];
-        }
-        else {
             filteredJson["presets"] = json::array();
         }
 

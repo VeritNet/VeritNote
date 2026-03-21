@@ -1,17 +1,20 @@
 ﻿// components/page-editor/page-editor.js
 
-class PageEditor {
-    constructor(container, filePath, tabManager, computedConfig) {
-        this.container = container; // The wrapper div provided by TabManager
-        this.filePath = filePath;
-        this.tabManager = tabManager;
-        this.computedConfig = computedConfig;
+import { Editor } from '../editor.js';
 
-        this.fileConfig = {}; // To store the file's own config header
+import { PopoverManager } from './popovers.js';
+import { PageHistoryManager } from './HistoryManager.js';
+import { PageReferenceManager } from './ReferenceManager.js';
+import { PageSelectionManager } from './SelectionManager.js';
+
+export class PageEditor extends Editor {
+    constructor(container, filePath, tabManager, computedConfig, context) {
+        super(container, filePath, tabManager, computedConfig, context);
+
+        this.type = 'page'; // 基类变量赋值
         
         this.elements = {}; // To store references to DOM elements
         this.mode = 'edit'; // 'edit' or 'preview'
-        this.isReady = false; // Flag to check if HTML content is loaded
         
         // --- Core Editor State (from old Editor class) ---
         this.blocks = [];
@@ -103,123 +106,42 @@ class PageEditor {
     // --- 1. Core Lifecycle Methods
     // --- ========================================================== ---
 
-    async load(blockIdToFocus = null) {
+    async load() {
         const response = await fetch('components/page-editor/page-editor.html');
         this.container.innerHTML = await response.text();
 
         this._acquireElements();
 
+        // 调用基类的 config 应用逻辑
         this.applyConfiguration(this.computedConfig);
-        
-        // NOTE: For now, we define these managers inside the editor. 
-        // In a future refactor, they could become separate files too.
-        this.PageReferenceManager = new PageReferenceManager(this); 
+
+        this.PageReferenceManager = new PageReferenceManager(this);
         this.popoverManager = new PopoverManager(this);
 
         this._initListeners();
         this._initUiState();
-        
-        this.isReady = true;
-        ipc.loadPage(this.filePath, blockIdToFocus);
+
+        // 通知基类去 loadFile
+        super.load();
     }
 
-    onPageContentLoaded(pageData) {
-        // 现在我们可以安全地检查 path
-        if (!this.isReady || pageData.path !== this.filePath) return;
-    
-        // 从 pageData 对象中解构出需要的值
-        const blockDataList = pageData.content || [];
-        const fileConfig = pageData.config || {};
-    
-        this.fileConfig = fileConfig; 
-    
+    onContentParsed(content, context) {
+        const blockDataList = (content && Array.isArray(content['blocks'])) ? content['blocks'] : [];
         this.blocks = blockDataList.map(data => this.createBlockInstance(data)).filter(Boolean);
         this.blocks.forEach(block => block.parent = null);
         this.render();
-    
+
         if (this.history.isUndoingOrRedoing) {
             this.PageReferenceManager.handleHistoryChange(this.filePath, blockDataList);
         } else {
             this.history.recordInitialState();
         }
-        
-        this.tabManager.setUnsavedStatus(this.filePath, false);
-    
-        // 现在 pageData.blockIdToFocus 是有效的
-        if (pageData.blockIdToFocus) {
-            this.PageSelectionManager.highlightBlock(pageData.blockIdToFocus);
+
+        if (context && context.blockIdToFocus) {
+            this.PageSelectionManager.highlightBlock(context.blockIdToFocus);
         }
     }
 
-    // Method to apply computed styles
-    applyConfiguration(config) {
-        this.computedConfig = config;
-    
-        const backgroundContainers = [this.elements.editBackgroundContainer, this.elements.previewBackgroundContainer];
-        const viewContainers = [this.elements.editorAreaContainer, this.elements.previewView];
-    
-        for (const key in config) {
-            const value = config[key];
-    
-            // --- UNIFIED BACKGROUND LOGIC (Correctly applied) ---
-            if (key === 'background' && typeof value === 'object') {
-                const bgColor = (value.type === 'color') ? value.value : 'transparent';
-                const bgImage = (value.type === 'image' && value.value) ? `url('${value.value.replace(/\\/g, '/')}')` : 'none';
-                
-                backgroundContainers.forEach(container => {
-                    if (container) {
-                        container.style.backgroundColor = bgColor;
-                        container.style.backgroundImage = bgImage;
-                    }
-                });
-                continue; // Go to the next key
-            }
-            
-            // --- LOGIC FOR ALL OTHER VARIABLES (like max-width, fonts, text colors) ---
-            const cssVarName = `--page-${key}`;
-            
-            // CRITICAL FIX for max-width and other content styles:
-            // Apply these variables directly to the view containers where they are used.
-            viewContainers.forEach(container => {
-                 if (container) {
-                    container.style.setProperty(cssVarName, value);
-                 }
-            });
-        }
-    }
-
-    /**
-     * [INTERFACE METHOD]
-     * Called by the main controller when a parent configuration changes.
-     * This method re-resolves the file's entire configuration chain and applies it.
-     */
-    async onConfigurationChanged() {
-        console.log(`Configuration change detected for: ${this.filePath}. Re-evaluating styles.`);
-        
-        // 1. Re-resolve the configuration from the backend
-        ipc.resolveFileConfiguration(this.filePath);
-        const fileConfigurationResolvedHandler = (e) => {
-            const payload = e['detail']['payload'];
-            if (payload.path === this.filePath) {
-                if (payload.config) {
-                    // 2. Compute the final config with defaults filled in
-                    const newComputedConfig = window.computeFinalConfig(payload.config);
-                    // 3. Apply the new configuration to the UI
-                    this.applyConfiguration(newComputedConfig);
-                } else {
-                    console.error("Failed to re-resolve configuration for", this.filePath);
-                }
-                window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler); // 移除监听器，防止多次触发
-            }
-        };
-        window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
-    }
-    
-    // Method for main.js to call when saving config from modal
-    setFileConfig(newConfig) {
-        this.fileConfig = newConfig;
-        this.savePage(); // This will save the blocks AND the new config
-    }
     
     onFocus() {
         if (!this.isReady) return;
@@ -649,42 +571,30 @@ class PageEditor {
     // --- ========================================================== ---
 
     savePage() {
-        if (!this.isReady) return;
-        // 调用 getBlocksForSaving() 来获取要保存的数据
-        const blocksToSave = this.getBlocksForSaving();
+        this.save();
+    }
 
-        ipc.savePage(this.filePath, blocksToSave, this.fileConfig); 
-    
+    // 找到基类的 UI 回调，控制保存按钮状态:
+    onBeforeSave() {
         if (this.elements.saveBtn) {
             this.elements.saveBtn.style.opacity = '0.5';
             this.elements.saveBtn.style.pointerEvents = 'none';
         }
     }
 
-    onPageSaved(payload) {
-        // 恢复保存按钮状态
+    onAfterSave(success) {
         if (this.elements.saveBtn) {
             this.elements.saveBtn.style.opacity = '1';
             this.elements.saveBtn.style.pointerEvents = 'auto';
         }
+    }
 
-        if (payload.path !== this.filePath) return;
-
-        if (payload.success) {
-            // 1. 成功：清除未保存的小圆点
-            this.tabManager.setUnsavedStatus(this.filePath, false);
-
-            // 2. 成功：派发内部事件，通知引用管理器 (ReferenceManager) 更新
-            // 注意：这个 'page:saved' 是前端内部使用的事件，与 C++ 发来的 'pageSaved' 区分开
-            window.dispatchEvent(new CustomEvent('page:saved', { detail: { path: this.filePath } }));
-
-            console.log(`Page "${this.filePath}" saved successfully.`);
-        } else {
-            // 3. 失败：报错
-            console.error(`Failed to save page "${this.filePath}":`, payload.error);
-            alert(`Failed to save page: ${payload.error || 'Unknown error'}`);
-            // 保持未保存状态，让用户可以重试
-        }
+    // 新增获取主题容器的方法 (满足基类 applyConfiguration 的需要):
+    getThemeContainers() {
+        return {
+            backgrounds: [this.elements.editBackgroundContainer, this.elements.previewBackgroundContainer],
+            views: [this.elements.editorAreaContainer, this.elements.previewView]
+        };
     }
 
     /**
@@ -758,8 +668,10 @@ class PageEditor {
      * Gets all block data ready for saving.
      * @returns {Array<object>} An array of serializable block data objects.
      */
-    getBlocksForSaving() {
-        return this.blocks.map(block => block.data);
+    getSavableContent() {
+        return {
+            'blocks': this.blocks.map(block => block.data)
+        };
     }
 
     // --- Event Handlers ---
@@ -859,7 +771,7 @@ class PageEditor {
             // 3. 调用 TabManager 来打开或切换到目标标签页
             // openTab 方法足够智能，如果标签页已打开，它会切换过去，
             // 并将 blockId 传递给编辑器以滚动到指定块。
-            await this.tabManager.openTab(absolutePath, blockId);
+            await this.tabManager.openTab(absolutePath, { blockIdToFocus: blockId }, 'page');
         }
     }
 

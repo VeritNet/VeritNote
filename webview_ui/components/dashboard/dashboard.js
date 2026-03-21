@@ -1,4 +1,6 @@
-﻿window['initializeDashboardComponent'] = () => {
+﻿import { ipc } from '../main/ipc.js';
+
+export const initializeDashboardComponent = () => {
     const searchInput = document.getElementById('search-input');
     const recentList = document.getElementById('recent-list');
     const openWorkspaceBtn = document.getElementById('open-workspace-btn');

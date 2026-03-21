@@ -1,6 +1,6 @@
 // components/page-editor/SelectionManager.js
 
-class PageSelectionManager {
+export class PageSelectionManager {
     constructor(editor) {
         this.editor = editor;
         this.selectedBlockIds = new Set();

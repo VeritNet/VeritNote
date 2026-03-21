@@ -18,7 +18,7 @@ if(USE_ADVANCED_MODE)
 else()
     message(STATUS "JS Build Mode: DEBUG (Bundle only, readable)")
     # WHITESPACE_ONLY 只移除注释和多余空格，实际上就是合并文件
-    set(COMPILATION_LEVEL "WHITESPACE_ONLY")
+    set(COMPILATION_LEVEL "SIMPLE_OPTIMIZATIONS")
 endif()
 
 # 4. 运行 Closure Compiler
@@ -27,6 +27,8 @@ execute_process(
     COMMAND "${NODE_CMD}" "${CLOSURE_COMPILER_SCRIPT}"
             --compilation_level ${COMPILATION_LEVEL}
             --externs "${PROCESSED_DIR}/GCC_Externs.js"
+            --dependency_mode PRUNE
+            --entry_point "${PROCESSED_DIR}/components/main/main.js"
             ${CLOSURE_ARGS}
             --js_output_file "${PROCESSED_DIR}/main.min.js"
     RESULT_VARIABLE result

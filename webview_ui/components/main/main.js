@@ -1,8 +1,26 @@
 ﻿// components/main/main.js
 
 
+import { initializeDashboardComponent } from '../dashboard/dashboard.js';
+window['initializeDashboardComponent'] = initializeDashboardComponent;
+
+import { PageEditor } from '../page-editor/page-editor.js';
+import { DatabaseEditor } from '../database-editor/database-editor.js';
+
+import { ipc } from './ipc.js';
+
+import { initGlobalState } from './global-state.js';
+initGlobalState();
+
+import { ExportManager } from './export-manager.js';
+
+import { DEFAULT_CONFIG } from './default-config.js';
+import { INHERIT_VALUE } from './default-config.js';
+
+import { ConfigModal } from './ConfigModal.js';
+
+
 // ==================================================================
-// Helper For PageEditor
 
 window['blockRegistry'] = new Map();
 /**
@@ -90,33 +108,20 @@ window['initializeMainComponent'] = () => {
             return this.tabs.get(this.activeTabPath);
         }
         
-        async openTab(path, blockIdToFocus = null, computedConfig) {
-            let finalConfig = computedConfig;
-
-            // If computedConfig was not provided (e.g., called from a link), we must resolve it now.
-            if (!finalConfig) {
-                try {
-                    ipc.resolveFileConfiguration(path);
-                    const fileConfigurationResolvedHandler = (e) => {
-                        const payload = e['detail']['payload'];
-                        if (payload.path === path) {
-                            if (payload.config) {
-                                finalConfig = window.computeFinalConfig(payload.config);
-                            } else {
-                                // Fallback to default if resolution fails
-                                console.warn(`Could not resolve configuration for ${path}. Using defaults.`);
-                                finalConfig = window.computeFinalConfig({});
-                            }
-                            window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler); // 移除监听器，防止多次触发
-                        }
-                    };
-                    window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
-                } catch (error) {
-                    console.error(`Error resolving configuration for ${path}:`, error);
-                    // Fallback in case of error
-                    finalConfig = window.computeFinalConfig({});
-                }
-            }
+        async openTab(path, context = {}, type) {
+            const finalConfig = await new Promise((resolve) => {
+                const fileConfigurationResolvedHandler = (e) => {
+                    const payload = e['detail']['payload'];
+                    if (payload.path === path) {
+                        window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
+                        // 计算并返回配置
+                        const config = window.computeFinalConfig(payload.config || {}, type);
+                        resolve(config);
+                    }
+                };
+                window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
+                ipc.resolveFileConfiguration(path);
+            });
 
             if (this.tabs.has(path)) {
                 const existingTab = this.tabs.get(path);
@@ -131,25 +136,12 @@ window['initializeMainComponent'] = () => {
                 }
 
                 this.switchTab(path);
-                if (blockIdToFocus) {
-                    this.getActiveTab().instance.PageSelectionManager.highlightBlock(blockIdToFocus);
+                if (context.blockIdToFocus) {
+                    this.getActiveTab().instance.PageSelectionManager.highlightBlock(context.blockIdToFocus);
                 }
                 return;
             }
             
-            let editorType = 'default';
-            if (path.endsWith('.veritnote')) {
-                editorType = 'pageEditor';
-            } else if (path.endsWith('.veritnotegraph')) {
-                editorType = 'graphEditor';
-            } else if (path.endsWith('.veritnotedb')) {
-                editorType = 'databaseEditor';
-            }
-
-            if (editorType === 'default') {
-                alert(`No editor available for file type: ${path}`);
-                return;
-            }
 
             const fileName = getFileNameFromPath(path);
             const tabId = `tab-${Date.now()}-${Math.random()}`;
@@ -160,12 +152,13 @@ window['initializeMainComponent'] = () => {
             tabContentContainer.appendChild(wrapper);
 
             let tabInstance = null;
-            if (editorType === 'pageEditor') {
-                tabInstance = new PageEditor(wrapper, path, this, finalConfig);
-            } else if (editorType === 'graphEditor') {
-                //tabInstance = new GraphEditor(wrapper, path, this, finalConfig);
-            } else if (editorType === 'databaseEditor') {
-                tabInstance = new DatabaseEditor(wrapper, path, this);
+
+            if (type === 'page') {
+                tabInstance = new PageEditor(wrapper, path, this, finalConfig, context);
+            } else if (type === 'graph') {
+                //tabInstance = new GraphEditor(wrapper, path, this, finalConfig, context);
+            } else if (type === 'database') {
+                tabInstance = new DatabaseEditor(wrapper, path, this, finalConfig, context);
             }
             
             if (!tabInstance) return;
@@ -183,7 +176,7 @@ window['initializeMainComponent'] = () => {
             this.tabs.set(path, newTab);
             this.tabOrder.push(path);
             
-            tabInstance.load(blockIdToFocus);
+            tabInstance.load();
             this.switchTab(path);
         }
 
@@ -306,39 +299,24 @@ window['initializeMainComponent'] = () => {
 
 
     // This listener now dispatches events to the relevant tab.
-    window.addEventListener('pageLoaded', (e) => {
-        const pageData = e['detail']['payload'];
+    window.addEventListener('fileLoaded', (e) => {
+        const payload = e['detail']['payload'];
         if (e.detail.error) {
-            alert(`Error loading page: ${e.detail.error}`);
-            tabManager.closeTab(pageData.path);
+            alert(`Error loading file: ${e.detail.error}`);
+            tabManager.closeTab(payload.path);
             return;
         }
-        const tab = tabManager.tabs.get(pageData.path);
-        if (tab && tab.instance.onPageContentLoaded) {
-            tab.instance.onPageContentLoaded(pageData); 
-        }
-    });
-    window.addEventListener('pageSaved', (e) => {
-        const payload = e['detail']['payload'];
         const tab = tabManager.tabs.get(payload.path);
-        if (tab && tab.instance && tab.instance.onPageSaved) {
-            tab.instance.onPageSaved(payload);
+        if (tab && tab.instance && typeof tab.instance.onFileLoaded === 'function') {
+            tab.instance.onFileLoaded(payload);
         }
     });
 
-    window.addEventListener('databaseLoaded', (e) => {
-        console.log(e['detail']['payload']);
+    window.addEventListener('fileSaved', (e) => {
         const payload = e['detail']['payload'];
         const tab = tabManager.tabs.get(payload.path);
-        if (tab && tab.instance && tab.instance.onDatabaseLoaded) {
-            tab.instance.onDatabaseLoaded(payload);
-        }
-    });
-    window.addEventListener('databaseSaved', (e) => {
-        const payload = e['detail']['payload'];
-        const tab = tabManager.tabs.get(payload.path);
-        if (tab && tab.instance && tab.instance.onDatabaseSaved) {
-            tab.instance.onDatabaseSaved(payload);
+        if (tab && tab.instance && typeof tab.instance.onFileSaved === 'function') {
+            tab.instance.onFileSaved(payload);
         }
     });
 
@@ -369,25 +347,16 @@ window['initializeMainComponent'] = () => {
         const target = e.target.closest('.tree-node');
         if (!target) return;
         const path = target.dataset['path'];
+        const type = target.dataset['type'];
         
-        if (target.classList.contains('folder')) {
+        if (type == 'folder') {
             target.classList.toggle('open');
             const children = target.nextElementSibling;
             if (children && children.classList.contains('tree-node-children')) {
                 children.style.display = target.classList.contains('open') ? 'block' : 'none';
             }
-        } else if (target.classList.contains('page')) {
-            // --- CONFIG RESOLUTION STEP ---
-            ipc.resolveFileConfiguration(path);
-            const fileConfigurationResolvedHandler = (e) => {
-                const payload = e['detail']['payload'];
-                if (payload.path === path) {
-                    const computedConfig = window.computeFinalConfig(payload.config);
-                    tabManager.openTab(path, null, computedConfig); // Pass config to tab manager
-                    window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler); // 移除监听器，防止多次触发
-                }
-            };
-            window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
+        } else {
+            tabManager.openTab(path, null, type);
         }
     });
 
@@ -427,7 +396,7 @@ window['initializeMainComponent'] = () => {
                 const payload = e['detail']['payload'];
                 if (payload.path === configPath) {
                     const configData = payload.data || {};
-                    availableSettings = window.DEFAULT_CONFIG;
+                    availableSettings = DEFAULT_CONFIG;
                     activeConfigModalWithConfig(configData, availableSettings);
                     window.removeEventListener('configFileRead', configFileReadHandler); // 移除监听器，防止多次触发
                 }
@@ -441,7 +410,7 @@ window['initializeMainComponent'] = () => {
                 return;
             }
             configData = tab.instance.fileConfig;
-            availableSettings = { page: window.DEFAULT_CONFIG.page };
+            availableSettings = { page: DEFAULT_CONFIG.page };
             activeConfigModalWithConfig(configData, availableSettings);
         } else if (type === 'database') {
             /*configPath = path;
@@ -451,7 +420,7 @@ window['initializeMainComponent'] = () => {
                 return;
             }
             // configData = tab.instance.fileConfig; // Database Editor fileConfig 待实现
-            availableSettings = { database: window.DEFAULT_CONFIG.database };
+            availableSettings = { database: DEFAULT_CONFIG.database };
             activeConfigModalWithConfig(configData, availableSettings);*/
         }
 
@@ -482,7 +451,7 @@ window['initializeMainComponent'] = () => {
                         const fileConfigurationResolvedHandler = (e) => {
                             const payload = e['detail']['payload'];
                             if (payload.path === path) {
-                                const computedConfig = window.computeFinalConfig(payload.config);
+                                const computedConfig = window.computeFinalConfig(payload.config, type);
                                 tabToUpdate.computedConfig = computedConfig;
                                 tabToUpdate.instance.applyConfiguration(computedConfig);
                                 window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler); // 移除监听器，防止多次触发
@@ -500,20 +469,19 @@ window['initializeMainComponent'] = () => {
         }
     }
 
-    window.computeFinalConfig = function(resolvedConfig) {
+    window.computeFinalConfig = function (resolvedConfig, fileType) {
         const finalConfig = {};
-        const fileType = 'page'; // Hardcoded for now
     
-        if (!window.DEFAULT_CONFIG[fileType]) return {};
+        if (!DEFAULT_CONFIG[fileType]) return {};
     
-        for (const key in window.DEFAULT_CONFIG[fileType]) {
+        for (const key in DEFAULT_CONFIG[fileType]) {
             const categoryConfig = resolvedConfig[fileType] || {};
             const value = categoryConfig[key];
     
             if (value && value !== INHERIT_VALUE) {
                 finalConfig[key] = value;
             } else {
-                finalConfig[key] = window.DEFAULT_CONFIG[fileType][key];
+                finalConfig[key] = DEFAULT_CONFIG[fileType][key];
             }
         }
         return finalConfig;
@@ -611,7 +579,7 @@ window['initializeMainComponent'] = () => {
         const settingsIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
 
         if (node.type === 'folder') {
-            html += `<div class="tree-node folder" data-path="${node.path}">
+            html += `<div class="tree-node folder" data-path="${node.path}" data-type="${node.type}">
                 <span class="icon"></span>
                 <span class="name">${node.name}</span>
                 <button class="item-settings-btn" data-type="folder" title="Folder Settings">${settingsIconSvg}</button>
@@ -623,21 +591,21 @@ window['initializeMainComponent'] = () => {
             }
         } else if (node.type === 'page') {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
-            html += `<div class="tree-node page" data-path="${node.path}">
+            html += `<div class="tree-node page" data-path="${node.path}" data-type="${node.type}">
                 <span style="font-size: 12px;">${iconSvg}</span>
                 <span class="name">${node.name.replace('.veritnote', '')}</span>
                 <button class="item-settings-btn" data-type="page" title="Page Settings">${settingsIconSvg}</button>
              </div>`;
         } else if (node.type === 'graph') {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L7 10h10l-5-8z"/><circle cx="7" cy="17" r="4"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>`;
-            html += `<div class="tree-node page" data-path="${node.path}">
+            html += `<div class="tree-node graph" data-path="${node.path}" data-type="${node.type}">
                 <span style="font-size: 12px;">${iconSvg}</span>
                 <span class="name">${node.name.replace('.veritnotegraph', '')}</span>
                 <button class="item-settings-btn" data-type="graph" title="Graph Settings">${settingsIconSvg}</button>
             </div>`;
         } else if (node.type === 'database') {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
-            html += `<div class="tree-node page" data-path="${node.path}">
+            html += `<div class="tree-node database" data-path="${node.path}" data-type="${node.type}">
                 <span class="icon">${iconSvg}</span>
                 <span class="name">${node.name.replace('.veritnotedb', '')}</span> 
                 <button class="item-settings-btn" data-type="database" title="Database Settings">${settingsIconSvg}</button>
@@ -798,7 +766,7 @@ window['initializeMainComponent'] = () => {
         window.showExportOverlay();
 
         // --- 唤起导出流程 ---
-        window.ExportManager.runExportProcess({
+        ExportManager.runExportProcess({
             options,
             allFilesToExport,
             workspaceData,

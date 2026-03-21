@@ -1,5 +1,5 @@
 ﻿// page-editor/HistoryManager.js
-class PageHistoryManager {
+export class PageHistoryManager {
     constructor(editor, maxStackSize = 100) {
         this.editor = editor;
         this.maxStackSize = maxStackSize;
@@ -115,7 +115,7 @@ class PageHistoryManager {
     }
 
     _createSnapshot() {
-        return JSON.stringify(this.editor.getBlocksForSaving());
+        return JSON.stringify(this.editor.getSavableContent()['blocks']);
     }
 
     _applySnapshot(snapshot) {
@@ -136,7 +136,7 @@ class PageHistoryManager {
         }
 
         if (this.editor.referenceManager) {
-            const allBlockData = this.editor.getBlocksForSaving();
+            const allBlockData = this.editor.getSavableContent()['blocks'];
             this.editor.referenceManager.handleHistoryChange(this.editor.filePath, allBlockData);
         }
 
@@ -144,7 +144,7 @@ class PageHistoryManager {
         window.dispatchEvent(new CustomEvent('history:applied', {
             detail: {
                 filePath: this.editor.currentPagePath,
-                allBlockData: this.editor.getBlocksForSaving()
+                allBlockData: this.editor.getSavableContent()['blocks']
             }
         }));
     }

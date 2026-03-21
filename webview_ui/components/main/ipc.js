@@ -1,5 +1,5 @@
 ﻿// Inter-Process Communication: JS <-> C++
-const ipc = {
+export const ipc = {
     // 向 C++ 后端发送消息
     send: (action, payload = {}) => {
         console.log("IPC: Sending message to C++:", { action, payload });
@@ -47,21 +47,14 @@ const ipc = {
     },
 
 
-    // Page
-    loadPage: (path, blockIdToFocus = null, fromPreview = false) => {
-        ipc.send('loadPage', { path, fromPreview, blockIdToFocus });
+    // Unified File I/O
+    loadFile: (path, context = {}) => {
+        ipc.send('loadFile', { path, context });
     },
-    savePage: (path, blocks, config) => {
-        ipc.send('savePage', { 'path': path, 'blocks': blocks, 'config': config });
+    saveFile: (path, config, content) => {
+        ipc.send('saveFile', { path, config, content });
     },
-
-    // Data
-    loadDatabase: (path) => {
-        ipc.send('loadDatabase', { 'path': path });
-    },
-    saveDatabase: (path, content) => {
-        ipc.send('saveDatabase', { 'path': path, 'content': content });
-    },
+    
 
 
     startExport: () => {

@@ -1,6 +1,12 @@
 ﻿// components/main/export-manager.js
 
-window.ExportManager = class ExportManager {
+import { ipc } from './ipc.js';
+
+import { PageEditor } from '../page-editor/page-editor.js';
+
+import { DEFAULT_CONFIG } from './default-config.js';
+
+export const ExportManager = class ExportManager {
     static async runExportProcess(exportConfig) {
         const { options, allFilesToExport, workspaceData, ui } = exportConfig;
         window.isExportCancelled = false;
@@ -50,7 +56,7 @@ window.ExportManager = class ExportManager {
         if (allImageTasks.length > 0) {
             const uniqueTasks = Array.from(new Map(allImageTasks.map(t => [t.originalSrc, t])).values());
             ipc.processExportImages(uniqueTasks);
-            imageSrcMap = await new Promise(resolve => window.addEventListener('exportImagesProcessed', (e) => resolve(e.detail.payload.srcMap), { once: true }));
+            imageSrcMap = await new Promise(resolve => window.addEventListener('exportImagesProcessed', (e) => resolve(e.detail.payload['srcMap']), { once: true }));
         }
 
         // 4. 生成与导出最终文件
@@ -76,7 +82,7 @@ window.ExportManager = class ExportManager {
     }
 
     // 生成侧边栏HTML
-    static _generateSidebarHtml(node, currentPath, pathPrefix, workspaceRootPath) {
+    _generateSidebarHtml(node, currentPath, pathPrefix, workspaceRootPath) {
         let html = '';
         if (node.type === 'folder') {
             const containsActivePage = (folderNode) => {
@@ -250,17 +256,17 @@ window.PageExporter = class PageExporter {
         const pageData = await new Promise(resolve => {
             const handler = (e) => {
                 if (e.detail.payload && e.detail.payload.path === this.path) {
-                    window.removeEventListener('pageLoaded', handler);
+                    window.removeEventListener('fileLoaded', handler);
                     resolve(e.detail.payload);
                 }
             };
-            window.addEventListener('pageLoaded', handler);
-            ipc.loadPage(this.path);
+            window.addEventListener('fileLoaded', handler);
+            ipc.loadFile(this.path, {});
         });
 
         const container = document.createElement('div');
         this.tempEditor = new PageEditor(container, this.path, null);
-        await this.tempEditor.loadContentForRender(pageData.content);
+        await this.tempEditor.loadContentForRender(pageData['content']['blocks']);
 
         // 等待所有异步块渲染完毕 (通过之前加入的 exportReadyPromise)
         const gatherPromises = (blocks) => {
@@ -299,7 +305,7 @@ window.PageExporter = class PageExporter {
         scan(this.tempEditor.blocks);
 
         // 收集背景图片
-        const pageConfig = pageData.config?.page || {};
+        const pageConfig = pageData['config']?.page || {};
         if (pageConfig.background?.type === 'image' && pageConfig.background.value) {
             const src = pageConfig.background.value;
             const isOnline = src.startsWith('http://') || src.startsWith('https://');
@@ -361,7 +367,7 @@ window.PageExporter = class PageExporter {
             window.addEventListener('fileConfigurationResolved', handler);
         });
 
-        const computedConfig = window.computeFinalConfig(resolved.config);
+        const computedConfig = window.computeFinalConfig(resolved.config, 'page');
 
         // 背景图片路径替换
         if (computedConfig.background?.type === 'image' && computedConfig.background.value) {
@@ -374,7 +380,7 @@ window.PageExporter = class PageExporter {
         let customStyleContent = '';
         let backgroundStyleContent = '';
         for (const key in computedConfig) {
-            if (JSON.stringify(computedConfig[key]) !== JSON.stringify(window.DEFAULT_CONFIG.page[key])) {
+            if (JSON.stringify(computedConfig[key]) !== JSON.stringify(DEFAULT_CONFIG.page[key])) {
                 const value = computedConfig[key];
                 if (key === 'background' && typeof value === 'object') {
                     const bgColor = (value.type === 'color') ? value.value : 'transparent';
@@ -416,8 +422,8 @@ window.PageExporter = class PageExporter {
         }
 
         // 调用 ExportManager 的静态方法生成侧边栏
-        const sidebarHtml = window.ExportManager._generateSidebarHtml(filteredWorkspaceData, this.path, this.pathPrefix, this.workspaceData.path);
-        const finalHtml = window.ExportManager._assembleFinalHtml(this.path, { mainContentHtml, customStyleTag, libIncludes, cssRelativePath: `${this.pathPrefix}style.css` }, sidebarHtml, this.pathPrefix);
+        const sidebarHtml = ExportManager._generateSidebarHtml(filteredWorkspaceData, this.path, this.pathPrefix, this.workspaceData.path);
+        const finalHtml = ExportManager._assembleFinalHtml(this.path, { mainContentHtml, customStyleTag, libIncludes, cssRelativePath: `${this.pathPrefix}style.css` }, sidebarHtml, this.pathPrefix);
 
         return {
             content: finalHtml,

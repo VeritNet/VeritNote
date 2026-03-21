@@ -75,14 +75,12 @@ protected:
     void ReadConfigFile(const json& payload);
     void WriteConfigFile(const json& payload);
     void ResolveFileConfiguration(const json& payload);
+    // File IO
+    void LoadFile(const json& payload);
+    void SaveFile(const json& payload);
     // Page
-    void LoadPage(const json& payload);
-    void SavePage(const json& payload);
     void FetchQuoteContent(const json& payload);
     void FetchDataContent(const json& payload);
-    // Data
-    void LoadDatabase(const json& payload);
-    void SaveDatabase(const json& payload);
 
     bool ExtractResourceToFile(const std::wstring& resourceUrlPath, const std::filesystem::path& destinationPath);
 
