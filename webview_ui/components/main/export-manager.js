@@ -54,7 +54,7 @@ export const ExportManager = class ExportManager {
 
         let imageSrcMap = {};
         if (allImageTasks.length > 0) {
-            const uniqueTasks = Array.from(new Map(allImageTasks.map(t => [t.originalSrc, t])).values());
+            const uniqueTasks = Array.from(new Map(allImageTasks.map(t => [t['originalSrc'], t])).values());
             ipc.processExportImages(uniqueTasks);
             imageSrcMap = await new Promise(resolve => window.addEventListener('exportImagesProcessed', (e) => resolve(e.detail.payload['srcMap']), { once: true }));
         }
@@ -82,7 +82,7 @@ export const ExportManager = class ExportManager {
     }
 
     // 生成侧边栏HTML
-    _generateSidebarHtml(node, currentPath, pathPrefix, workspaceRootPath) {
+    static _generateSidebarHtml(node, currentPath, pathPrefix, workspaceRootPath) {
         let html = '';
         if (node.type === 'folder') {
             const containsActivePage = (folderNode) => {
@@ -99,7 +99,7 @@ export const ExportManager = class ExportManager {
             if (node.children && node.children.length > 0) {
                 html += `<div class="tree-node-children" style="${isOpen ? 'display: block;' : 'display: none;'}">`;
                 node.children.forEach(child => {
-                    html += this._generateSidebarHtml(child, currentPath, pathPrefix, workspaceRootPath);
+                    html += ExportManager._generateSidebarHtml(child, currentPath, pathPrefix, workspaceRootPath);
                 });
                 html += '</div>';
             }
@@ -296,7 +296,7 @@ window.PageExporter = class PageExporter {
                     const isLocalHttp = src.includes('http://veritnote.localhost');
                     const isOnline = (src.startsWith('http://') || src.startsWith('https://')) && !isLocalHttp;
                     if ((isOnline && this.options.downloadOnline) || (!isOnline && this.options.copyLocal)) {
-                        imageTasks.push({ originalSrc: src, pagePath: this.path });
+                        imageTasks.push({ 'originalSrc': src, 'pagePath': this.path });
                     }
                 }
                 if (b.children) scan(b.children);
@@ -310,7 +310,7 @@ window.PageExporter = class PageExporter {
             const src = pageConfig.background.value;
             const isOnline = src.startsWith('http://') || src.startsWith('https://');
             if ((isOnline && this.options.downloadOnline) || (!isOnline && this.options.copyLocal)) {
-                imageTasks.push({ originalSrc: src, pagePath: this.path });
+                imageTasks.push({ 'originalSrc': src, 'pagePath': this.path });
             }
         }
 
