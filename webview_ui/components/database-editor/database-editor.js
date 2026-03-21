@@ -195,12 +195,8 @@ export class DatabaseEditor extends Editor {
         this.tabManager.setUnsavedStatus(this.filePath, true);
     }
 
-    getSavableContent() {
-        return this.dbData;
-    }
-
     save() {
-        super.save();
+        super.save(this.dbData);
     }
 
     onBeforeSave() {

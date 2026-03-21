@@ -115,7 +115,7 @@ export class PageHistoryManager {
     }
 
     _createSnapshot() {
-        return JSON.stringify(this.editor.getSavableContent()['blocks']);
+        return JSON.stringify(this.editor.blocks.map(block => block.data));
     }
 
     _applySnapshot(snapshot) {
@@ -136,7 +136,7 @@ export class PageHistoryManager {
         }
 
         if (this.editor.referenceManager) {
-            const allBlockData = this.editor.getSavableContent()['blocks'];
+            const allBlockData = this.editor.blocks.map(block => block.data);
             this.editor.referenceManager.handleHistoryChange(this.editor.filePath, allBlockData);
         }
 
@@ -144,7 +144,7 @@ export class PageHistoryManager {
         window.dispatchEvent(new CustomEvent('history:applied', {
             detail: {
                 filePath: this.editor.currentPagePath,
-                allBlockData: this.editor.getSavableContent()['blocks']
+                allBlockData: this.editor.blocks.map(block => block.data)
             }
         }));
     }

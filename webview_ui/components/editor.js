@@ -22,9 +22,12 @@ export class Editor {
         ipc.loadFile(this.filePath, this.context);
     }
 
-    save() {
+    /**
+     * @param {any} savableContent 需要被持久化保存的 content 数据
+     * @returns
+     */
+    save(savableContent) {
         if (!this.isReady) return;
-        const savableContent = this.getSavableContent();
 
         // 调用子类可选的保存前UI处理
         if (typeof this.onBeforeSave === 'function') this.onBeforeSave();
@@ -111,9 +114,6 @@ export class Editor {
     }
 
     // --- 需要子类覆盖的抽象/虚拟方法 ---
-
-    // 返回需要被持久化保存的 content 数据
-    getSavableContent() { return {}; }
 
     // 接收后端传来的 content 和 context 进行解析与渲染
     onContentParsed(content, context) { }

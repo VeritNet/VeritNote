@@ -571,7 +571,9 @@ export class PageEditor extends Editor {
     // --- ========================================================== ---
 
     savePage() {
-        this.save();
+        this.save({
+            'blocks': this.blocks.map(block => block.data)
+        });
     }
 
     // 找到基类的 UI 回调，控制保存按钮状态:
@@ -662,16 +664,6 @@ export class PageEditor extends Editor {
                 currentBlock = parentInfo ? parentInfo.parentBlock : null;
             }
         }
-    }
-
-    /**
-     * Gets all block data ready for saving.
-     * @returns {Array<object>} An array of serializable block data objects.
-     */
-    getSavableContent() {
-        return {
-            'blocks': this.blocks.map(block => block.data)
-        };
     }
 
     // --- Event Handlers ---
