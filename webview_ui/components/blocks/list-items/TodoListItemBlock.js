@@ -27,7 +27,7 @@ class TodoListItemBlock extends TextBlock {
         // 创建独特的内部布局: [Checkbox] [Text Area]
         this.contentElement.innerHTML = `
             <div class="todo-checkbox-wrapper">
-                <input type="checkbox" class="todo-checkbox" id="todo-${this.id}">
+                <input type="checkbox" class="todo-checkbox" id="todo-${this.id}" data-id="${this.id}">
             </div>
             <div class="list-item-content-wrapper">
                 <div class="list-item-text-area"></div>

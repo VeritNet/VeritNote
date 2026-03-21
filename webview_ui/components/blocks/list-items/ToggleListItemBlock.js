@@ -28,7 +28,7 @@ class ToggleListItemBlock extends TextBlock {
         // Create the unique layout: [Toggle Triangle] [Text Area]
         this.contentElement.innerHTML = `
             <div class="toggle-triangle-wrapper">
-                <div class="toggle-triangle"></div>
+                <div class="toggle-triangle" data-id="${this.id}"></div>
             </div>
             <div class="list-item-content-wrapper">
                 <div class="list-item-text-area"></div>

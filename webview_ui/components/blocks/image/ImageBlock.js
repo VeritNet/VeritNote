@@ -66,7 +66,14 @@ class ImageBlock extends Block {
 
         if (p.src) {
             const alt = p.alt || 'image';
-            this.contentElement.innerHTML = `<img src="${p.src}" alt="${alt}" style="${style}">`;
+            const imgHtml = `<img src="${p.src}" alt="${alt}" style="${style}">`;
+
+            // 如果存在超链接属性，则用 <a> 标签包裹图片
+            if (p.href) {
+                this.contentElement.innerHTML = `<a href="${p.href}" target="_blank" rel="noopener noreferrer">${imgHtml}</a>`;
+            } else {
+                this.contentElement.innerHTML = imgHtml;
+            }
         } else {
             this.contentElement.innerHTML = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
         }
@@ -105,6 +112,7 @@ class ImageBlock extends Block {
                     this.properties.href = value || '';
                     // No visual change in the editor, just save the data
                     this.BAPI_PE.emitChange(true, 'edit-image-link', this);
+                    this._renderContent(); // Re-render to update the link <a> wrapping
                 }
             );
         }
