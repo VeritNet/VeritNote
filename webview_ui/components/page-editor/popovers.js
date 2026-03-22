@@ -562,16 +562,16 @@ export class PopoverManager {
 
         // 1. Build unique HTML for this popover
         this.popover.innerHTML = `
-            <div class="context-menu" style="display: block; position: static; width: 100%; box-shadow: none; border: none;">
-                <div class="context-menu-item" data-action="createQuote">Create Quote</div>
-                <div class="context-menu-item" data-action="createCopy">Create Copy</div>
-                <div class="context-menu-item" data-action="createLink">Create Link</div>
+            <div class="menu glass" style="position: static">
+                <div class="menu-item" data-action="createQuote">Create Quote</div>
+                <div class="menu-item" data-action="createCopy">Create Copy</div>
+                <div class="menu-item" data-action="createLink">Create Link</div>
             </div>
         `;
         // We are reusing the context-menu styling for simplicity.
 
         // 2. Add event listeners
-        this.popover.querySelectorAll('.context-menu-item').forEach(item => {
+        this.popover.querySelectorAll('.menu-item').forEach(item => {
             item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 const action = e.target.dataset['action'];

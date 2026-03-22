@@ -1,0 +1,80 @@
+/* theme.css */
+:root {
+    /* Backgrounds */
+    --bg-1: #181818;
+    --bg-2: #1f1f1f;
+    --bg-3: #2d2d2d;
+    --bg-4: #3d3d3d;
+    --bg-act: #007acc;
+    --bg-act-hv: #0098ff;
+    --bg-err: #e81123;
+    --bg-err-hv: #f13444;
+    --bg-pop: rgba(25, 25, 30, 0.65);
+    /* Text Colors */
+    --tc-1: #e0e0e0;
+    --tc-2: #a0a0a0;
+    --tc-3: #666666;
+    --tc-act: #4daafc;
+    --tc-err: #ff8a8a;
+    --tc-inv: #ffffff;
+    /* Borders */
+    --bd-1: #333333;
+    --bd-2: #444444;
+    --bd-act: #007acc;
+    --bd-err: #e81123;
+    /* Spacing */
+    --sp-xs: 4px;
+    --sp-s: 8px;
+    --sp-m: 12px;
+    --sp-l: 16px;
+    --sp-xl: 24px;
+    /* Border Radius */
+    --rd-s: 4px;
+    --rd-m: 6px;
+    --rd-l: 10px;
+    --rd-f: 9999px;
+    /* Shadows */
+    --sh-1: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --sh-2: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --sh-3: 0 8px 24px rgba(0, 0, 0, 0.5);
+    /* Transitions / Animations */
+    --tr-f: 0.15s ease;
+    --tr-m: 0.25s ease;
+    --tr-s: 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --ani-f: 0.15s;
+    --ani-m: 0.25s ;
+    --ani-s: 0.4s;
+    /* Typography */
+    --font-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", Consolas, monospace;
+    /* Glass */
+    --gls: 10px;
+}
+
+.light-theme {
+  --bg-1: #ffffff;
+  --bg-2: #f5f5f5;
+  --bg-3: #e5e5e5;
+  --bg-4: #d4d4d4;
+  --bg-act: #0060a0;
+  --bg-act-hv: #007acc;
+  --bg-err: #d13438;
+  --bg-err-hv: #e81123;
+  --bg-pop: rgba(255, 255, 255, 0.85);
+
+  --tc-1: #202020;
+  --tc-2: #606060;
+  --tc-3: #a0a0a0;
+  --tc-act: #0060a0;
+  --tc-err: #c50f1f;
+  --tc-inv: #ffffff;
+
+  --bd-1: #e0e0e0;
+  --bd-2: #cccccc;
+  --bd-act: #0060a0;
+  --bd-err: #d13438;
+
+  --sh-1: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --sh-2: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --sh-3: 0 8px 24px rgba(0, 0, 0, 0.15);
+}

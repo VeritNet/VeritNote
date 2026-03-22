@@ -418,7 +418,7 @@ body.is-dragging-block #references-view.active {
 
 #popover {
     position: fixed;
-    background: rgba(35, 35, 37, 0.7);
+    background: rgba(35, 35, 37, 0.5);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);

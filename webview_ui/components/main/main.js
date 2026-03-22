@@ -19,6 +19,8 @@ import { INHERIT_VALUE } from './default-config.js';
 
 import { ConfigModal } from './ConfigModal.js';
 
+import { initUiLib } from '../ui-lib/ui-lib.js';
+
 
 // ==================================================================
 
@@ -47,6 +49,8 @@ window['BAPI_WD'] = {
 
 
 window['initializeMainComponent'] = () => {
+    initUiLib();
+
     console.log("initializeMainComponent");
     window.workspaceRootPath = '';
 
@@ -618,7 +622,14 @@ window['initializeMainComponent'] = () => {
             contextMenu.style.display = 'none';
         }
     }
-    sidebar.addEventListener('contextmenu', (e) => { e.preventDefault(); contextMenuTarget = e.target.closest('.tree-node, #workspace-tree'); if (!contextMenuTarget) return; contextMenu.style.top = `${e.clientY}px`; contextMenu.style.left = `${e.clientX}px`; contextMenu.style.display = 'block'; });
+    sidebar.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        contextMenuTarget = e.target.closest('.tree-node, #workspace-tree');
+        if (!contextMenuTarget) return;
+        contextMenu.style.top = `${e.clientY}px`;
+        contextMenu.style.left = `${e.clientX}px`;
+        contextMenu.style.display = 'block';
+    });
 
     document.addEventListener('mousedown', (e) => {
         // Only handles closing the context menu now.

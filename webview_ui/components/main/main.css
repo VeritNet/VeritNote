@@ -12,14 +12,10 @@
     min-width: 120px;
     max-width: 650px;
     flex-shrink: 0;
-    background-color: var(--bg-secondary);
-    border-right: 1px solid var(--border-primary);
-    display: flex;
-    flex-direction: column;
     transition: width var(--transition-medium), transform var(--transition-medium), min-width var(--transition-medium);
     will-change: width, transform;
-    position: relative;
     z-index: 50;
+    margin: var(--sp-s);
 }
 
 #sidebar-resizer {
@@ -283,10 +279,7 @@
 /* --- 主内容区布局 --- */
 #main-content {
     flex-grow: 1;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
-    position: relative;
 }
 
 /* 窗口控件 */
@@ -299,30 +292,8 @@
     align-items: center;
     z-index: 2000;
     -webkit-app-region: no-drag;
+    padding-right: var(--sp-xs);
 }
-
-.window-control-btn {
-    width: 46px;
-    height: 100%;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-    .window-control-btn:hover {
-        background-color: var(--bg-tertiary);
-        color: var(--text-primary);
-    }
-
-    .window-control-btn.danger:hover {
-        background-color: var(--color-red-danger);
-        color: var(--color-white-pure);
-    }
 
 body.is-fullscreen #maximize-btn {
     pointer-events: none;
@@ -473,43 +444,6 @@ body.is-fullscreen #tab-bar {
     font-size: 18px;
     user-select: none;
 }
-
-/* 交互式浮动元素 (全局) */
-.context-menu {
-    position: absolute;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--shadow-primary);
-    padding: var(--spacing-xs);
-    width: 180px;
-    z-index: 2000;
-    user-select: none;
-}
-
-.context-menu-item {
-    padding: var(--spacing-s) var(--spacing-m);
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color var(--transition-fast);
-}
-
-    .context-menu-item:hover {
-        background-color: var(--bg-tertiary);
-    }
-
-    .context-menu-item.danger:hover {
-        background-color: var(--bg-danger-hover);
-        color: var(--text-danger);
-    }
-
-    .context-menu-item.separator {
-        height: 1px;
-        background-color: var(--border-primary);
-        margin: var(--spacing-xs) 0;
-        padding: 0;
-    }
 
 .export-overlay {
     position: fixed;
