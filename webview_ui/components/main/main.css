@@ -15,7 +15,10 @@
     transition: width var(--transition-medium), transform var(--transition-medium), min-width var(--transition-medium);
     will-change: width, transform;
     z-index: 50;
-    margin: var(--sp-s);
+    margin-left: var(--sp-s);
+    margin-top: var(--sp-m);
+    margin-bottom: var(--sp-m);
+    margin-right: var(--sp-xs);
 }
 
 #sidebar-resizer {
@@ -70,96 +73,52 @@
     }
 
 
-.workspace-tree {
-    padding: var(--spacing-s);
+/* 树容器 */
+#workspace-tree {
+    padding: var(--sp-xs);
     overflow-y: auto;
     flex-grow: 1;
 }
 
-.loading-placeholder, .empty-workspace {
-    color: var(--text-secondary);
-    padding: var(--spacing-s);
-    font-style: italic;
+.tree-item {
+    position: relative; /* 为绝对定位的设置按钮提供参照 */
 }
 
-.tree-node {
-    padding: var(--spacing-xs) var(--spacing-s);
-    margin-bottom: 2px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    user-select: none;
-    transition: background-color var(--transition-fast);
-    gap: var(--spacing-s);
-}
-
-    .tree-node:hover {
-        background-color: var(--bg-tertiary);
+    .tree-item .name {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 28px; /* 给右侧的设置按钮留出空间 */
+        font-size: 13px;
     }
 
-    .tree-node.active {
-        background-color: var(--bg-accent);
-        color: var(--text-primary);
+    /* 覆盖尺寸，并实现悬浮显示 */
+    .tree-item .item-settings-btn {
+        position: absolute;
+        right: 4px;
+        width: 24px !important;
+        height: 24px !important;
+        padding: 0 !important;
+        opacity: 0;
+        transition: opacity var(--tr-f), background-color var(--tr-f);
     }
 
-    .tree-node .icon {
+    .tree-item:hover .item-settings-btn,
+    .item-settings-btn:focus {
+        opacity: 1;
+    }
+
+    .tree-item > svg:not(.chevron), .tree-item .type-icon svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        color: var(--tc-2);
+    }
+
+    .tree-item .icon.chevron {
         width: 16px;
         height: 16px;
-        text-align: center;
-        flex-shrink: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .tree-node.folder > .icon::before {
-        content: '▶';
-        font-size: 10px;
-        display: inline-block;
-        transition: transform var(--transition-fast);
-    }
-
-    .tree-node.folder.open > .icon::before {
-        transform: rotate(90deg);
-    }
-
-.tree-node-children {
-    padding-left: var(--spacing-m);
-}
-
-.tree-node .name {
-    flex-grow: 1; /* Allow name to take up space */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.item-settings-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-left: auto; /* Push to the far right */
-    opacity: 0; /* Hide by default */
-    transition: opacity var(--transition-fast), background-color var(--transition-fast);
-}
-
-    .tree-node:hover .item-settings-btn,
-    .item-settings-btn:hover {
-        opacity: 1; /* Show on hover of parent or self */
-    }
-
-    .item-settings-btn:hover {
-        background-color: var(--bg-tertiary);
-        color: var(--text-primary);
     }
 
 
@@ -219,9 +178,11 @@
     min-width: 0;
     border-right: none;
     transform: translateX(-100%);
-    padding: 0;
+    padding: 0 !important;
     overflow: hidden;
     pointer-events: none;
+    margin-left: 0;
+    margin-right: 0;
 }
 
     .sidebar-collapsed #sidebar .sidebar-header,
@@ -238,6 +199,9 @@
     border-right: 1px solid var(--border-primary);
     box-shadow: 5px 0 15px rgba(0,0,0,0.2);
     pointer-events: auto;
+    margin-left: var(--sp-s);
+    margin-right: var(--sp-xs);
+    padding: var(--sp-xs) !important;
 }
 
     .sidebar-collapsed.sidebar-peek #sidebar .sidebar-header,

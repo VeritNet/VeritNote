@@ -141,6 +141,18 @@ a:hover {
 [bd="r1"] {
 	border-right: 1px solid var(--bd-1) !important;
 }
+[bd="b2"] {
+	border-bottom: 1px solid var(--bd-2) !important;
+}
+[bd="r2"] {
+	border-right: 1px solid var(--bd-2) !important;
+}
+[bd="b-act"] {
+	border-bottom: 1px solid var(--bd-act) !important;
+}
+[bd="r-act"] {
+	border-right: 1px solid var(--bd-act) !important;
+}
 
 /* Radius */
 [rd="s"] {
@@ -440,24 +452,48 @@ a:hover {
 	color: var(--tc-3);
 }
 
-/* Select */
-.sel {
-	appearance: none;
-	background-color: var(--bg-1);
-	color: var(--tc-1);
-	border: 1px solid var(--bd-1);
-	border-radius: var(--rd-m);
-	padding: 6px 28px 6px 10px;
-	transition: all var(--tr-f);
-	background-image: url('data:image/svg+xml;utf8,<svg fill="%23a0a0a0" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
-	background-repeat: no-repeat;
-	background-position: right 6px center;
-	cursor: pointer;
-}
+	.inp.num-slider {
+		cursor: ew-resize;
+		background-image: linear-gradient(to right, var(--bg-4) var(--val-pct, 0%), transparent var(--val-pct, 0%));
+		background-repeat: no-repeat;
+		padding-right: 0;
+	}
 
-.sel:focus {
-	border-color: var(--bd-act);
-}
+		.inp.num-slider:focus {
+			cursor: text;
+			background-image: none; /* Focus时隐藏进度条避免干扰输入 */
+		}
+
+		/* 隐藏原生数字箭号 */
+		.inp.num-slider::-webkit-inner-spin-button,
+		.inp.num-slider::-webkit-outer-spin-button {
+			-webkit-appearance: none;
+			margin: 0;
+		}
+
+/* Select & Readonly Trigger */
+	.sel, .inp[readonly] {
+		display: flex;
+		align-items: center;
+		appearance: none;
+		background-color: var(--bg-1);
+		color: var(--tc-1);
+		border: 1px solid var(--bd-1);
+		border-radius: var(--rd-m);
+		padding: 6px 28px 6px 10px;
+		transition: all var(--tr-f);
+		background-image: url('data:image/svg+xml;utf8,<svg fill="%23a0a0a0" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+		background-repeat: no-repeat;
+		background-position: right 6px center;
+		cursor: pointer;
+		user-select: none;
+		width: 100%;
+		min-height: 32px;
+	}
+
+		.sel:focus, .inp[readonly]:focus {
+			border-color: var(--bd-act);
+		}
 
 /* Combobox (Input with dropdown arrow) */
 .combo {
@@ -648,6 +684,18 @@ a:hover {
 	margin: 4px 0;
 }
 
+
+.menu.dropdown {
+	margin-top: 4px;
+	width: 100%;
+	transform-origin: top center;
+	display: none; /* 默认隐藏 */
+}
+
+	.menu.dropdown.show {
+		display: flex; /* 触发显示配合 anim-fade */
+	}
+
 /* Badge / Tag */
 .badge {
 	display: inline-flex;
@@ -663,28 +711,45 @@ a:hover {
 
 /* Segmented Control / Mode Switch */
 .seg {
+	position: relative;
 	display: inline-flex;
 	background-color: var(--bg-1);
 	border-radius: var(--rd-m);
 	padding: 2px;
 	border: 1px solid var(--bd-1);
+	z-index: 1;
 }
+
+	.seg::before {
+		content: '';
+		position: absolute;
+		top: 2px;
+		bottom: 2px;
+		left: var(--seg-x, 2px);
+		width: var(--seg-w, 0px);
+		background-color: var(--bg-3);
+		border-radius: var(--rd-s);
+		box-shadow: var(--sh-1);
+		transition: left var(--tr-m) cubic-bezier(0.25, 0.8, 0.25, 1), width var(--tr-m) cubic-bezier(0.25, 0.8, 0.25, 1);
+		z-index: -1;
+	}
 
 .seg-item {
 	padding: 4px 12px;
 	border-radius: var(--rd-s);
 	cursor: pointer;
 	color: var(--tc-2);
-	transition: var(--tr-f);
+	transition: color var(--tr-f);
 	font-size: 13px;
 	user-select: none;
+	position: relative;
 }
 
-.seg-item[act="true"] {
-	background-color: var(--bg-3);
-	color: var(--tc-1);
-	box-shadow: var(--sh-1);
-}
+	.seg-item[act="true"] {
+		background-color: var(--bg-3);
+		color: var(--tc-1);
+		box-shadow: var(--sh-1);
+	}
 
 /* Tab Bar */
 .tab-bar {
@@ -711,6 +776,11 @@ a:hover {
 .tab[act="true"] {
 	color: var(--tc-1);
 	border-bottom-color: var(--bd-act);
+}
+
+/* Combo Box Container */
+.combo-box {
+	position: relative;
 }
 
 /* Custom Scrollbar */
