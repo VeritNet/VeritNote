@@ -34,14 +34,14 @@ class AudioBlock extends Block {
 
     static getPropertiesSchema() {
         return [
-            { key: 'src', label: 'Audio Source', type: 'text' },
-            { key: 'href', label: 'Link URL', type: 'text', placeholder: 'External link' },
+            { name: 'src', display: 'Audio Source', type: 'text' },
+            { name: 'href', display: 'Link URL', type: 'text', placeholder: 'External link' },
 
             // 音频控制
-            { key: 'controls', label: 'Show Controls', type: 'checkbox' },
-            { key: 'autoplay', label: 'Autoplay', type: 'checkbox' },
-            { key: 'loop', label: 'Loop', type: 'checkbox' },
-            { key: 'muted', label: 'Muted', type: 'checkbox' },
+            { name: 'controls', display: 'Show Controls', type: 'tgl' },
+            { name: 'autoplay', display: 'Autoplay', type: 'tgl' },
+            { name: 'loop', display: 'Loop', type: 'tgl' },
+            { name: 'muted', display: 'Muted', type: 'tgl' },
 
             // 继承通用
             ...super.getPropertiesSchema()

@@ -15,10 +15,12 @@
     transition: width var(--transition-medium), transform var(--transition-medium), min-width var(--transition-medium);
     will-change: width, transform;
     z-index: 50;
-    margin-left: var(--sp-s);
-    margin-top: var(--sp-m);
-    margin-bottom: var(--sp-m);
-    margin-right: var(--sp-xs);
+    margin-left: 0;
+    margin-top: var(--sp-l);
+    margin-bottom: var(--sp-l);
+    margin-right: var(--sp-m);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
 }
 
 #sidebar-resizer {
@@ -181,7 +183,6 @@
     padding: 0 !important;
     overflow: hidden;
     pointer-events: none;
-    margin-left: 0;
     margin-right: 0;
 }
 
@@ -199,9 +200,8 @@
     border-right: 1px solid var(--border-primary);
     box-shadow: 5px 0 15px rgba(0,0,0,0.2);
     pointer-events: auto;
-    margin-left: var(--sp-s);
-    margin-right: var(--sp-xs);
-    padding: var(--sp-xs) !important;
+    margin-right: var(--sp-m);
+    padding: var(--sp-s) !important;
 }
 
     .sidebar-collapsed.sidebar-peek #sidebar .sidebar-header,
@@ -269,7 +269,6 @@ body.is-fullscreen #maximize-btn {
 #tab-bar {
     display: flex;
     align-items: center;
-    background-color: var(--bg-primary);
     padding: 4px var(--spacing-s) 0 0;
     flex-shrink: 0;
     overflow-x: auto;

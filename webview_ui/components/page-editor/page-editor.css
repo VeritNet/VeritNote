@@ -38,10 +38,7 @@
 }
 
 .right-sidebar-header {
-    padding: var(--spacing-s);
     border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    justify-content: center;
 }
 
 #right-sidebar-content {
@@ -52,9 +49,7 @@
 }
 
 .right-sidebar-footer {
-    padding: var(--spacing-s);
     border-top: 1px solid var(--border-primary);
-    display: flex;
 }
 
 .app-container.right-sidebar-collapsed #right-sidebar {
@@ -246,30 +241,29 @@ body.is-dragging-block #references-view.active {
 }
 
 /* --- Floating Toolbar --- */
-#floating-toolbar {
+#floating-toolbar-container {
     position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 0;
+}
+
+#floating-toolbar {
+    position: relative;
     bottom: var(--spacing-m);
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-s);
-    background: rgba(45, 45, 45, 0.65); /* 不透明度 */
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1); /* 边框 */
-    padding: var(--spacing-xs) var(--spacing-s);
-    border-radius: 50px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); /* 阴影 */
     transition: transform var(--transition-cubic);
     will-change: transform;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: var(--sp-xs) var(--sp-s);
 }
 
 
 #toolbar-peek-trigger {
     position: absolute;
-    bottom: 100%;
+    bottom: 0;
     left: 0;
     width: 100%;
     height: 20px;
@@ -292,31 +286,6 @@ body.is-dragging-block #references-view.active {
     transform: rotate(180deg);
 }
 
-.toolbar-icon-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: var(--spacing-s);
-    border-radius: 6px;
-    transition: background-color var(--transition-fast), color var(--transition-fast);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-}
-
-    .toolbar-icon-btn:hover {
-        background-color: var(--bg-tertiary);
-        color: var(--text-primary);
-    }
-
-    .toolbar-icon-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        background-color: transparent;
-    }
 
 #save-btn.unsaved {
     background-color: #4a6a8f;
@@ -328,26 +297,14 @@ body.is-dragging-block #references-view.active {
     }
 
 .mode-toggle {
-    display: flex;
-    align-items: center;
     position: relative;
-    background-color: var(--bg-primary);
-    border-radius: 8px;
-    padding: 2px;
-    height: 36px;
 }
 
 .mode-toggle-option {
-    padding: var(--spacing-xs);
     z-index: 2;
     cursor: pointer;
     color: var(--text-secondary);
     transition: color var(--transition-medium);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
 }
 
 .mode-toggle.edit-active .mode-toggle-option[data-mode="edit"], .mode-toggle.preview-active .mode-toggle-option[data-mode="preview"] {
@@ -666,59 +623,22 @@ body.is-linking-block .reference-item {
         line-height: 1.2;
     }
 
-/* Details Panel in Right Sidebar */
-.details-panel-section {
-    padding: var(--spacing-s);
-    margin-bottom: var(--spacing-s);
-}
 
-    .details-panel-section + .details-panel-section {
-        border-top: 2px solid var(--border-primary);
-        padding-top: var(--spacing-m);
-        margin-top: var(--spacing-m);
-    }
+
+
+.details-panel-section + .details-panel-section {
+    border-top: 2px solid var(--border-primary);
+    padding-top: var(--spacing-m);
+    margin-top: var(--spacing-m);
+}
 
 .details-section-header {
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-primary);
     margin-bottom: var(--spacing-m);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-
-.details-property {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13px;
-    padding: var(--spacing-xs) 0;
-    margin-bottom: var(--spacing-s);
-}
-
-.details-property-label {
-    color: var(--text-secondary);
-    flex-shrink: 0;
-    margin-right: var(--spacing-s);
-}
-
-.details-property-value {
-    color: var(--text-primary);
-    background-color: var(--bg-accent);
-    padding: 3px 7px;
-    border-radius: 4px;
-    max-width: 75%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-transform: capitalize;
-}
-
-    .details-property-value.is-monospace {
-        font-family: var(--font-family-monospace);
-        text-transform: none;
-    }
-
 
 .details-hierarchy-view {
     font-size: 13px;
@@ -775,114 +695,6 @@ body.is-linking-block .reference-item {
         font-weight: 500;
     }
 
-
-/* Properties Section */
-.details-input-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--spacing-s);
-    gap: var(--spacing-s);
-}
-
-.details-input-label {
-    font-size: 13px;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-    min-width: 80px;
-}
-
-.details-input-field {
-    flex-grow: 1;
-    background-color: var(--bg-accent);
-    border: 1px solid var(--border-primary);
-    color: var(--text-primary);
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 13px;
-    outline: none;
-    min-width: 0;
-    transition: border-color var(--transition-fast);
-}
-
-    .details-input-field:focus {
-        border-color: var(--text-accent);
-    }
-
-    .details-input-field[type="checkbox"] {
-        flex-grow: 0;
-    }
-
-/* Custom CSS Section */
-.custom-css-container {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-s);
-}
-
-.css-rule-block {
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-primary);
-    border-radius: 4px;
-    padding: 8px;
-    position: relative;
-}
-
-.css-selector-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--border-primary);
-    padding-bottom: 8px;
-}
-
-.css-selector-prefix {
-    font-family: monospace;
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-
-.css-properties-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.css-property-row {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-}
-
-.css-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary);
-    padding: 2px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-    .css-btn:hover {
-        background-color: var(--bg-tertiary);
-        color: var(--text-primary);
-    }
-
-.css-btn-add {
-    width: 100%;
-    margin-top: 4px;
-    border: 1px dashed var(--border-primary);
-    font-size: 12px;
-    padding: 4px;
-}
-
-.css-btn-delete {
-    color: var(--text-danger);
-}
 
 
 /* --- Block Container Drop Target Styles --- */

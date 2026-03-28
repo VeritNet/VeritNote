@@ -6,7 +6,7 @@
 
 <aside id="right-sidebar">
     <div id="right-sidebar-resizer"></div>
-    <div class="right-sidebar-header">
+    <div class="right-sidebar-header" pd="s" fx="c">
         <div id="right-sidebar-view-toggle">
             <div class="rs-view-slider"></div>
             <div class="rs-view-option active" data-view="references" title="References">
@@ -25,8 +25,8 @@
             <div class="empty-details-placeholder">Select a block to see its details.</div>
         </div>
     </div>
-    <div class="right-sidebar-footer">
-        <button id="right-sidebar-toggle-btn" class="sidebar-footer-btn" title="Collapse right sidebar">
+    <div class="right-sidebar-footer" fx="c" pd="s">
+        <button id="right-sidebar-toggle-btn" class="btn fw" gap="s" bg="2" hv-bg="3" title="Collapse right sidebar">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line><polyline points="10 8 15 12 10 16"></polyline></svg>
             <span>Collapse</span>
         </button>
@@ -34,21 +34,23 @@
 </aside>
 
 <!-- Editor-specific Floating Toolbar -->
-<div id="floating-toolbar">
+<div id="floating-toolbar-container">
     <div id="toolbar-peek-trigger"></div>
-    <button id="toggle-toolbar-btn" class="toolbar-icon-btn" title="Collapse Toolbar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </button>
-    <button id="save-btn" class="toolbar-icon-btn" title="Save (Ctrl+S)">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-    </button>
-    <div class="mode-toggle edit-active" id="mode-toggle">
-        <div class="mode-toggle-slider"></div>
-        <div class="mode-toggle-option" data-mode="edit" title="Edit Mode">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-        </div>
-        <div class="mode-toggle-option" data-mode="preview" title="Preview Mode">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+    <div id="floating-toolbar" class="glass" fx="row" rd="f" gap="s" sh="3">
+        <button id="toggle-toolbar-btn" class="btn sq" bd="none" bg="none" hv-bg="3" tc="2" hv-tc="1" title="Collapse Toolbar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <button id="save-btn" class="btn sq" bd="none" bg="none" hv-bg="3" tc="2" hv-tc="1" title="Save (Ctrl+S)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        </button>
+        <div class="mode-toggle edit-active" id="mode-toggle" fx="row" bg="1" rd="m" style="padding:2px; height:36px; position:relative;">
+            <div class="mode-toggle-slider"></div>
+            <div class="mode-toggle-option" data-mode="edit" title="Edit Mode" fx="c" style="width:32px; height:32px; z-index:2; cursor:pointer;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            </div>
+            <div class="mode-toggle-option" data-mode="preview" title="Preview Mode" fx="c" style="width:32px; height:32px; z-index:2; cursor:pointer;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </div>
         </div>
     </div>
 </div>

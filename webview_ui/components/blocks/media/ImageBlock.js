@@ -34,17 +34,17 @@ class ImageBlock extends Block {
     static getPropertiesSchema() {
         return [
             // 核心属性
-            { key: 'src', label: 'Image Source', type: 'text' },
-            { key: 'href', label: 'Link URL', type: 'text' },
-            { key: 'alt', label: 'Alt Text', type: 'text', placeholder: 'Description for accessibility' },
+            { name: 'src', display: 'Image Source', type: 'text' },
+            { name: 'href', display: 'Link URL', type: 'text' },
+            { name: 'alt', display: 'Alt Text', type: 'text', placeholder: 'Description for accessibility' },
 
             // 尺寸与适应
-            { key: 'width', label: 'Width', type: 'text', placeholder: '100% or 300px' },
-            { key: 'height', label: 'Height', type: 'text', placeholder: 'auto or 200px' },
-            { key: 'objectFit', label: 'Object Fit', type: 'select', options: ['fill', 'contain', 'cover', 'none', 'scale-down'] },
+            { name: 'width', display: 'Width', type: 'text', placeholder: '100% or 300px' },
+            { name: 'height', display: 'Height', type: 'text', placeholder: 'auto or 200px' },
+            { name: 'objectFit', display: 'Object Fit', type: 'combo', values: ['fill', 'contain', 'cover', 'none', 'scale-down'] },
 
             // 滤镜特效 (非常实用)
-            { key: 'filter', label: 'Filter', type: 'text', placeholder: 'grayscale(100%) blur(2px)' },
+            { name: 'filter', display: 'Filter', type: 'text', placeholder: 'grayscale(100%) blur(2px)' },
 
             // 继承通用
             ...super.getPropertiesSchema()

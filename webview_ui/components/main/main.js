@@ -19,7 +19,7 @@ import { INHERIT_VALUE } from './default-config.js';
 
 import { ConfigModal } from './ConfigModal.js';
 
-import { initUiLib } from '../ui-lib/ui-lib.js';
+import { initUiLib, UiTools } from '../ui-lib/ui-lib.js';
 
 
 // ==================================================================
@@ -44,6 +44,16 @@ window['BAPI_WD'] = {
     ['resolveWorkspacePath']: (path) => {
         return window.resolveWorkspacePath(path);
     },
+    ['UiTools']: {
+        ['createKvForm']: (config, onChangeCallback) => {
+            let returns = UiTools.createKvForm(config, onChangeCallback);
+            return {
+                ['dom']: returns.dom,
+                ['getValue']: returns.getValue,
+                ['destroy']: returns.destroy
+            };
+        }
+    }
 };
 // ==================================================================
 

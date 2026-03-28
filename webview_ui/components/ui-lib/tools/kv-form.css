@@ -1,0 +1,33 @@
+/* tools/kv-form.css */
+
+.kv-children {
+    border-left: 1px solid var(--bd-1);
+    transition: all var(--tr-f);
+    margin-left: 12px;
+    padding-left: 12px;
+}
+
+/* 颜色选择器 hack */
+.kv-color-wrap {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--rd-s);
+    border: 1px solid var(--bd-1);
+    overflow: hidden;
+}
+
+    .kv-color-wrap input[type="color"] {
+        position: absolute;
+        inset: -10px;
+        width: 200%;
+        height: 200%;
+        cursor: pointer;
+        opacity: 0;
+    }
+
+    .kv-color-wrap .color-preview {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }

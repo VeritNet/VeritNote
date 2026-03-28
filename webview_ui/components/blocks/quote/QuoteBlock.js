@@ -35,12 +35,12 @@ class QuoteBlock extends Block {
 
     static getPropertiesSchema() {
         return [
-            { key: 'referenceLink', label: 'Ref Link', type: 'text' },
-            { key: 'clickLink', label: 'Click URL', type: 'text' },
+            { name: 'referenceLink', display: 'Ref Link', type: 'text' },
+            { name: 'clickLink', display: 'Click URL', type: 'text' },
 
             // 引用条样式
-            { key: 'borderLeftWidth', label: 'Bar Width', type: 'text', placeholder: '3px' },
-            { key: 'borderLeftColor', label: 'Bar Color', type: 'color' },
+            { name: 'borderLeftWidth', display: 'Bar Width', type: 'text', placeholder: '3px' },
+            { name: 'borderLeftColor', display: 'Bar Color', type: 'color' },
 
             // 继承通用
             ...super.getPropertiesSchema()

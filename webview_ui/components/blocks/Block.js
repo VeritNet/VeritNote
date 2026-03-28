@@ -240,49 +240,44 @@ class Block {
 
         const customContentHtml = this.renderDetailsPanel_custom();
 
-        const propertiesHtml = this._renderPropertiesSectionHTML();
         const customCssHtml = this._renderCustomCSSSectionHTML();
 
         return `
-            <div class="details-panel-section" data-block-id="${this.id}">
-                <div class="details-section-header">Block Details</div>
-                <div class="details-property">
-                    <span class="details-property-label">Type</span>
-                    <span class="details-property-value">${this.type}</span>
+            <div class="details-panel-section" pd="s" data-block-id="${this.id}">
+                <div tc="2" class="details-section-header">Block Details</div>
+                
+                <div fx="sb" gap="m" style="margin-bottom: 8px;">
+                    <span tc="2" style="font-size: 13px;">Type</span>
+                    <span class="badge scroll-x" tc="1" title="${this.type}" style="user-select: text; white-space:nowrap;">${this.type}</span>
                 </div>
-                <div class="details-property">
-                    <span class="details-property-label">ID</span>
-                    <span class="details-property-value is-monospace" title="${this.id}">${this.id}</span>
+                <div fx="sb" gap="m" style="margin-bottom: 8px;">
+                    <span tc="2" style="font-size: 13px;">ID</span>
+                    <span class="badge scroll-x" tc="1" title="${this.id}" style="user-select: text; white-space:nowrap;">${this.id}</span>
                 </div>
 
                 <br>
                 <!-- Hierarchy Section -->
-                <div class="details-section-header">Hierarchy</div>
+                <div tc="2" style="font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Hierarchy</div>
                 <div class="details-hierarchy-view">
                     ${hierarchyHtml}
                 </div>
-
                 
-                ${customContentHtml ? `
-                    <br>
-                    ${customContentHtml}
-                ` : ''}
+                ${customContentHtml ? `<br>${customContentHtml}` : ''}
 
                 <br>
                 <!-- Modular Properties Section -->
-                <div class="details-section-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span>Properties</span>
-                    <button class="details-reset-btn" title="Reset all properties to default" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:12px;">
+                <div fx="sb" style="margin-bottom: 12px;">
+                    <span tc="2" style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Properties</span>
+                    <button class="btn details-reset-btn" bg="none" bd="none" hv-bg="3" title="Reset all properties to default" style="width: auto; padding: 0 8px; font-size: 12px;">
                         ↺ Reset
                     </button>
                 </div>
-                <div class="details-properties-view">
-                    ${propertiesHtml}
-                </div>
+                <!-- 预留供 UI-Lib 工具挂载表单的容器 -->
+                <div id="kv-form-container-${this.id}" fx="col" gap="s"></div>
 
                 <br>
                 <!-- Custom CSS Section -->
-                <div class="details-section-header">Custom CSS</div>
+                <div tc="2" style="font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Custom CSS</div>
                 <div class="details-custom-css-view">
                     ${customCssHtml}
                 </div>
@@ -309,7 +304,7 @@ class Block {
                 // 这样不会误删 Table 的 colWidths 或其他内部状态
                 const schema = this.constructor.getPropertiesSchema();
                 schema.forEach(field => {
-                    delete this.properties[field.key];
+                    delete this.properties[field.name];
                 });
 
                 // 立即生效
@@ -330,84 +325,144 @@ class Block {
             });
         }
 
-        // 1. Handle Regular Properties
-        const inputs = container.querySelectorAll('.details-properties-view .details-input-field');
-        inputs.forEach(input => {
-            input.addEventListener('change', (e) => {
-                const key = e.target.dataset['propKey'];
-                const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+        // 1. Handle Regular Properties via UiTools.createKvForm
+        const formContainer = container.querySelector(`#kv-form-container-${this.id}`);
+        if (formContainer) {
+            // 递归解析并将 this.properties 填入 Schema 的 value
+            const populateSchema = (schemaList, propsObj) => {
+                if (!propsObj) propsObj = {};
+                return schemaList.map(item => {
+                    const newItem = { ...item };
+                    const valObj = propsObj[item.name];
 
-                this.properties[key] = value;
+                    let rootVal, childProps;
+                    // 分离父节点值与子结构配置
+                    if (Array.isArray(valObj)) {
+                        rootVal = valObj[0];
+                        childProps = valObj[1] || {};
+                    } else {
+                        rootVal = valObj;
+                        childProps = {};
+                    }
 
-                const genericProperties = [
-                    'backgroundColor', 'opacity',
-                    'padding', 'marginTop', 'marginBottom',
-                    'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
-                    'boxShadow'
+                    // 赋值逻辑（优先使用已保存值，否则保留 schema 默认，或者赋予基础类型兜底值）
+                    if (rootVal !== undefined) {
+                        newItem.value = rootVal;
+                    } else if (newItem.value === undefined) {
+                        newItem.value = item.type === 'num' ? (item.min !== undefined ? item.min : 1) : '';
+                    }
+
+                    // 处理该项可能存在的嵌套子级
+                    if (newItem.children) {
+                        newItem.children = populateSchema(newItem.children, childProps);
+                    }
+                    return newItem;
+                });
+            };
+
+            const schema = populateSchema(this.constructor.getPropertiesSchema(), this.properties);
+
+            // 调用 BAPI_WD 提供的工具库方法
+            const myForm = this.BAPI_WD.UiTools.createKvForm(schema, () => {
+                const newValues = myForm.getValue();
+                const genericKeys = [
+                    'backgroundMode', 'padding', 'marginTop', 'marginBottom',
+                    'borderStyle', 'borderRadius', 'boxShadow', 'opacity'
                 ];
 
-                if (genericProperties.includes(key)) {
-                    this._applyGenericStyles();
-                } else {
-                    this._renderContent();
-                }
+                let needGeneric = false;
+                let needContent = false;
+
+                // 同步数据与渲染判断
+                Object.keys(newValues).forEach(key => {
+                    // 使用 JSON.stringify 简单比对嵌套结构是否发生改变
+                    if (JSON.stringify(this.properties[key]) !== JSON.stringify(newValues[key])) {
+                        // 彻底保留表单返回的数据结构
+                        this.properties[key] = newValues[key];
+
+                        if (genericKeys.includes(key)) needGeneric = true;
+                        else needContent = true;
+                    }
+                });
+
+                if (needGeneric) this._applyGenericStyles();
+                if (needContent) this._renderContent();
 
                 this.BAPI_PE.emitChange(true, 'property-change', this);
             });
-        });
 
-        // 2. Handle Custom CSS Interaction (Delegated)
+            formContainer.appendChild(myForm.dom);
+        }
+
+        // 2. Handle Custom CSS Interaction (DevTools Style Auto-append)
         const cssContainer = container.querySelector('.details-custom-css-view');
         if (cssContainer) {
-            cssContainer.addEventListener('click', (e) => {
-                const target = e.target;
-                if (target.dataset['action'] === 'add-css-group-btn' || target.id === 'add-css-group-btn') {
-                    this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
-                    this._refreshDetailsPanel();
-                }
-                else if (target.dataset['action'] === 'delete-group') {
-                    const idx = parseInt(target.dataset['group']);
-                    this.properties.customCSS.splice(idx, 1);
-                    this._refreshDetailsPanel();
-                }
-                else if (target.dataset['action'] === 'add-rule') {
-                    const idx = parseInt(target.dataset['group']);
-                    this.properties.customCSS[idx].rules.push({ prop: '', val: '' });
-                    this._refreshDetailsPanel();
-                }
-                else if (target.dataset['action'] === 'delete-rule') {
-                    const gIdx = parseInt(target.dataset['group']);
-                    const rIdx = parseInt(target.dataset['rule']);
-                    this.properties.customCSS[gIdx].rules.splice(rIdx, 1);
-                    this._refreshDetailsPanel();
-                }
-            });
-
             cssContainer.addEventListener('input', (e) => {
                 const target = e.target;
+                const gIdx = parseInt(target.dataset['group']);
+                const group = this.properties.customCSS[gIdx];
+
                 if (target.classList.contains('css-selector')) {
-                    const idx = parseInt(target.dataset['group']);
-                    this.properties.customCSS[idx].selector = target.value;
-                    this._applyCustomCSS();
-                    // Debounce save? relying on blur or next action for history usually better, but for CSS visual feedback we update immediately.
+                    group.selector = target.value;
+
+                    // 若在最后一个块输入，立刻追加新的空块 DOM
+                    if (gIdx === this.properties.customCSS.length - 1 && target.value.trim() !== '') {
+                        this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
+                        const newGroupIdx = gIdx + 1;
+                        const newGroupHtml = `
+                        <div class="css-rule-block" bg="1" bd="1" rd="s" pd="s" style="position:relative;" data-group="${newGroupIdx}">
+                            <div fx="row" gap="s" style="margin-bottom:8px; border-bottom:1px solid var(--bd-1); padding-bottom:8px;">
+                                <span tc="2" style="font-family:monospace; font-size:11px;">#block-${this.id.substr(0, 4)}</span>
+                                <input type="text" class="inp css-selector" style="flex-grow:1;" value="" placeholder="e.g. :hover" data-group="${newGroupIdx}">
+                            </div>
+                            <div fx="col" gap="xs" class="css-properties-list">
+                                <div fx="row" gap="xs" class="css-rule-row" data-group="${newGroupIdx}" data-rule="0">
+                                    <input type="text" class="inp css-key" value="" placeholder="prop" data-group="${newGroupIdx}" data-rule="0">
+                                    <span tc="2">:</span>
+                                    <input type="text" class="inp css-val" value="" placeholder="value" data-group="${newGroupIdx}" data-rule="0">
+                                </div>
+                            </div>
+                        </div>`;
+                        container.querySelector('#css-rules-container').insertAdjacentHTML('beforeend', newGroupHtml);
+                    }
                 }
-                else if (target.classList.contains('css-key')) {
-                    const gIdx = parseInt(target.dataset['group']);
+                else if (target.classList.contains('css-key') || target.classList.contains('css-val')) {
                     const rIdx = parseInt(target.dataset['rule']);
-                    this.properties.customCSS[gIdx].rules[rIdx].prop = target.value;
+                    const rule = group.rules[rIdx];
+                    if (target.classList.contains('css-key')) rule.prop = target.value;
+                    if (target.classList.contains('css-val')) rule.val = target.value;
+
                     this._applyCustomCSS();
-                }
-                else if (target.classList.contains('css-val')) {
-                    const gIdx = parseInt(target.dataset['group']);
-                    const rIdx = parseInt(target.dataset['rule']);
-                    this.properties.customCSS[gIdx].rules[rIdx].val = target.value;
-                    this._applyCustomCSS();
+
+                    // 若在当前块的最后一行输入，立刻追加新的空行 DOM
+                    if (rIdx === group.rules.length - 1 && (rule.prop.trim() !== '' || rule.val.trim() !== '')) {
+                        group.rules.push({ prop: '', val: '' });
+                        const newRuleIdx = rIdx + 1;
+                        const newRuleHtml = `
+                            <div fx="row" gap="xs" class="css-rule-row" data-group="${gIdx}" data-rule="${newRuleIdx}">
+                                <input type="text" class="inp css-key" value="" placeholder="prop" data-group="${gIdx}" data-rule="${newRuleIdx}">
+                                <span tc="2">:</span>
+                                <input type="text" class="inp css-val" value="" placeholder="value" data-group="${gIdx}" data-rule="${newRuleIdx}">
+                            </div>`;
+                        target.closest('.css-properties-list').insertAdjacentHTML('beforeend', newRuleHtml);
+                    }
                 }
             });
 
-            // Save history on change (blur)
-            cssContainer.addEventListener('change', () => {
-                this.BAPI_PE.emitChange(true, 'css-edit', this);
+            // 失焦时进行静默清理
+            cssContainer.addEventListener('focusout', (e) => {
+                setTimeout(() => {
+                    // 如果焦点还在 CSS 区域内部切换，则不处理
+                    if (cssContainer.contains(document.activeElement)) return;
+
+                    // 如果焦点彻底离开，则清理多余空行/空块并刷新历史记录
+                    const originalLength = JSON.stringify(this.properties.customCSS).length;
+                    this._cleanUpCustomCSSData();
+                    if (JSON.stringify(this.properties.customCSS).length !== originalLength) {
+                        this._refreshDetailsPanel();
+                        this.BAPI_PE.emitChange(true, 'css-edit', this);
+                    }
+                }, 10); // 微小延迟以确保 activeElement 已更新
             });
         }
     }
@@ -525,84 +580,98 @@ class Block {
      * @private
      */
     static getPropertiesSchema() {
+        const borderStyles = ['solid', 'dashed', 'dotted', 'double'];
+        const borderChildren = borderStyles.flatMap(style => [
+            { condition: style, name: 'borderWidth', display: 'Border Width', type: 'text', placeholder: 'e.g. 1px' },
+            { condition: style, name: 'borderColor', display: 'Border Color', type: 'color' }
+        ]);
+
         return [
             // 布局与间距
-            { key: 'padding', label: 'Padding', type: 'text', placeholder: 'e.g. 10px 20px' },
-            { key: 'marginTop', label: 'Margin Top', type: 'text', placeholder: 'e.g. 10px' },
-            { key: 'marginBottom', label: 'Margin Bottom', type: 'text', placeholder: 'e.g. 10px' },
+            { name: 'padding', display: 'Padding', type: 'text', placeholder: 'e.g. 10px 20px' },
+            { name: 'marginTop', display: 'Margin Top', type: 'text', placeholder: 'e.g. 10px' },
+            { name: 'marginBottom', display: 'Margin Bottom', type: 'text', placeholder: 'e.g. 10px' },
 
             // 背景与可见性
-            { key: 'backgroundColor', label: 'Background', type: 'color' },
-            { key: 'opacity', label: 'Opacity', type: 'number', placeholder: '0.0 - 1.0' },
+            {
+                name: 'backgroundMode',
+                display: 'Bg Mode',
+                type: 'sel',
+                values: ['Transparent', 'Color', 'Image'],
+                value: 'Transparent',
+                children: [
+                    { condition: 'Color', name: 'backgroundColor', display: 'Color', type: 'color' },
+                    { condition: 'Image', name: 'backgroundImage', display: 'Image URL', type: 'text', placeholder: 'https://...' },
+                    { condition: 'Image', name: 'backgroundSize', display: 'Bg Size', type: 'sel', values: ['auto', 'cover', 'contain', '100% 100%'], value: 'cover' }
+                ]
+            },
+            { name: 'opacity', display: 'Opacity', type: 'num', value: 1, min: 0, max: 1, step: 0.05 },
 
             // 边框设置
-            { key: 'borderWidth', label: 'Border Width', type: 'text', placeholder: 'e.g. 1px' },
-            { key: 'borderStyle', label: 'Border Style', type: 'select', options: ['none', 'solid', 'dashed', 'dotted', 'double'] },
-            { key: 'borderColor', label: 'Border Color', type: 'color' },
-            { key: 'borderRadius', label: 'Radius', type: 'text', placeholder: 'e.g. 4px' },
+            {
+                name: 'borderStyle',
+                display: 'Border Style',
+                type: 'sel',
+                values: ['none', 'solid', 'dashed', 'dotted', 'double'],
+                value: 'none',
+                children: borderChildren
+            },
+            { name: 'borderRadius', display: 'Radius', type: 'text', placeholder: 'e.g. 4px' },
 
             // 高级效果
-            { key: 'boxShadow', label: 'Shadow', type: 'text', placeholder: 'e.g. 0 2px 4px rgba(0,0,0,0.1)' }
+            { name: 'boxShadow', display: 'Shadow', type: 'text', placeholder: 'e.g. 0 2px 4px rgba(0,0,0,0.1)' }
         ];
     }
 
-    _renderPropertiesSectionHTML() {
-        const schema = this.constructor.getPropertiesSchema();
-        if (!schema || schema.length === 0) return '<div class="empty-details-placeholder">No properties available.</div>';
 
-        return schema.map(field => {
-            const value = this.properties[field.key] || '';
-            let inputHtml = '';
+    _cleanUpCustomCSSData() {
+        if (!this.properties.customCSS) this.properties.customCSS = [];
 
-            if (field.type === 'select') {
-                const optionsHtml = field.options.map(opt =>
-                    `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
-                ).join('');
-                inputHtml = `<select class="details-input-field" data-prop-key="${field.key}">${optionsHtml}</select>`;
-            } else if (field.type === 'checkbox') {
-                inputHtml = `<input type="checkbox" class="details-input-field" data-prop-key="${field.key}" ${value ? 'checked' : ''}>`;
-            } else {
-                inputHtml = `<input type="${field.type}" class="details-input-field" data-prop-key="${field.key}" value="${value}" placeholder="${field.placeholder || ''}">`;
-            }
+        // 1. 清理空规则，并在每个块末尾补齐一个空白规则
+        this.properties.customCSS.forEach(group => {
+            if (!group.rules) group.rules = [];
+            group.rules = group.rules.filter(r => (r.prop || '').trim() !== '' || (r.val || '').trim() !== '');
+            group.rules.push({ prop: '', val: '' });
+        });
 
-            return `
-                <div class="details-input-row">
-                    <span class="details-input-label">${field.label}</span>
-                    ${inputHtml}
-                </div>
-            `;
-        }).join('');
+        // 2. 清理完全空白的块，并在整体末尾补齐一个空白块
+        this.properties.customCSS = this.properties.customCSS.filter(g =>
+            (g.selector || '').trim() !== '' || g.rules.length > 1
+        );
+        this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
     }
 
+    /**
+     * @returns
+     * @private
+     */
     _renderCustomCSSSectionHTML() {
-        let html = '<div class="custom-css-container" id="css-rules-container">';
+        this._cleanUpCustomCSSData(); // 渲染前强制整理数据结构
+
+        let html = '<div class="custom-css-container" fx="col" gap="s" id="css-rules-container">';
 
         this.properties.customCSS.forEach((blockRule, index) => {
             let propsHtml = blockRule.rules.map((rule, rIndex) => `
-                <div class="css-property-row">
-                    <input type="text" class="details-input-field css-key" value="${rule.prop}" placeholder="prop" data-group="${index}" data-rule="${rIndex}">
-                    <span style="color:var(--text-secondary)">:</span>
-                    <input type="text" class="details-input-field css-val" value="${rule.val}" placeholder="value" data-group="${index}" data-rule="${rIndex}">
-                    <button class="css-btn css-btn-delete" data-action="delete-rule" data-group="${index}" data-rule="${rIndex}">×</button>
+                <div fx="row" gap="xs" class="css-rule-row" data-group="${index}" data-rule="${rIndex}">
+                    <input type="text" class="inp css-key" value="${rule.prop}" placeholder="prop" data-group="${index}" data-rule="${rIndex}">
+                    <span tc="2">:</span>
+                    <input type="text" class="inp css-val" value="${rule.val}" placeholder="value" data-group="${index}" data-rule="${rIndex}">
                 </div>
             `).join('');
 
             html += `
-                <div class="css-rule-block">
-                    <div class="css-selector-row">
-                        <span class="css-selector-prefix">#block-${this.id.substr(0, 4)}...</span>
-                        <input type="text" class="details-input-field css-selector" value="${blockRule.selector}" placeholder=":hover, .inner-class" data-group="${index}">
-                        <button class="css-btn css-btn-delete" data-action="delete-group" data-group="${index}">🗑️</button>
+                <div class="css-rule-block" bg="1" bd="1" rd="s" pd="s" style="position:relative;" data-group="${index}">
+                    <div fx="row" gap="s" style="margin-bottom:8px; border-bottom:1px solid var(--bd-1); padding-bottom:8px;">
+                        <span tc="2" style="font-family:monospace; font-size:11px;">#block-${this.id.substr(0, 4)}</span>
+                        <input type="text" class="inp css-selector" style="flex-grow:1;" value="${blockRule.selector}" placeholder="e.g. :hover" data-group="${index}">
                     </div>
-                    <div class="css-properties-list">
+                    <div fx="col" gap="xs" class="css-properties-list">
                         ${propsHtml}
-                        <button class="css-btn css-btn-add" data-action="add-rule" data-group="${index}">+ Add Property</button>
                     </div>
                 </div>
             `;
         });
 
-        html += `<button class="popover-button" id="add-css-group-btn" style="margin-top:0">+ Add CSS Block</button>`;
         html += '</div>';
         return html;
     }
@@ -622,29 +691,55 @@ class Block {
         this.BAPI_PE.updateDetailsPanel(); // Force re-render of panel
     }
 
+    // 直接设置DOM属性以应用通用样式（如背景、边距、边框等），无需重写渲染整个块
     _applyGenericStyles() {
         if (!this.element) return;
-
         const s = this.element.style;
         const p = this.properties;
 
-        // 布局
-        if (p.padding) s.padding = p.padding;
-        if (p.marginTop) s.marginTop = p.marginTop;
-        if (p.marginBottom) s.marginBottom = p.marginBottom;
+        // 辅助方法：解析可能为数组的嵌套属性结构 [value, { subProps }]
+        const parseNested = (key) => {
+            const val = p[key];
+            if (Array.isArray(val)) return { mode: val[0], sub: val[1] || {} };
+            return { mode: val, sub: {} };
+        };
 
-        // 背景与可见性
-        if (p.backgroundColor) s.backgroundColor = p.backgroundColor;
-        if (p.opacity) s.opacity = p.opacity;
+        // 布局
+        s.padding = p.padding || '';
+        s.marginTop = p.marginTop || '';
+        s.marginBottom = p.marginBottom || '';
+
+        // 背景
+        const bg = parseNested('backgroundMode');
+        if (bg.mode === 'Color') {
+            s.backgroundColor = bg.sub.backgroundColor || '';
+            s.backgroundImage = '';
+        } else if (bg.mode === 'Image') {
+            s.backgroundColor = '';
+            s.backgroundImage = bg.sub.backgroundImage ? `url('${bg.sub.backgroundImage}')` : '';
+            s.backgroundSize = bg.sub.backgroundSize || 'cover';
+        } else {
+            // Transparent 或未定义
+            s.backgroundColor = '';
+            s.backgroundImage = '';
+        }
+
+        if (p.opacity !== undefined && p.opacity !== '') s.opacity = p.opacity; else s.opacity = '';
 
         // 边框
-        if (p.borderWidth) s.borderWidth = p.borderWidth;
-        if (p.borderStyle) s.borderStyle = p.borderStyle;
-        if (p.borderColor) s.borderColor = p.borderColor;
-        if (p.borderRadius) s.borderRadius = p.borderRadius;
+        const border = parseNested('borderStyle');
+        s.borderStyle = (border.mode && border.mode !== 'none') ? border.mode : 'none';
+        if (s.borderStyle !== 'none') {
+            s.borderWidth = border.sub.borderWidth || '';
+            s.borderColor = border.sub.borderColor || '';
+        } else {
+            s.borderWidth = '';
+            s.borderColor = '';
+        }
+        s.borderRadius = p.borderRadius || '';
 
         // 阴影
-        if (p.boxShadow) s.boxShadow = p.boxShadow;
+        s.boxShadow = p.boxShadow || '';
     }
 
     _applyCustomCSS() {

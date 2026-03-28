@@ -36,20 +36,20 @@ class VideoBlock extends Block {
 
     static getPropertiesSchema() {
         return [
-            { key: 'src', label: 'Video Source', type: 'text' },
-            { key: 'poster', label: 'Poster Image', type: 'text', placeholder: 'Thumbnail URL' },
-            { key: 'href', label: 'Link URL', type: 'text', placeholder: 'External link' },
+            { name: 'src', display: 'Video Source', type: 'text' },
+            { name: 'poster', display: 'Poster Image', type: 'text', placeholder: 'Thumbnail URL' },
+            { name: 'href', display: 'Link URL', type: 'text', placeholder: 'External link' },
 
             // 视频播放控制 (Checkbox)
-            { key: 'controls', label: 'Show Controls', type: 'checkbox' },
-            { key: 'autoplay', label: 'Autoplay', type: 'checkbox' },
-            { key: 'loop', label: 'Loop', type: 'checkbox' },
-            { key: 'muted', label: 'Muted', type: 'checkbox' },
+            { name: 'controls', display: 'Show Controls', type: 'checkbox' },
+            { name: 'autoplay', display: 'Autoplay', type: 'checkbox' },
+            { name: 'loop', display: 'Loop', type: 'checkbox' },
+            { name: 'muted', display: 'Muted', type: 'checkbox' },
 
             // 尺寸与适应
-            { key: 'width', label: 'Width', type: 'text', placeholder: '100% or 500px' },
-            { key: 'height', label: 'Height', type: 'text', placeholder: 'auto or 300px' },
-            { key: 'objectFit', label: 'Object Fit', type: 'select', options: ['fill', 'contain', 'cover', 'none', 'scale-down'] },
+            { name: 'width', display: 'Width', type: 'text', placeholder: '100% or 500px' },
+            { name: 'height', display: 'Height', type: 'text', placeholder: 'auto or 300px' },
+            { name: 'objectFit', display: 'Object Fit', type: 'combo', values: ['fill', 'contain', 'cover', 'none', 'scale-down'] },
 
             // 继承通用
             ...super.getPropertiesSchema()

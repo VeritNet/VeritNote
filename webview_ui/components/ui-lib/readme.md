@@ -167,21 +167,21 @@
 </select>
 ```
 
-### 🔍 组合输入框 (Combobox, `.combo`)
+### 🔍 下拉单选框 (`.combo-box`)
 输入框内嵌操作按钮（如清除内容或下拉展开）。
 ```html
-<div class="combo">
-    <input type="text" class="inp" placeholder="搜索...">
-    <button class="btn sq">✖</button>
+<div class="combo-box">
+    <div class="sel" tabindex="0">选项二</div>
+    <div class="menu dropdown anim-fade scroll-y" style="max-height: 150px;">
+        <div class="menu-item">选项一</div>
+        <div class="menu-item">选项二</div>
+        <div class="menu-item">选项三</div>
+    </div>
 </div>
 ```
 
 ### 🔍 组合下拉框 (`.combo-box`)
 库内置了完整的数据过滤与交互逻辑。
-- **结构**: `.combo-box` > (`.combo` > `.inp` + `.btn`) + `.menu.dropdown`。
-- **搜索**: 输入时自动根据 `data-val` 或文本内容过滤选项。
-- **清除**: 菜单项若配置 `action="clear"`，点击将清空输入并保持菜单开启状态。
-- **高度控制**: 可对 `.menu.dropdown` 使用 `.scroll-y` 及 CSS `max-height` 限制高度。
 ```html
 <div class="combo-box">
             <div class="combo" foc="bd-act">
@@ -196,9 +196,6 @@
                 <div class="menu-item" data-val="Apple">🍎 苹果 (Apple)</div>
                 <div class="menu-item" data-val="Banana">🍌 香蕉 (Banana)</div>
                 <div class="menu-item" data-val="Cherry">🍒 樱桃 (Cherry)</div>
-                <div class="menu-item" data-val="Grape">🍇 葡萄 (Grape)</div>
-                <div class="menu-item" data-val="Orange">🍊 橙子 (Orange)</div>
-                <div class="menu-item" data-val="Peach">🍑 桃子 (Peach)</div>
                 <div class="menu-sep"></div>
 <div class="menu-item danger" action="clear">🗑️ 清除选择</div>
             </div>
@@ -315,3 +312,114 @@
   ```html
   <div class="card anim-fade">出现动画</div>
   ```
+
+---
+
+## 🧰 10. 工具箱 (Tools)
+
+UI 库提供了基于核心组件封装的高级工具，所有工具均通过 `UiTools` 导出。
+具体工具代码位于 `ui-lib/tools/` 目录下。
+
+### 10.1 键值表单生成器 (Key-Value Form)
+
+根据 JSON 配置动态生成支持无限嵌套、条件渲染的交互式表单，并实时输出标准化的 JSON 结构。
+
+**引入方法：**
+```html
+<link rel="stylesheet" href="./tools/kv-form.css">
+<script type="module">
+    import { initUiLib, UiTools } from './ui-lib.js';
+    initUiLib();
+    
+    // 配置定义
+    const config = [
+        { name: "enableService", display: "启用核心服务", type: "tgl", value: true, describe: "是否启用核心服务" },
+        { name: "autoSave", display: "自动保存", type: "chk", value: false, describe: "是否定时自动保存" },
+        { name: "themeColor", display: "系统强调色", type: "color", value: "#007acc" },
+        { name: "maxRetries", display: "最大重试次数", type: "num", value: 3, min: 0, max: 10, step: 1 },
+        {
+            name: "status",
+            display: "当前状态",
+            type: "seg",
+            values: ["Good", "Bad", "Other"],
+            value: "Good",
+            children: [
+                {
+                    condition: "Bad",
+                    name: "badReason",
+                    display: "产生异常的原因",
+                    type: "sel",
+                    values: ["网络中断", "内存溢出", "未知错误"],
+                    value: "网络中断"
+                },
+                {
+                    condition: "Other",
+                    name: "otherStatus",
+                    display: "描述具体状态",
+                    type: "text",
+                    value: "",
+                    placeholder: '未知错误', // 只有 text 类型支持 placeholder
+                },
+                {
+                    condition: "Other", // 多个选项可以共享相同的触发条件
+                    name: "notifyAdmin", display: "通知管理员", type: "chk", value: true
+                }
+            ]
+        },
+        {
+            name: "database",
+            display: "数据库类型",
+            type: "combo",
+            values: ["MySQL", "PostgreSQL", "MongoDB", "Redis", "SQLite"],
+            value: "MySQL",
+            children: [
+                {
+                    condition: "Redis",
+                    name: "redisPort", display: "Redis 端口", type: "num", value: 6379
+                }
+            ]
+        }
+    ];
+
+    // 创建表单 (参数1: 配置, 参数2: 值改变时的回调函数)
+    const myForm = UiTools.createKvForm(config, () => {
+        console.log("当前表单数据:", myForm.getValue());
+    });
+
+    // 挂载到页面
+    document.body.appendChild(myForm.dom);
+
+    // 销毁并回收内存 (当不再使用时)
+    // myForm.destroy();
+</script>
+```
+
+**支持的 `type` 类型：**
+- `chk`: 勾选框 (boolean)
+- `tgl`: 拨动开关 (boolean)
+- `text`: 普通文本输入 (string)
+- `num`: 数字拖动输入 (number)，支持附加 `min`, `max`, `step` 属性
+- `sel`: 原生下拉单选 (string)
+- `combo`: 组合下拉搜索选择 (string)
+- `seg`: 分段控制器 (string)
+- `color`: 颜色选择器 (string, HEX)
+
+**输出结构：**
+```json
+{
+    "enable": "true"
+},
+{
+    "mode": [
+    "Other",
+        { "customMode": "xxx" }
+    ]
+}
+```
+对于mode，还可以是：
+```json
+{
+    "mode": "Auto"
+}
+```
+注意其结构不同。

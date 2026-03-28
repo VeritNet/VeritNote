@@ -35,13 +35,13 @@ class CodeBlock extends Block {
 
     static getPropertiesSchema() {
         return [
-            { key: 'language', label: 'Language', type: 'text' }, // 只读展示或手动输入
+            { name: 'language', display: 'Language', type: 'text' }, // 只读展示或手动输入
 
             // 代码显示设置
-            { key: 'fontSize', label: 'Font Size', type: 'text', placeholder: '14px' },
-            { key: 'tabSize', label: 'Tab Size', type: 'number', placeholder: '4' },
-            { key: 'wordWrap', label: 'Word Wrap', type: 'checkbox' },
-            { key: 'showLineNumbers', label: 'Line Numbers', type: 'checkbox' }, // 仅作预留，需配合 CSS counter 实现
+            { name: 'fontSize', display: 'Font Size', type: 'text', placeholder: '14px' },
+            { name: 'tabSize', display: 'Tab Size', type: 'num', placeholder: '4', step: 1 },
+            { name: 'wordWrap', display: 'Word Wrap', type: 'chk' },
+            { name: 'showLineNumbers', display: 'Line Numbers', type: 'chk' }, // 仅作预留，需配合 CSS counter 实现
 
             // 继承通用
             ...super.getPropertiesSchema()

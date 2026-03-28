@@ -7,14 +7,14 @@ class TextBlock extends Block {
     static getPropertiesSchema() {
         return [
             // 文本专属属性
-            { key: 'color', label: 'Text Color', type: 'color' },
-            { key: 'textAlign', label: 'Alignment', type: 'select', options: ['left', 'center', 'right', 'justify'] },
-            { key: 'fontSize', label: 'Font Size', type: 'text', placeholder: 'e.g. 16px' },
-            { key: 'fontWeight', label: 'Font Weight', type: 'select', options: ['normal', 'bold', '300', '400', '500', '600', '700', '800'] },
-            { key: 'lineHeight', label: 'Line Height', type: 'text', placeholder: 'e.g. 1.5' },
-            { key: 'letterSpacing', label: 'Letter Spacing', type: 'text', placeholder: 'e.g. 0.5px' },
-            { key: 'textDecoration', label: 'Decoration', type: 'select', options: ['none', 'underline', 'line-through', 'overline'] },
-            { key: 'fontFamily', label: 'Font Family', type: 'select', options: ['inherit', 'sans-serif', 'serif', 'monospace', 'cursive'] },
+            { name: 'color', display: 'Text Color', type: 'color', value: '#e0e0e0' },
+            { name: 'textAlign', display: 'Alignment', type: 'sel', values: ['left', 'center', 'right', 'justify'] },
+            { name: 'fontSize', display: 'Font Size', type: 'text', placeholder: 'e.g. 16px' },
+            { name: 'fontWeight', display: 'Font Weight', type: 'combo', values: ['normal', 'bold', '300', '400', '500', '600', '700', '800'] },
+            { name: 'lineHeight', display: 'Line Height', type: 'text', placeholder: 'e.g. 1.5' },
+            { name: 'letterSpacing', display: 'Letter Spacing', type: 'text', placeholder: 'e.g. 0.5px' },
+            { name: 'textDecoration', display: 'Decoration', type: 'combo', values: ['none', 'underline', 'line-through', 'overline'] },
+            { name: 'fontFamily', display: 'Font Family', type: 'combo', values: ['inherit', 'sans-serif', 'serif', 'monospace', 'cursive'] },
 
             // 继承通用的盒模型属性
             ...super.getPropertiesSchema()

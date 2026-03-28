@@ -31,8 +31,8 @@ class TableViewBlock extends Block {
 
     static getPropertiesSchema() {
         return [
-            { key: 'tableWidthScale', label: 'Table View Scale', type: 'number', placeholder: '(0.0, 1.0] (Default 1)', min: 0.1, max: 1.0 },
-            { key: 'maxHeight', label: 'Max Height', type: 'text', placeholder: 'e.g. 400px' },
+            { name: 'tableWidthScale', display: 'Table View Scale', type: 'num', placeholder: '', min: 0.0001, max: 1.0, value: 1, step: 0.01 },
+            { name: 'maxHeight', display: 'Max Height', type: 'text', placeholder: 'e.g. 400px' },
             ...super.getPropertiesSchema()
         ];
     }

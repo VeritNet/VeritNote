@@ -214,16 +214,6 @@ export class PageEditor extends Editor {
         // 4. Replace the single placeholder with our two new containers.
         // This is the key fix to correct the DOM structure.
         editorAreaPlaceholder.replaceWith(this.elements.editBackgroundContainer, this.elements.previewBackgroundContainer);
-
-
-        // Add a settings button to the floating toolbar
-        this.elements.settingsBtn = document.createElement('button');
-        this.elements.settingsBtn.id = 'page-settings-btn';
-        this.elements.settingsBtn.className = 'toolbar-icon-btn';
-        this.elements.settingsBtn.title = 'Page Settings';
-        this.elements.settingsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`; // Add a gear icon SVG
-        
-        this.elements.floatingToolbar.appendChild(this.elements.settingsBtn);
     }
     
     _initListeners() {
@@ -274,11 +264,6 @@ export class PageEditor extends Editor {
         
         // 为预览模式下的内部链接添加点击事件处理器
         this.elements.previewView.addEventListener('click', this._onPreviewClick.bind(this));
-
-        // Listener for the new settings button
-        this.elements.settingsBtn.addEventListener('click', () => {
-             window.openConfigModal('page', this.filePath);
-        });
 
         // Click listener for hierarchy view in details panel
         this.elements.detailsView.addEventListener('click', (e) => {

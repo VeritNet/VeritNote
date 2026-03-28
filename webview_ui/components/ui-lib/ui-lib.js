@@ -1,3 +1,18 @@
+// Tools
+import { createKvForm } from './tools/kv-form.js';
+
+
+/**
+ * 暴露所有 UI 工具接口
+ */
+export const UiTools = {
+    createKvForm
+};
+
+
+/**
+ * 初始化 UI 库的全局事件监听和交互逻辑接口
+ */
 export const initUiLib = () => {
     // 使用事件委托监听全局
 

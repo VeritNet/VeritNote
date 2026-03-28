@@ -22,11 +22,11 @@ class CalloutBlock extends Block {
 
     static getPropertiesSchema() {
         return [
-            { key: 'icon', label: 'Icon Emoji', type: 'text', placeholder: '💡' },
+            { name: 'icon', display: 'Icon Emoji', type: 'text', placeholder: '💡' },
 
             // Callout 特有布局
-            { key: 'iconSize', label: 'Icon Size', type: 'text', placeholder: '1.2em' },
-            { key: 'layout', label: 'Layout', type: 'select', options: ['row', 'row-reverse', 'column'] },
+            { name: 'iconSize', display: 'Icon Size', type: 'text', placeholder: '1.2em' },
+            { name: 'layout', display: 'Layout', type: 'sel', values: ['row', 'row-reverse', 'column'] },
 
             // 继承通用
             ...super.getPropertiesSchema()

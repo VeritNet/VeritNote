@@ -16,16 +16,16 @@
 
     static getPropertiesSchema() {
         return [
-            { key: 'url', label: 'Target URL', type: 'text' },
+            { name: 'url', display: 'Target URL', type: 'text' },
 
             // 按钮专属外观
-            { key: 'display', label: 'Display', type: 'select', options: ['inline-block', 'block'] },
-            { key: 'btnColor', label: 'Text Color', type: 'color' },
-            { key: 'btnBgColor', label: 'Button Color', type: 'color' },
-            { key: 'padding', label: 'Inner Padding', type: 'text', placeholder: '8px 16px' }, // 覆盖基类的 padding
-            { key: 'fontSize', label: 'Font Size', type: 'text', placeholder: '14px' },
-            { key: 'fontWeight', label: 'Font Weight', type: 'select', options: ['normal', 'bold'] },
-            { key: 'cursor', label: 'Cursor', type: 'select', options: ['pointer', 'default', 'not-allowed'] },
+            { name: 'display', display: 'Display', type: 'combo', values: ['inline-block', 'block'] },
+            { name: 'btnColor', display: 'Text Color', type: 'color' },
+            { name: 'btnBgColor', display: 'Button Color', type: 'color' },
+            { name: 'padding', display: 'Inner Padding', type: 'text', placeholder: '8px 16px' }, // 覆盖基类的 padding
+            { name: 'fontSize', display: 'Font Size', type: 'text', placeholder: '14px' },
+            { name: 'fontWeight', display: 'Font Weight', type: 'combo', values: ['normal', 'bold'] },
+            { name: 'cursor', display: 'Cursor', type: 'combo', values: ['pointer', 'default', 'not-allowed'] },
 
             // 继承通用 (用于外边距等)
             ...super.getPropertiesSchema()
