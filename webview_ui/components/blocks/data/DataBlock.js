@@ -380,7 +380,7 @@ class DataBlock extends Block {
                     const childElement = contentEl.querySelector('.data-child-container');
 
                     if (window.DataBlockRenderers[childType]) {
-                        window.DataBlockRenderers[childType](rawData, preset.config, childElement, childProperties);
+                        window.DataBlockRenderers[childType](rawData, preset.config, childElement, childProperties, true);
                     }
                 } catch(e) {
                     console.error('DataBlock export init failed for block ' + '${this.id}', e);

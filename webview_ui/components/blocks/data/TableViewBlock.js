@@ -4,6 +4,13 @@ class TableViewBlock extends Block {
     static canBeToggled = false;
     static label = 'Table View';
 
+    static previewExclusionSelectors = [
+        '.table-view-col-resizer'
+    ];
+    static exportExclusionSelectors = [
+        '.table-view-col-resizer'
+    ];
+
     constructor(data, editor) {
         super(data, editor);
 
@@ -230,7 +237,7 @@ class TableViewBlock extends Block {
 
     // 由 DataBlock 调用
     // 由 DataBlock 调用
-    _renderDataContent(rawData, config, element, properties) {
+    _renderDataContent(rawData, config, element, properties, isForExport = false) {
         // 缓存数据，以便在 Details 面板修改属性后触发 _renderContent 时重绘
         this._lastRawData = rawData;
         this._lastConfig = config;
@@ -310,12 +317,14 @@ class TableViewBlock extends Block {
             span.textContent = labelText;
             th.appendChild(span);
 
-            if (index < totalCols - 1) {
-                const resizer = document.createElement('div');
-                resizer.className = 'table-view-col-resizer';
-                // 直接向真实创建出来的 DOM 元素绑定事件，废除会导致元素和监听器丢失的 innerHTML 拼接表头。
-                resizer.addEventListener('mousedown', (e) => this.initResize(e, index));
-                th.appendChild(resizer);
+            if (!isForExport) {
+                if (index < totalCols - 1) {
+                    const resizer = document.createElement('div');
+                    resizer.className = 'table-view-col-resizer';
+                    // 直接向真实创建出来的 DOM 元素绑定事件，废除会导致元素和监听器丢失的 innerHTML 拼接表头。
+                    resizer.addEventListener('mousedown', (e) => this.initResize(e, index));
+                    th.appendChild(resizer);
+                }
             }
 
             trHead.appendChild(th);
