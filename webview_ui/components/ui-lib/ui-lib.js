@@ -168,9 +168,12 @@ export const initUiLib = () => {
         menu._blockToggle = true; // 标识菜单刚被聚焦开启，拦截接下来的同步 click 事件
 
         // 自动把当前选中项放到菜单第一项的位置
-        const currentVal = (trigger.value || trigger.innerText || "").trim().toLowerCase();
+        const currentVal = trigger.tagName === 'INPUT'
+            ? trigger.value.trim().toLowerCase()
+            : (box.getAttribute('value') || "").trim().toLowerCase();
+
         const items = menu.querySelectorAll('.menu-item');
-        const match = Array.from(items).find(i => (i.getAttribute('data-val') || i.innerText.trim()).toLowerCase() === currentVal);
+        const match = Array.from(items).find(i => (i.getAttribute('value') || i.innerText.trim()).toLowerCase() === currentVal);
         menu.scrollTop = match ? match.offsetTop - 4 : 0;
     };
 
@@ -202,16 +205,23 @@ export const initUiLib = () => {
             const box = item.closest('.combo-box');
             const triggerEl = box.querySelector('.inp, .sel');
             const menu = box.querySelector('.menu.dropdown');
-            const val = item.getAttribute('data-val') || item.innerText.trim();
+            const val = item.getAttribute('value') || item.innerText.trim(); // 改为获取 value 属性
+            const text = (item.getAttribute('value') || item.innerText).toLowerCase();
 
             if (item.getAttribute('action') === 'clear') {
-                if (triggerEl.tagName === 'INPUT') triggerEl.value = ''; else triggerEl.innerText = '';
+                if (triggerEl.tagName === 'INPUT') triggerEl.value = '';
+                else { triggerEl.innerText = ''; box.removeAttribute('value'); } // 清除时移除外层 value
                 triggerEl.dispatchEvent(new Event('input', { bubbles: true }));
                 triggerEl.focus();
                 return;
             }
 
-            if (triggerEl.tagName === 'INPUT') triggerEl.value = val; else triggerEl.innerText = val;
+            if (triggerEl.tagName === 'INPUT') {
+                triggerEl.value = val; // 组合框：直接应用 value 属性值到 input
+            } else {
+                triggerEl.innerText = text; // 单选框：显示文字
+                box.setAttribute('value', val); // 单选框：实际值存在外层容器上
+            }
             triggerEl.dispatchEvent(new Event('input', { bubbles: true }));
             menu.classList.remove('show');
             return;

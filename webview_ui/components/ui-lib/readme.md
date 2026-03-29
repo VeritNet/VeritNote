@@ -168,38 +168,50 @@
 ```
 
 ### 🔍 下拉单选框 (`.combo-box`)
-输入框内嵌操作按钮（如清除内容或下拉展开）。
+用于在一组预设选项中选择一个。采用**显示文本与实际值分离**的设计。
+
+*   **值存储**：实际值存储在最外层 `.combo-box` 的 `value` 属性上。
+*   **显示内容**：`.sel` 元素仅展示易于阅读的文本。
+*   **HTML 结构**：
+
 ```html
-<div class="combo-box">
+<!-- 实际选中值为 "2"，界面显示为 "选项二" -->
+<div class="combo-box" value="2">
     <div class="sel" tabindex="0">选项二</div>
     <div class="menu dropdown anim-fade scroll-y" style="max-height: 150px;">
-        <div class="menu-item">选项一</div>
-        <div class="menu-item">选项二</div>
-        <div class="menu-item">选项三</div>
+        <div class="menu-item" value="1">选项一</div>
+        <div class="menu-item" value="2">选项二</div>
+        <div class="menu-item" value="3">选项三</div>
     </div>
 </div>
 ```
 
+---
+
 ### 🔍 组合下拉框 (`.combo-box`)
-库内置了完整的数据过滤与交互逻辑。
+支持**自由输入**、**关键词过滤**与**预设选择**。适用于配置项较多或支持自定义输入值的场景。
+
+*   **值存储**：实际值直接存储在内部的 `<input>` 的 `value` 中。
+*   **赋值逻辑**：点击菜单项时，会将该项的 `value` 属性值直接填入输入框。
+*   **HTML 结构**：
+
 ```html
 <div class="combo-box">
-            <div class="combo" foc="bd-act">
-                <input type="text" class="inp" placeholder="搜索水果或点击右侧展开...">
-                <button class="btn sq">
-                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6;">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                </button>
-            </div>
-            <div class="menu dropdown anim-fade scroll-y" style="max-height: 160px;">
-                <div class="menu-item" data-val="Apple">🍎 苹果 (Apple)</div>
-                <div class="menu-item" data-val="Banana">🍌 香蕉 (Banana)</div>
-                <div class="menu-item" data-val="Cherry">🍒 樱桃 (Cherry)</div>
-                <div class="menu-sep"></div>
-<div class="menu-item danger" action="clear">🗑️ 清除选择</div>
-            </div>
-        </div>
+    <div class="combo" foc="bd-act">
+        <input type="text" class="inp" placeholder="搜索或输入...">
+        <button class="btn sq">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </button>
+    </div>
+    <div class="menu dropdown anim-fade scroll-y" style="max-height: 160px;">
+        <div class="menu-item" value="apple">🍎 苹果</div>
+        <div class="menu-item" value="banana">🍌 香蕉</div>
+        <div class="menu-sep"></div>
+        <div class="menu-item danger" action="clear">🗑️ 清除内容</div>
+    </div>
+</div>
 ```
 
 ### 🌳 树形节点 (`.tree-item`)
@@ -341,7 +353,7 @@ UI 库提供了基于核心组件封装的高级工具，所有工具均通过 `
             name: "status",
             display: "当前状态",
             type: "seg",
-            values: ["Good", "Bad", "Other"],
+            values: [{display: "好", value: "Good"}, {display: "坏", value: "Bad"}, {display: "其它", value: "Other"}],
             value: "Good",
             children: [
                 {
@@ -349,7 +361,7 @@ UI 库提供了基于核心组件封装的高级工具，所有工具均通过 `
                     name: "badReason",
                     display: "产生异常的原因",
                     type: "sel",
-                    values: ["网络中断", "内存溢出", "未知错误"],
+                    values: [{display: "网络中断", value:"net_err"}, {display: "内存溢出", value: "mem_err"}, {display: "未知错误", value: "unknown_err"}],
                     value: "网络中断"
                 },
                 {
@@ -370,7 +382,7 @@ UI 库提供了基于核心组件封装的高级工具，所有工具均通过 `
             name: "database",
             display: "数据库类型",
             type: "combo",
-            values: ["MySQL", "PostgreSQL", "MongoDB", "Redis", "SQLite"],
+            values: [{display: "MySQL", value: "MySQL"}, {display: "PostgreSQL", value: "PostgreSQL"}, {display: "MongoDB", value: "MongoDB"}, {display: "Redis", value: "Redis"}, {display: "SQLite", value: "SQLite"}],
             value: "MySQL",
             children: [
                 {

@@ -89,8 +89,8 @@ class TextBlock extends Block {
         const currentHtml = this.content || '';
 
         return `
-        <div class="details-section-header">Content Source</div>
-            <div class="details-custom-content-view">
+        <div tc="1" class="details-section-header">Content Source</div>
+            <div>
             <div class="details-code-editor-wrapper" style="
                 position: relative; 
                 min-height: 100px; 

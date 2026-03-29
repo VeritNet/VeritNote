@@ -188,41 +188,40 @@ class DataBlock extends Block {
     // --- Details Panel Logic ---
     renderDetailsPanel_custom() {
         const dbPath = this.properties.dbPath || '';
-        let presetOptions = '<option value="">Select a preset...</option>';
+        let presetOptions = '';
         if (this._dbJsonCache && this._dbJsonCache.presets) {
             presetOptions += this._dbJsonCache.presets.map(p =>
-                `<option value="${p.id}" ${p.id === this.properties.presetId ? 'selected' : ''}>${p.name} (${p.type})</option>`
+                `<div class="menu-item" title="${p.name} (${p.type})">${p.id}</div>`
             ).join('');
         }
 
         return `
-            <div class="details-section-header">Database Configuration</div>
-            <div class="details-input-row">
-                <span class="details-input-label">DB File Path</span>
-                <input type="text" class="details-input-field db-path-input" value="${dbPath}" placeholder="e.g. databases/my_data.veritnotedb">
+            <div tc="1" class="details-section-header">Database Configuration</div>
+            <div fx="sb" pd="xs" gap="s" hv-bg="3" rd="m">
+                <span tc="2" style="flex: 2">DB File Path</span>
+                <input type="text" style="flex: 3" class="inp" id="db-path-input" value="${dbPath}" placeholder="my_data.veritnotedb">
             </div>
-            <div class="details-input-row" style="margin-top: 8px;">
-                <span class="details-input-label">Preset View</span>
-                <select class="details-input-field db-preset-select" ${!this._dbJsonCache ? 'disabled' : ''}>
-                    ${presetOptions}
-                </select>
-            </div>
-            <div style="margin-top: 8px; text-align:right;">
-                <button class="css-btn db-refresh-btn" style="width:auto;">↻ Reload DataBase</button>
-            </div>
-            ${this.children[0] ? `
-                <div style="margin-top: 8px; text-align:right;">
-                    <button class="css-btn db-sub-focus-btn" style="width:auto;">⚙ Settings: ${this.children[0].constructor.label || this.children[0].type}</button>
+            <div fx="sb" pd="xs" gap="s" hv-bg="3" rd="m">
+                <span tc="2" style="flex: 2">Preset View</span>
+                <div style="flex: 3" class="combo-box" ${!this._dbJsonCache ? 'disabled' : ''}>
+                    <div class="sel" tabindex="0" id="db-preset-select" placeholder="Select a preset...">${this.properties.presetId}</div>
+                    <div class="menu dropdown anim-fade scroll-y" style="max-height: 40vh;">
+                      ${presetOptions}
+                    </div>
                 </div>
+            </div>
+            <button class="btn" tc="2" id="db-refresh-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">↻ Reload DataBase</button>
+            ${this.children[0] ? `
+                <button class="btn" tc="2" id="db-sub-focus-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">⚙ Settings: ${this.children[0].constructor.label || this.children[0].type}</button><br>
             ` : ''}
         `;
     }
 
     onDetailsPanelOpen_custom(container) {
-        const pathInput = container.querySelector('.db-path-input');
-        const presetSelect = container.querySelector('.db-preset-select');
-        const refreshBtn = container.querySelector('.db-refresh-btn');
-        const subFocusBtn = container.querySelector('.db-sub-focus-btn');
+        const pathInput = container.querySelector('#db-path-input');
+        const presetSelect = container.querySelector('#db-preset-select');
+        const refreshBtn = container.querySelector('#db-refresh-btn');
+        const subFocusBtn = container.querySelector('#db-sub-focus-btn');
 
         pathInput.addEventListener('change', (e) => {
             const newPath = e.target.value.trim();

@@ -780,6 +780,7 @@ a:hover {
 
 /* Combo Box Container */
 .combo-box {
+	width: 100%;
 	position: relative;
 }
 

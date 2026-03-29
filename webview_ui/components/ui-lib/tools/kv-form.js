@@ -21,14 +21,25 @@ export const createKvForm = (config, onChangeCallback) => {
                 const step = item.step !== undefined ? `step="${item.step}"` : '';
                 return `<input type="number" class="inp num-slider" ${min} ${max} ${step} value="${val || 0}">`;
             case 'sel':
-                const options = (item.values || []).map(v => `<div class="menu-item">${v}</div>`).join('');
+                const selOptions = (item.values || []).map(v => {
+                    const isObj = typeof v === 'object';
+                    const valAttr = isObj ? v.value : v;
+                    const display = isObj ? v.display : v;
+                    return `<div class="menu-item" value="${valAttr}">${display}</div>`;
+                }).join('');
+                // 找到当前值对应的显示文本
+                const currentObj = (item.values || []).find(v => (typeof v === 'object' ? v.value : v) == val);
+                const displayText = currentObj ? (typeof currentObj === 'object' ? currentObj.display : currentObj) : (val || '');
                 return `
-                    <div class="combo-box">
-                        <div class="sel" tabindex="0">${val}</div>
-                        <div class="menu dropdown anim-fade scroll-y" style="max-height: 40vh;">${options}</div>
+                    <div class="combo-box" value="${val || ''}">
+                        <div class="sel" tabindex="0">${displayText}</div>
+                        <div class="menu dropdown anim-fade scroll-y" style="max-height: 40vh;">${selOptions}</div>
                     </div>`;
             case 'combo':
-                const menuItems = (item.values || []).map(v => `<div class="menu-item" data-val="${v}">${v}</div>`).join('');
+                const comboItems = (item.values || []).map(v => {
+                    const isObj = typeof v === 'object';
+                    return `<div class="menu-item" value="${isObj ? v.value : v}">${isObj ? v.display : v}</div>`;
+                }).join('');
                 return `
                     <div class="combo-box fw">
                         <div class="combo" foc="bd-act">
@@ -37,7 +48,7 @@ export const createKvForm = (config, onChangeCallback) => {
                                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" style="opacity: 0.6;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </button>
                         </div>
-                        <div class="menu dropdown anim-fade scroll-y" style="max-height: 160px;">${menuItems}</div>
+                        <div class="menu dropdown anim-fade scroll-y" style="max-height: 160px;">${comboItems}</div>
                     </div>`;
             case 'seg':
                 const segItems = (item.values || []).map(v => `<div class="seg-item" data-val="${v}" ${v === val ? 'act="true"' : ''}>${v}</div>`).join('');
@@ -66,9 +77,9 @@ export const createKvForm = (config, onChangeCallback) => {
 
             // fx="row" 水平对齐, fx="sb" 两端对齐, hv-bg="3" 悬浮高亮
             itemEl.innerHTML = `
-                <div class="kv-row" fx="row" fx="sb" pd="xs" gap="s" hv-bg="3" rd="m" style="min-height:34px;" title="${item['describe'] || ''}">
-                    <div class="kv-label" tc="2" style="font-size:13px; user-select:none; flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item['display'] || item['name']}</div>
-                    <div class="kv-control" fx="row" fx="fe" style="flex: 3; min-width:0;">${buildControlHtml(item)}</div>
+                <div class="kv-row" fx="row" pd="xs" gap="s" hv-bg="3" rd="m" style="min-height:34px;" title="${item['describe'] || ''}">
+                    <div class="kv-label" tc="2">${item['display'] || item['name']}</div>
+                    <div class="kv-control" fx="row" fx="fe">${buildControlHtml(item)}</div>
                 </div>
             `;
 
@@ -100,7 +111,7 @@ export const createKvForm = (config, onChangeCallback) => {
             case 'num':
                 const inp = controlWrap.querySelector('input, select');
                 return type === 'num' ? Number(inp.value) : inp.value;
-            case 'sel': return controlWrap.querySelector('.sel').innerText.trim();
+            case 'sel': return controlWrap.querySelector('.combo-box').getAttribute('value') || '';
             case 'combo': return controlWrap.querySelector('.inp').value;
             case 'seg':
                 const activeSeg = controlWrap.querySelector('.seg-item[act="true"]');

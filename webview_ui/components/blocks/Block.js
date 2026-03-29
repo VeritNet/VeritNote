@@ -244,20 +244,20 @@ class Block {
 
         return `
             <div class="details-panel-section" pd="s" data-block-id="${this.id}">
-                <div tc="2" class="details-section-header">Block Details</div>
+                <div tc="1" class="details-section-header">Block Details</div>
                 
-                <div fx="sb" gap="m" style="margin-bottom: 8px;">
+                <div fx="sb" gap="l" style="margin-bottom: 8px;">
                     <span tc="2" style="font-size: 13px;">Type</span>
-                    <span class="badge scroll-x" tc="1" title="${this.type}" style="user-select: text; white-space:nowrap;">${this.type}</span>
+                    <span class="badge scroll-x" tc="2" title="${this.type}" style="user-select: text; white-space:nowrap;">${this.type}</span>
                 </div>
-                <div fx="sb" gap="m" style="margin-bottom: 8px;">
+                <div fx="sb" gap="l" style="margin-bottom: 8px;">
                     <span tc="2" style="font-size: 13px;">ID</span>
-                    <span class="badge scroll-x" tc="1" title="${this.id}" style="user-select: text; white-space:nowrap;">${this.id}</span>
+                    <span class="badge scroll-x" tc="2" title="${this.id}" style="user-select: text; white-space:nowrap;">${this.id}</span>
                 </div>
 
                 <br>
                 <!-- Hierarchy Section -->
-                <div tc="2" style="font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Hierarchy</div>
+                <div tc="1" class="details-section-header">Hierarchy</div>
                 <div class="details-hierarchy-view">
                     ${hierarchyHtml}
                 </div>
@@ -266,9 +266,9 @@ class Block {
 
                 <br>
                 <!-- Modular Properties Section -->
-                <div fx="sb" style="margin-bottom: 12px;">
-                    <span tc="2" style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Properties</span>
-                    <button class="btn details-reset-btn" bg="none" bd="none" hv-bg="3" title="Reset all properties to default" style="width: auto; padding: 0 8px; font-size: 12px;">
+                <div fx="sb">
+                    <span tc="1" class="details-section-header">Properties</span>
+                    <button class="btn details-reset-btn" pd="xs" bg="none" bd="none" hv-bg="3" title="Reset all properties to default" style="width: auto; font-size: 12px;">
                         ↺ Reset
                     </button>
                 </div>
@@ -277,7 +277,7 @@ class Block {
 
                 <br>
                 <!-- Custom CSS Section -->
-                <div tc="2" style="font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Custom CSS</div>
+                <div tc="1" class="details-section-header">Custom CSS</div>
                 <div class="details-custom-css-view">
                     ${customCssHtml}
                 </div>
@@ -597,12 +597,12 @@ class Block {
                 name: 'backgroundMode',
                 display: 'Bg Mode',
                 type: 'sel',
-                values: ['Transparent', 'Color', 'Image'],
+                values: [{ display: 'Transparent', value: 'Transparent' }, { display: 'Color', value: 'Color' }, { display: 'Image', value: 'Image' }],
                 value: 'Transparent',
                 children: [
                     { condition: 'Color', name: 'backgroundColor', display: 'Color', type: 'color' },
                     { condition: 'Image', name: 'backgroundImage', display: 'Image URL', type: 'text', placeholder: 'https://...' },
-                    { condition: 'Image', name: 'backgroundSize', display: 'Bg Size', type: 'sel', values: ['auto', 'cover', 'contain', '100% 100%'], value: 'cover' }
+                    { condition: 'Image', name: 'backgroundSize', display: 'Bg Size', type: 'sel', values: [{ display: 'auto', value: 'auto' }, { display: 'cover', value: 'cover' }, { display: 'contain', value: 'contain' }, { display: '100% 100%', value: '100% 100%' }], value: 'cover' }
                 ]
             },
             { name: 'opacity', display: 'Opacity', type: 'num', value: 1, min: 0, max: 1, step: 0.05 },
@@ -612,7 +612,7 @@ class Block {
                 name: 'borderStyle',
                 display: 'Border Style',
                 type: 'sel',
-                values: ['none', 'solid', 'dashed', 'dotted', 'double'],
+                values: [{ display: 'none', value: 'none' }, { display: 'solid', value: 'solid' }, { display: 'dashed', value: 'dashed' }, { display: 'dotted', value: 'dotted' }, { display: 'double', value: 'double' }],
                 value: 'none',
                 children: borderChildren
             },
