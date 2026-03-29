@@ -754,6 +754,9 @@ window['initializeMainComponent'] = () => {
         sidebarContainer.style.width = `${Math.max(min, Math.min(width, max))}px`;
     }
     sidebarResizer.addEventListener('mousedown', (e) => {
+        // 如果处于折叠状态（包含Peek），禁止触发缩放
+        if (appContainer.classList.contains('sidebar-collapsed')) return; 
+
         e.preventDefault();
         const startX = e.clientX;
         const startWidth = sidebarContainer.offsetWidth;
