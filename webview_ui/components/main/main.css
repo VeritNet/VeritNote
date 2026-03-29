@@ -541,3 +541,60 @@ body.is-fullscreen #tab-bar {
 #sidebar::-webkit-scrollbar-thumb {
     border-color: var(--bg-secondary);
 }
+
+
+
+
+/* 错误提示弹窗样式 */
+#error-toast-container {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column-reverse; /* 新报错在下面 */
+    gap: 8px;
+    pointer-events: none;
+}
+
+.error-toast {
+    background-color: #2a1211; /* 深色底 */
+    color: #ffccc7;
+    border: 1px solid #a61d24;
+    padding: 8px 12px;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 260px;
+    max-width: 450px;
+    pointer-events: auto;
+    animation: toast-in 0.2s cubic-bezier(0, 0, 0.2, 1);
+    font-family: monospace;
+    font-size: 12px;
+}
+
+    /* 错误提示框内的按钮交互 */
+    .error-toast .copy-detail-btn:hover {
+        color: white !important;
+        background-color: rgba(255,255,255,0.1);
+        border-radius: 3px;
+    }
+
+    .error-toast .close-btn:hover {
+        opacity: 1 !important;
+        color: white;
+    }
+
+@keyframes toast-in {
+    from {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

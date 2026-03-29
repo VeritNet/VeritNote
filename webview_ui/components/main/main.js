@@ -21,6 +21,8 @@ import { ConfigModal } from './ConfigModal.js';
 
 import { initUiLib, UiTools } from '../ui-lib/ui-lib.js';
 
+import { init_error_handle } from './error.js';
+
 
 // ==================================================================
 
@@ -59,6 +61,8 @@ window['BAPI_WD'] = {
 
 
 window['initializeMainComponent'] = () => {
+    init_error_handle();
+
     initUiLib();
 
     console.log("initializeMainComponent");

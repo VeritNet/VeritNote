@@ -10,7 +10,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-left" aria-hidden="true" class="lucide lucide-arrow-left"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
             </button>
             <span tc="2" style="font-size: 12px; text-transform: uppercase;">Workspace</span>
-            <button class="btn bl sq" bg="none"  hv-bg="3" sz="s"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plus" aria-hidden="true" style="width:14px;height:14px;" class="lucide lucide-plus"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+            <button class="btn bl sq" bg="none" hv-bg="3" sz="s"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plus" aria-hidden="true" style="width:14px;height:14px;" class="lucide lucide-plus"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
         </div>
         <div id="workspace-tree" class="workspace-tree">
             <div>Loading workspace...</div>
@@ -32,13 +32,13 @@
             <button id="toggle-fullscreen-btn-wc" tc="2" class="btn bl sq" bg="none" hv-bg="3" hv-tc="1" title="Toggle Fullscreen">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
             </button>
-            <button id="minimize-btn" tc="2"  class="btn bl sq" bg="none" hv-bg="3" hv-tc="1" title="Minimize">
+            <button id="minimize-btn" tc="2" class="btn bl sq" bg="none" hv-bg="3" hv-tc="1" title="Minimize">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
-            <button id="maximize-btn" tc="2"  class="btn bl sq" bg="none" hv-bg="3" hv-tc="1" title="Maximize">
+            <button id="maximize-btn" tc="2" class="btn bl sq" bg="none" hv-bg="3" hv-tc="1" title="Maximize">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
             </button>
-            <button id="close-btn" tc="2"  class="btn bl sq" bg="none" hv-bg="err" hv-tc="1" title="Close">
+            <button id="close-btn" tc="2" class="btn bl sq" bg="none" hv-bg="err" hv-tc="1" title="Close">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
         </div>
@@ -91,7 +91,11 @@
     </div>
     <div class="menu-item" data-action="newGraph" style="pointer-events: none; cursor: not-allowed; ">New Graph</div>
     <div class="menu-item" data-action="newDatabase">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="database-plus" aria-hidden="true" style="width:16px;height:16px;" class="lucide lucide-database"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><line x1="12" y1="9" x2="12" y2="15"></line><line x1="9" y1="12" x2="15" y2="12"></line>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="database-plus" aria-hidden="true" style="width:16px;height:16px;" class="lucide lucide-database">
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M3 5V19A9 3 0 0 0 21 19V5"></path>
+            <line x1="12" y1="9" x2="12" y2="15"></line>
+            <line x1="9" y1="12" x2="15" y2="12"></line>
         </svg>
         New Database
     </div>
@@ -105,3 +109,6 @@
         Delete
     </div>
 </div>
+    
+<!-- 报错提示弹窗 -->
+<div id="error-toast-container" style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column-reverse; gap: 10px; pointer-events: none;"></div>
