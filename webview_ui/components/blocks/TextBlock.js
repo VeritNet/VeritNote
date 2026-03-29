@@ -8,13 +8,13 @@ class TextBlock extends Block {
         return [
             // 文本专属属性
             { name: 'color', display: 'Text Color', type: 'color', value: '#e0e0e0' },
-            { name: 'textAlign', display: 'Alignment', type: 'sel', values: ['left', 'center', 'right', 'justify'] },
+            { name: 'textAlign', display: 'Alignment', type: 'sel', values: [{display: 'left', value: 'left'}, {display: 'center', value: 'center'}, {display: 'right', value: 'right'}, {display: 'justify', value: 'justify'}] },
             { name: 'fontSize', display: 'Font Size', type: 'text', placeholder: 'e.g. 16px' },
-            { name: 'fontWeight', display: 'Font Weight', type: 'combo', values: ['normal', 'bold', '300', '400', '500', '600', '700', '800'] },
+            { name: 'fontWeight', display: 'Font Weight', type: 'combo', values: [{display: 'normal', value: 'normal'}, {display: 'bold', value: 'bold'}, {display: '300', value: '300'}, {display: '400', value: '400'}, {display: '500', value: '500'}, {display: '600', value: '600'}, {display: '700', value: '700'}, {display: '800', value: '800'}] },
             { name: 'lineHeight', display: 'Line Height', type: 'text', placeholder: 'e.g. 1.5' },
             { name: 'letterSpacing', display: 'Letter Spacing', type: 'text', placeholder: 'e.g. 0.5px' },
-            { name: 'textDecoration', display: 'Decoration', type: 'combo', values: ['none', 'underline', 'line-through', 'overline'] },
-            { name: 'fontFamily', display: 'Font Family', type: 'combo', values: ['inherit', 'sans-serif', 'serif', 'monospace', 'cursive'] },
+            { name: 'textDecoration', display: 'Decoration', type: 'combo', values: [{display: 'none', value: 'none'}, {display: 'underline', value: 'underline'}, {display: 'line-through', value: 'line-through'}, {display: 'overline', value: 'overline'}] },
+            { name: 'fontFamily', display: 'Font Family', type: 'combo', values: [{display: 'inherit', value: 'inherit'}, {display: 'sans-serif', value: 'sans-serif'}, {display: 'serif', value: 'serif'}, {display: 'monospace', value: 'monospace'}, {display: 'cursive', value: 'cursive'}] },
 
             // 继承通用的盒模型属性
             ...super.getPropertiesSchema()

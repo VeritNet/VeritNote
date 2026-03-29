@@ -189,11 +189,18 @@ class DataBlock extends Block {
     renderDetailsPanel_custom() {
         const dbPath = this.properties.dbPath || '';
         let presetOptions = '';
+        let currentPreset = null;
+
         if (this._dbJsonCache && this._dbJsonCache.presets) {
+            currentPreset = this._dbJsonCache.presets.find(p => p.id === this.properties.presetId);
             presetOptions += this._dbJsonCache.presets.map(p =>
-                `<div class="menu-item" title="${p.name} (${p.type})">${p.id}</div>`
+                `<div class="menu-item" title="${p.id}" value="${p.id}">${p.name} (${p.type})</div>`
             ).join('');
         }
+
+        const presetLabel = currentPreset
+            ? `${currentPreset.name} (${currentPreset.type})`
+            : 'Select a preset...';
 
         return `
             <div tc="1" class="details-section-header">Database Configuration</div>
@@ -203,8 +210,8 @@ class DataBlock extends Block {
             </div>
             <div fx="sb" pd="xs" gap="s" hv-bg="3" rd="m">
                 <span tc="2" style="flex: 2">Preset View</span>
-                <div style="flex: 3" class="combo-box" ${!this._dbJsonCache ? 'disabled' : ''}>
-                    <div class="sel" tabindex="0" id="db-preset-select" placeholder="Select a preset...">${this.properties.presetId}</div>
+                <div style="flex: 3" id="db-preset-select" class="combo-box" value="${this.properties.presetId}" ${!this._dbJsonCache ? 'disabled' : ''}>
+                    <div class="sel" tabindex="0" placeholder="Select a preset...">${presetLabel}</div>
                     <div class="menu dropdown anim-fade scroll-y" style="max-height: 40vh;">
                       ${presetOptions}
                     </div>
@@ -245,10 +252,14 @@ class DataBlock extends Block {
             }
         });
 
-        presetSelect.addEventListener('change', (e) => {
-            this.properties.presetId = e.target.value;
-            this._renderContent();
-            this.BAPI_PE.emitChange(true, 'change-preset', this);
+        presetSelect.addEventListener('input', (e) => {
+            const selectedValue = presetSelect.getAttribute('value');
+
+            if (selectedValue !== null) {
+                this.properties.presetId = selectedValue;
+                this._renderContent();
+                this.BAPI_PE.emitChange(true, 'change-preset', this);
+            }
         });
 
         refreshBtn.addEventListener('click', () => {

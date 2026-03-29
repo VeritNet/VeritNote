@@ -41,7 +41,7 @@ class ImageBlock extends Block {
             // 尺寸与适应
             { name: 'width', display: 'Width', type: 'text', placeholder: '100% or 300px' },
             { name: 'height', display: 'Height', type: 'text', placeholder: 'auto or 200px' },
-            { name: 'objectFit', display: 'Object Fit', type: 'combo', values: ['fill', 'contain', 'cover', 'none', 'scale-down'] },
+            { name: 'objectFit', display: 'Object Fit', type: 'combo', values: [{display: 'fill', value: 'fill'}, {display: 'contain', value: 'contain'}, {display: 'cover', value: 'cover'}, {display: 'none', value: 'none'}, {display: 'scale-down', value: 'scale-down'}] },
 
             // 滤镜特效 (非常实用)
             { name: 'filter', display: 'Filter', type: 'text', placeholder: 'grayscale(100%) blur(2px)' },

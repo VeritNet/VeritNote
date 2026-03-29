@@ -26,7 +26,7 @@ class CalloutBlock extends Block {
 
             // Callout 特有布局
             { name: 'iconSize', display: 'Icon Size', type: 'text', placeholder: '1.2em' },
-            { name: 'layout', display: 'Layout', type: 'sel', values: ['row', 'row-reverse', 'column'] },
+            { name: 'layout', display: 'Layout', type: 'sel', values: [{display: 'row', value: 'row'}, {display: 'row-reverse', value: 'row-reverse'}, {display: 'column', value: 'column'}] },
 
             // 继承通用
             ...super.getPropertiesSchema()

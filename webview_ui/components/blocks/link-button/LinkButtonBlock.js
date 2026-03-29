@@ -19,13 +19,13 @@
             { name: 'url', display: 'Target URL', type: 'text' },
 
             // 按钮专属外观
-            { name: 'display', display: 'Display', type: 'combo', values: ['inline-block', 'block'] },
+            { name: 'display', display: 'Display', type: 'combo', values: [{display: 'inline-block', value: 'inline-block'}, {display: 'block', value: 'block'}] },
             { name: 'btnColor', display: 'Text Color', type: 'color' },
             { name: 'btnBgColor', display: 'Button Color', type: 'color' },
             { name: 'padding', display: 'Inner Padding', type: 'text', placeholder: '8px 16px' }, // 覆盖基类的 padding
             { name: 'fontSize', display: 'Font Size', type: 'text', placeholder: '14px' },
-            { name: 'fontWeight', display: 'Font Weight', type: 'combo', values: ['normal', 'bold'] },
-            { name: 'cursor', display: 'Cursor', type: 'combo', values: ['pointer', 'default', 'not-allowed'] },
+            { name: 'fontWeight', display: 'Font Weight', type: 'combo', values: [{display: 'normal', value: 'normal'}, {display: 'bold', value: 'bold'}] },
+            { name: 'cursor', display: 'Cursor', type: 'combo', values: [{display: 'pointer', value: 'pointer'}, {display: 'default', value: 'default'}, {display: 'not-allowed', value: 'not-allowed'}] },
 
             // 继承通用 (用于外边距等)
             ...super.getPropertiesSchema()

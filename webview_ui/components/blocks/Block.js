@@ -597,12 +597,12 @@ class Block {
                 name: 'backgroundMode',
                 display: 'Bg Mode',
                 type: 'sel',
-                values: [{ display: 'Transparent', value: 'Transparent' }, { display: 'Color', value: 'Color' }, { display: 'Image', value: 'Image' }],
+                values: [{display: 'Transparent', value: 'Transparent'}, {display: 'Color', value: 'Color'}, {display: 'Image', value: 'Image'}],
                 value: 'Transparent',
                 children: [
                     { condition: 'Color', name: 'backgroundColor', display: 'Color', type: 'color' },
                     { condition: 'Image', name: 'backgroundImage', display: 'Image URL', type: 'text', placeholder: 'https://...' },
-                    { condition: 'Image', name: 'backgroundSize', display: 'Bg Size', type: 'sel', values: [{ display: 'auto', value: 'auto' }, { display: 'cover', value: 'cover' }, { display: 'contain', value: 'contain' }, { display: '100% 100%', value: '100% 100%' }], value: 'cover' }
+                    { condition: 'Image', name: 'backgroundSize', display: 'Bg Size', type: 'sel', values: [{display: 'auto', value: 'auto'}, {display: 'cover', value: 'cover'}, {display: 'contain', value: 'contain'}, {display: '100% 100%', value: '100% 100%'}], value: 'cover' }
                 ]
             },
             { name: 'opacity', display: 'Opacity', type: 'num', value: 1, min: 0, max: 1, step: 0.05 },
@@ -612,7 +612,7 @@ class Block {
                 name: 'borderStyle',
                 display: 'Border Style',
                 type: 'sel',
-                values: [{ display: 'none', value: 'none' }, { display: 'solid', value: 'solid' }, { display: 'dashed', value: 'dashed' }, { display: 'dotted', value: 'dotted' }, { display: 'double', value: 'double' }],
+                values: [{display: 'none', value: 'none'}, {display: 'solid', value: 'solid'}, {display: 'dashed', value: 'dashed'}, {display: 'dotted', value: 'dotted'}, {display: 'double', value: 'double'}],
                 value: 'none',
                 children: borderChildren
             },

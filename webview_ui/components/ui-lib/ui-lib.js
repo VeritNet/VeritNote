@@ -168,12 +168,16 @@ export const initUiLib = () => {
         menu._blockToggle = true; // 标识菜单刚被聚焦开启，拦截接下来的同步 click 事件
 
         // 自动把当前选中项放到菜单第一项的位置
+        // 优先匹配 value 属性，其次匹配文字内容
         const currentVal = trigger.tagName === 'INPUT'
             ? trigger.value.trim().toLowerCase()
             : (box.getAttribute('value') || "").trim().toLowerCase();
 
         const items = menu.querySelectorAll('.menu-item');
-        const match = Array.from(items).find(i => (i.getAttribute('value') || i.innerText.trim()).toLowerCase() === currentVal);
+        const match = Array.from(items).find(i =>
+            (i.getAttribute('value') || "").toLowerCase() === currentVal ||
+            i.innerText.trim().toLowerCase() === currentVal
+        );
         menu.scrollTop = match ? match.offsetTop - 4 : 0;
     };
 
@@ -205,23 +209,27 @@ export const initUiLib = () => {
             const box = item.closest('.combo-box');
             const triggerEl = box.querySelector('.inp, .sel');
             const menu = box.querySelector('.menu.dropdown');
-            const val = item.getAttribute('value') || item.innerText.trim(); // 改为获取 value 属性
-            const text = (item.getAttribute('value') || item.innerText).toLowerCase();
+
+            // 显式区分两者：val 用于数据，text 用于显示
+            const val = item.getAttribute('value') || item.innerText.trim();
+            const text = item.innerText.trim();
 
             if (item.getAttribute('action') === 'clear') {
                 if (triggerEl.tagName === 'INPUT') triggerEl.value = '';
-                else { triggerEl.innerText = ''; box.removeAttribute('value'); } // 清除时移除外层 value
+                else { triggerEl.innerText = ''; box.removeAttribute('value'); }
                 triggerEl.dispatchEvent(new Event('input', { bubbles: true }));
                 triggerEl.focus();
                 return;
             }
 
+            // 关键修复：根据元素类型决定显示内容
             if (triggerEl.tagName === 'INPUT') {
-                triggerEl.value = val; // 组合框：直接应用 value 属性值到 input
+                triggerEl.value = val; // 组合框输入框显示实际值 (value)
             } else {
-                triggerEl.innerText = text; // 单选框：显示文字
-                box.setAttribute('value', val); // 单选框：实际值存在外层容器上
+                triggerEl.innerText = text; // 单选框触发器显示显示名 (display/text)
+                box.setAttribute('value', val); // 实际值存在外层属性上
             }
+
             triggerEl.dispatchEvent(new Event('input', { bubbles: true }));
             menu.classList.remove('show');
             return;
@@ -249,8 +257,12 @@ export const initUiLib = () => {
             const items = menu.querySelectorAll('.menu-item:not(.danger)');
 
             items.forEach(item => {
-                const text = (item.getAttribute('data-val') || item.innerText).toLowerCase();
-                item.style.display = text.includes(keyword) ? 'flex' : 'none';
+                // 同时获取显示文字和实际值进行复合搜索
+                const itemText = item.innerText.toLowerCase();
+                const itemVal = (item.getAttribute('value') || "").toLowerCase();
+                const isMatch = itemText.includes(keyword) || itemVal.includes(keyword);
+
+                item.style.display = isMatch ? 'flex' : 'none';
             });
             menu.classList.add('show');
             menu.style.setProperty('--hl-op', '0'); // 高度变化重置滑块防止错位

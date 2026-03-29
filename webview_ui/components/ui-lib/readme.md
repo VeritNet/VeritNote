@@ -157,14 +157,6 @@
 ```html
 <input type="text" class="inp" placeholder="请输入内容...">
 <input type="number" class="inp num-slider" min="0" max="100" step="1" value="50">
-
-### 🔽 下拉选择框 (`.sel`)
-带有自定义下拉箭头的原生 Select。
-```html
-<select class="sel">
-    <option>选项一</option>
-    <option>选项二</option>
-</select>
 ```
 
 ### 🔍 下拉单选框 (`.combo-box`)
@@ -186,7 +178,13 @@
 </div>
 ```
 
----
+**触发更新事件与获取值：**
+```javascript
+// combo-box即上文的class为combo-box的div，获取过程省略
+ComboBox.addEventListener('input', (e) => {
+    const selectedValue = ComboBox.getAttribute('value');
+});
+```
 
 ### 🔍 组合下拉框 (`.combo-box`)
 支持**自由输入**、**关键词过滤**与**预设选择**。适用于配置项较多或支持自定义输入值的场景。
@@ -213,6 +211,9 @@
     </div>
 </div>
 ```
+
+**触发更新事件与获取值：**
+直接监听class="inp"的输入框的 `input` 事件，获取当前值即可。
 
 ### 🌳 树形节点 (`.tree-item`)
 用于文件树、目录结构等场景。支持选中和展开状态。
@@ -262,8 +263,10 @@
 常用于模式切换按钮。
 ```html
 <div class="seg">
-    <div class="seg-item" act="true">列表视图</div>
-    <div class="seg-item">网格视图</div>
+    <!-- data-val 存储实际数值，标签内显示文字 -->
+    <div class="seg-item" data-val="edit" act="true">编辑模式</div>
+    <div class="seg-item" data-val="preview">预览视图</div>
+    <div class="seg-item" data-val="code">源码</div>
 </div>
 ```
 

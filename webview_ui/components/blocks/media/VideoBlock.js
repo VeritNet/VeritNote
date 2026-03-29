@@ -49,7 +49,7 @@ class VideoBlock extends Block {
             // 尺寸与适应
             { name: 'width', display: 'Width', type: 'text', placeholder: '100% or 500px' },
             { name: 'height', display: 'Height', type: 'text', placeholder: 'auto or 300px' },
-            { name: 'objectFit', display: 'Object Fit', type: 'combo', values: ['fill', 'contain', 'cover', 'none', 'scale-down'] },
+            { name: 'objectFit', display: 'Object Fit', type: 'combo', values: [{display: 'fill', value: 'fill'}, {display: 'contain', value: 'contain'}, {display: 'cover', value: 'cover'}, {display: 'none', value: 'none'}, {display: 'scale-down', value: 'scale-down'}] },
 
             // 继承通用
             ...super.getPropertiesSchema()

@@ -51,7 +51,12 @@ export const createKvForm = (config, onChangeCallback) => {
                         <div class="menu dropdown anim-fade scroll-y" style="max-height: 160px;">${comboItems}</div>
                     </div>`;
             case 'seg':
-                const segItems = (item.values || []).map(v => `<div class="seg-item" data-val="${v}" ${v === val ? 'act="true"' : ''}>${v}</div>`).join('');
+                const segItems = (item.values || []).map(v => {
+                    const isObj = typeof v === 'object';
+                    const valAttr = isObj ? v.value : v;
+                    const display = isObj ? v.display : v;
+                    return `<div class="seg-item" data-val="${valAttr}" ${valAttr == val ? 'act="true"' : ''}>${display}</div>`;
+                }).join('');
                 return `<div class="seg">${segItems}</div>`;
             case 'color':
                 return `
