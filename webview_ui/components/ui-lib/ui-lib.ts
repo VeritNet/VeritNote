@@ -1,5 +1,5 @@
 // Tools
-import { createKvForm } from './tools/kv-form.js';
+import { createKvForm } from './tools/kv-form';
 
 
 /**

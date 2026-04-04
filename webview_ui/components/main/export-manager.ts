@@ -1,10 +1,10 @@
 ﻿// components/main/export-manager.js
 
-import { ipc } from './ipc.js';
+import { ipc } from './ipc';
 
-import { PageEditor } from '../page-editor/page-editor.js';
+import { PageEditor } from '../page-editor/page-editor';
 
-import { DEFAULT_CONFIG } from './default-config.js';
+import { DEFAULT_CONFIG } from './default-config';
 
 export const ExportManager = class ExportManager {
     static async runExportProcess(exportConfig) {

@@ -14,7 +14,7 @@
     <!-- 你的内容 -->
 
     <script type="module">
-        import { initUiLib } from './ui-lib.js';
+        import { initUiLib } from './ui-lib';
         // 初始化 JS 交互（如菜单滑动高亮效果）
         initUiLib();
     </script>
@@ -343,7 +343,7 @@ UI 库提供了基于核心组件封装的高级工具，所有工具均通过 `
 ```html
 <link rel="stylesheet" href="./tools/kv-form.css">
 <script type="module">
-    import { initUiLib, UiTools } from './ui-lib.js';
+    import { initUiLib, UiTools } from './ui-lib';
     initUiLib();
     
     // 配置定义

@@ -1,7 +1,7 @@
 ﻿// components/data-editor/database-editor.js
 
-import { Editor } from '../editor.js';
-import { ipc } from '../main/ipc.js';
+import { Editor } from '../editor';
+import { ipc } from '../main/ipc';
 export class DatabaseEditor extends Editor {
     constructor(container, filePath, tabManager, computedConfig, context) {
         super(container, filePath, tabManager, computedConfig, context);

@@ -1,5 +1,5 @@
 ﻿// --- Converts any valid color string to #rrggbb format ---
-import { INHERIT_VALUE } from './default-config.js';
+import { INHERIT_VALUE } from './default-config';
 
 function toHexColor(colorStr) {
     if (!colorStr || typeof colorStr !== 'string') return '#000000';

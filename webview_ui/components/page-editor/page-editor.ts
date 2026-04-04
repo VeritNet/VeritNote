@@ -1,11 +1,11 @@
 ﻿// components/page-editor/page-editor.js
 
-import { Editor } from '../editor.js';
+import { Editor } from '../editor';
 
-import { PopoverManager } from './popovers.js';
-import { PageHistoryManager } from './HistoryManager.js';
-import { PageReferenceManager } from './ReferenceManager.js';
-import { PageSelectionManager } from './SelectionManager.js';
+import { PopoverManager } from './popovers';
+import { PageHistoryManager } from './HistoryManager';
+import { PageReferenceManager } from './ReferenceManager';
+import { PageSelectionManager } from './SelectionManager';
 
 export class PageEditor extends Editor {
     constructor(container, filePath, tabManager, computedConfig, context) {

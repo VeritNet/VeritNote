@@ -1,4 +1,4 @@
-﻿import { ipc } from '../main/ipc.js';
+﻿import { ipc } from '../main/ipc';
 
 export const initializeDashboardComponent = () => {
     const searchInput = document.getElementById('search-input');

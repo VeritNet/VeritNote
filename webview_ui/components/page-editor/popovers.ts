@@ -1,6 +1,6 @@
 ﻿// components/page-editor/popovers.js
 
-import { ipc } from '../main/ipc.js';
+import { ipc } from '../main/ipc';
 
 const PRESET_COLORS = [
     '#000000', '#444444', '#666666', '#999999', '#CCCCCC', '#EEEEEE', '#F3F3F3', '#FFFFFF',

@@ -1,27 +1,27 @@
 ﻿// components/main/main.js
 
 
-import { initializeDashboardComponent } from '../dashboard/dashboard.js';
+import { initializeDashboardComponent } from '../dashboard/dashboard';
 window['initializeDashboardComponent'] = initializeDashboardComponent;
 
-import { PageEditor } from '../page-editor/page-editor.js';
-import { DatabaseEditor } from '../database-editor/database-editor.js';
+import { PageEditor } from '../page-editor/page-editor';
+import { DatabaseEditor } from '../database-editor/database-editor';
 
-import { ipc } from './ipc.js';
+import { ipc } from './ipc';
 
-import { initGlobalState } from './global-state.js';
+import { initGlobalState } from './global-state';
 initGlobalState();
 
-import { ExportManager } from './export-manager.js';
+import { ExportManager } from './export-manager';
 
-import { DEFAULT_CONFIG } from './default-config.js';
-import { INHERIT_VALUE } from './default-config.js';
+import { DEFAULT_CONFIG } from './default-config';
+import { INHERIT_VALUE } from './default-config';
 
-import { ConfigModal } from './ConfigModal.js';
+import { ConfigModal } from './ConfigModal';
 
-import { initUiLib, UiTools } from '../ui-lib/ui-lib.js';
+import { initUiLib, UiTools } from '../ui-lib/ui-lib';
 
-import { init_error_handle } from './error.js';
+import { init_error_handle } from './error';
 
 
 // ==================================================================

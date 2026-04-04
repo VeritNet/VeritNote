@@ -1,6 +1,6 @@
-import { ipc } from '../main/ipc.js';
+import { ipc } from '../main/ipc';
 
-import { PageEditor } from './page-editor.js';
+import { PageEditor } from './page-editor';
 
 export class PageReferenceManager {
     constructor(editor) {

@@ -180,7 +180,7 @@ set(WINDOWS_SOURCES
     ${VERSION_RC_FILE}
 )
 
-# 3. Android 平台专属源文件 (目前为空，占位)
+# 3. Android 平台专属源文件
 set(ANDROID_SOURCES
     src/platform/android/Android_Backend.cpp
     src/platform/android/JNI_Bridge.cpp

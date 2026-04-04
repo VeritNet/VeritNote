@@ -1,7 +1,7 @@
 // components/editor.js
 // Editor 基类，提供文件加载、保存、配置应用等核心功能，供具体编辑器（如 PageEditor）继承和扩展
 
-import { ipc } from './main/ipc.js';
+import { ipc } from './main/ipc';
 
 export class Editor {
     constructor(container, filePath, tabManager, computedConfig, context = {}) {
