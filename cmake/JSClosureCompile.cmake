@@ -1,4 +1,4 @@
-﻿# cmake/CompileJSScripts.cmake
+﻿# cmake/JSClosureCompile.cmake
 
 message(STATUS "Running Google Closure Compiler in ${PROCESSED_DIR}")
 
@@ -23,9 +23,9 @@ endif()
 # 4. 运行 Closure Compiler
 # ADVANCED_OPTIMIZATIONS
 execute_process(
-    COMMAND "${NODE_CMD}" "${CLOSURE_COMPILER_SCRIPT}"
+    COMMAND ${NODE_CMD} "${CLOSURE_COMPILER_SCRIPT}"
             --compilation_level ${COMPILATION_LEVEL}
-            --externs "${PROCESSED_DIR}/GCC_Externs.js"
+            --externs "${PROCESSED_DIR}/components/externs.js"
             --dependency_mode PRUNE
             --entry_point "${PROCESSED_DIR}/components/main/main.js"
             ${CLOSURE_ARGS}

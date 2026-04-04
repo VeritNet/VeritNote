@@ -1,17 +1,17 @@
-// generate_externs.ts
-import * as ts from 'typescript';
+// generate_externs.js
+const ts = require('typescript');
 
-const PREDECLARED_CLOSURE_EXTERNS_LIST: ReadonlyArray<string> = [
+const PREDECLARED_CLOSURE_EXTERNS_LIST = [
     'exports', 'global', 'module', 'ErrorConstructor', 'Symbol', 'WorkerGlobalScope', 'Window', 'Document'
 ];
 
-export const EXTERNS_HEADER = `/**
+const EXTERNS_HEADER = `/**
  * @externs
  * @suppress {checkTypes,const,duplicate,missingOverride}
  */
 `;
 
-export function getGeneratedExterns(externs: { [fileName: string]: string }, rootDir: string): string {
+function getGeneratedExterns(externs, rootDir) {
     let allExterns = EXTERNS_HEADER;
     for (const fileName of Object.keys(externs)) {
         allExterns += `\n// Generated from: ${fileName}\n`;
@@ -21,11 +21,11 @@ export function getGeneratedExterns(externs: { [fileName: string]: string }, roo
 }
 
 // 模块名 Mangling (将路径转换为合法的 JS 标识符)
-function moduleNameAsIdentifier(fileName: string): string {
+function moduleNameAsIdentifier(fileName) {
     return fileName.replace(/^.*[/\\]/, '').replace(/\.d\.ts$/, '').replace(/[^a-zA-Z0-9]/g, '_');
 }
 
-export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.SourceFile): string {
+function generateExterns(typeChecker, sourceFile) {
     let output = '';
     const isExternalModule = ts.isExternalModule(sourceFile);
     let moduleNamespace = isExternalModule ? moduleNameAsIdentifier(sourceFile.fileName) : '';
@@ -37,10 +37,10 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
         rootNamespace += '_';
     }
 
-    function emit(str: string) { output += str; }
+    function emit(str) { output += str; }
 
     // --- Type Translator ---
-    function typeToClosure(node?: ts.TypeNode): string {
+    function typeToClosure(node) {
         if (!node) return '*';
         switch (node.kind) {
             case ts.SyntaxKind.StringKeyword: return 'string';
@@ -49,12 +49,12 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
             case ts.SyntaxKind.AnyKeyword: return '*';
             case ts.SyntaxKind.VoidKeyword: return 'void';
             case ts.SyntaxKind.TypeReference:
-                const ref = node as ts.TypeReferenceNode;
+                const ref = node;
                 return ref.typeName.getText();
             case ts.SyntaxKind.ArrayType:
-                return `Array<${typeToClosure((node as ts.ArrayTypeNode).elementType)}>`;
+                return `Array<${typeToClosure(node.elementType)}>`;
             case ts.SyntaxKind.UnionType:
-                return `(${(node as ts.UnionTypeNode).types.map(typeToClosure).join('|')})`;
+                return `(${node.types.map(typeToClosure).join('|')})`;
             case ts.SyntaxKind.FunctionType:
                 return 'Function';
             default:
@@ -62,7 +62,7 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
         }
     }
 
-    function writeVariableStatement(name: string, namespace: ReadonlyArray<string>, value?: string) {
+    function writeVariableStatement(name, namespace, value) {
         const qualifiedName = namespace.length > 0 ? namespace.concat([name]).join('.') : name;
         if (namespace.length === 0) emit(`var `);
         emit(qualifiedName);
@@ -70,7 +70,7 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
         emit(';\n');
     }
 
-    function writeFunction(name: ts.Node, params: string[], namespace: ReadonlyArray<string>) {
+    function writeFunction(name, params, namespace) {
         const paramsStr = params.join(', ');
         if (namespace.length > 0) {
             let fqn = namespace.join('.');
@@ -81,7 +81,7 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
         }
     }
 
-    function writeType(decl: ts.InterfaceDeclaration | ts.ClassDeclaration, namespace: ReadonlyArray<string>) {
+    function writeType(decl, namespace) {
         if (!decl.name) return;
         const nameText = decl.name.getText();
         const typeName = namespace.concat([nameText]).join('.');
@@ -116,7 +116,7 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
         }
     }
 
-    function writeEnum(decl: ts.EnumDeclaration, namespace: ReadonlyArray<string>) {
+    function writeEnum(decl, namespace) {
         const name = decl.name.getText();
         emit(`\n/** @enum {number} */\n`);
         let members = '';
@@ -129,7 +129,7 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
     }
 
     // --- AST 遍历逻辑 ---
-    function visitor(node: ts.Node, namespace: ReadonlyArray<string>) {
+    function visitor(node, namespace) {
         // 遇到全局声明恢复命名空间
         if (ts.isModuleDeclaration(node) && (node.flags & ts.NodeFlags.GlobalAugmentation)) {
             namespace = [];
@@ -138,10 +138,10 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
         switch (node.kind) {
             case ts.SyntaxKind.ClassDeclaration:
             case ts.SyntaxKind.InterfaceDeclaration:
-                writeType(node as ts.InterfaceDeclaration | ts.ClassDeclaration, namespace);
+                writeType(node, namespace);
                 break;
             case ts.SyntaxKind.VariableStatement:
-                const varStmt = node as ts.VariableStatement;
+                const varStmt = node;
                 for (const decl of varStmt.declarationList.declarations) {
                     if (ts.isIdentifier(decl.name)) {
                         const name = decl.name.getText();
@@ -152,7 +152,7 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
                 }
                 break;
             case ts.SyntaxKind.FunctionDeclaration:
-                const fnDecl = node as ts.FunctionDeclaration;
+                const fnDecl = node;
                 if (fnDecl.name) {
                     const params = fnDecl.parameters.map(p => p.name.getText());
                     emit(`/** @return {${typeToClosure(fnDecl.type)}} */\n`);
@@ -160,10 +160,10 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
                 }
                 break;
             case ts.SyntaxKind.EnumDeclaration:
-                writeEnum(node as ts.EnumDeclaration, namespace);
+                writeEnum(node, namespace);
                 break;
             case ts.SyntaxKind.ModuleDeclaration:
-                const modDecl = node as ts.ModuleDeclaration;
+                const modDecl = node;
                 if (modDecl.body) {
                     const modName = modDecl.name.getText().replace(/['"]/g, '');
                     const newNamespace = namespace.concat([modName]);
@@ -187,7 +187,7 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
 
     for (const stmt of sourceFile.statements) {
         // 仅处理 Ambient 声明 (.d.ts 默认全都是，或 .ts 中的 declare)
-        const isAmbient = (ts.getCombinedModifierFlags(stmt as unknown as ts.Declaration) & ts.ModifierFlags.Ambient) !== 0;
+        const isAmbient = (ts.getCombinedModifierFlags(stmt) & ts.ModifierFlags.Ambient) !== 0;
         if (sourceFile.isDeclarationFile || isAmbient) {
             const startNamespace = isExternalModule ? [rootNamespace] : [];
             visitor(stmt, startNamespace);
@@ -196,3 +196,10 @@ export function generateExterns(typeChecker: ts.TypeChecker, sourceFile: ts.Sour
 
     return output;
 }
+
+// CommonJS 导出
+module.exports = {
+    EXTERNS_HEADER,
+    getGeneratedExterns,
+    generateExterns
+};

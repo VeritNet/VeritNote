@@ -1,9 +1,8 @@
-// cli.ts
-
-import * as ts from 'typescript';
-import * as fs from 'fs';
-import * as path from 'path';
-import { generateExterns, getGeneratedExterns } from './generate_externs';
+// cli.js
+const ts = require('typescript');
+const fs = require('fs');
+const path = require('path');
+const { generateExterns, getGeneratedExterns } = require('./generate_externs');
 
 function printUsage() {
     console.error("Usage: node cli.js <mode> [options]");
@@ -11,7 +10,7 @@ function printUsage() {
     console.error("  generate-externs --project <path/to/tsconfig.json> --out <path/to/externs.js>");
 }
 
-function handleGenerateExterns(args: string[]) {
+function handleGenerateExterns(args) {
     const tsconfigIndex = args.indexOf('--project');
     const outIndex = args.indexOf('--out');
 
@@ -44,7 +43,7 @@ function handleGenerateExterns(args: string[]) {
     const program = ts.createProgram(parsedCommandLine.fileNames, parsedCommandLine.options);
     const typeChecker = program.getTypeChecker();
 
-    const externsOutputs: { [fileName: string]: string } = {};
+    const externsOutputs = {};
 
     // 遍历所有源码文件
     for (const sourceFile of program.getSourceFiles()) {

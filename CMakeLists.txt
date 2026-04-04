@@ -1,4 +1,8 @@
-﻿# CMake 最低版本要求
+﻿## npm install @typescript/native-preview
+## npm install typescript
+## npm install google-closure-compiler
+
+# CMake 最低版本要求
 cmake_minimum_required(VERSION 3.15)
 
 # 项目名称和 C++ 标准
@@ -89,80 +93,120 @@ END
 endif()
 
 
-# --- 主机工具的查找和配置 ---
-# 这段逻辑只在运行CMake的主机是Windows时执行
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    message(STATUS "Host is Windows, configuring web asset preprocessing...")
+# --- 主机工具的统一查找和配置 ---
+message(STATUS "Configuring toolchain and web asset preprocessing...")
 
-    # 1. 查找主机上的Node.js
-    find_program(NODE_EXECUTABLE node NO_CMAKE_FIND_ROOT_PATH)
-    if(NOT NODE_EXECUTABLE)
-        message(FATAL_ERROR "node.exe not found. Please ensure Node.js is installed and in your PATH.")
-    endif()
-    message(STATUS "Found Node.js executable: ${NODE_EXECUTABLE}")
-
-    # 2. 查找主机上的 Google Closure Compiler
-    find_file(CLOSURE_COMPILER_DEFAULT_SCRIPT_PATH
-        NAMES cli.js # Closure Compiler 的 npm 全局入口文件通常是 cli.js
-        PATHS
-            "$ENV{APPDATA}/npm/node_modules/google-closure-compiler" # Windows 全局安装路径
-        NO_CMAKE_FIND_ROOT_PATH
-        NO_DEFAULT_PATH
-    )
-    set(VERITNOTE_CLOSURE_COMPILER_PATH "${CLOSURE_COMPILER_DEFAULT_SCRIPT_PATH}"
-        CACHE FILEPATH "Path to the Google Closure Compiler script file.")
-    
-    if(NOT VERITNOTE_CLOSURE_COMPILER_PATH)
-        message(FATAL_ERROR "Could not find google-closure-compiler automatically. Please run 'npm install -g google-closure-compiler' or specify VERITNOTE_CLOSURE_COMPILER_PATH.")
-    elseif(NOT EXISTS "${VERITNOTE_CLOSURE_COMPILER_PATH}")
-        message(FATAL_ERROR "Closure Compiler path is set to '${VERITNOTE_CLOSURE_COMPILER_PATH}', but it does not exist.")
-    endif()
-    message(STATUS "Using Closure Compiler: ${VERITNOTE_CLOSURE_COMPILER_PATH}")
-
-    # 3. 定义预处理命令
-    file(GLOB_RECURSE WEB_ASSETS_SOURCES "${WEB_ASSETS_DIR}/*")
-    
-    # 使用 add_custom_command 来给之前定义的目标添加具体的构建步骤
-    # --- 差异化资源生成 ---
-    if(WIN32)
-        set(GENERATED_RESOURCE_FILES ${RESOURCE_H} ${RESOURCE_RC})
-        set(PLATFORM_FLAG "-DTARGET_IS_WINDOWS=1")
-    else()
-        # 对于 Android 和其他平台，我们只需要头文件
-        set(GENERATED_RESOURCE_FILES ${RESOURCE_H})
-        set(PLATFORM_FLAG "-DTARGET_IS_ANDROID=1") # 或者其他你喜欢的名字
-    endif()
-    add_custom_command(
-        TARGET preprocess_web_assets
-        PRE_BUILD # 确保在编译任何源文件之前运行
-        COMMAND ${CMAKE_COMMAND} -E rm -rf "${PROCESSED_ASSETS_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${PROCESSED_ASSETS_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${WEB_ASSETS_DIR}/" "${PROCESSED_ASSETS_DIR}/"
-        COMMAND ${CMAKE_COMMAND}
-            -D "PROCESSED_DIR=${PROCESSED_ASSETS_DIR}"
-            -D "NODE_CMD=${NODE_EXECUTABLE}"
-            -D "CLOSURE_COMPILER_SCRIPT=${VERITNOTE_CLOSURE_COMPILER_PATH}"
-            -D "USE_ADVANCED_MODE=${CLOSURE_OPTIMIZATION}"
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompileJSScripts.cmake"
-        COMMAND ${CMAKE_COMMAND}
-            -D "WEB_ASSETS_DIR_SRC=${WEB_ASSETS_DIR}"
-            -D "PROCESSED_ASSETS_DIR_DST=${PROCESSED_ASSETS_DIR}"
-            -D "RESOURCE_H=${RESOURCE_H}"
-            -D "RESOURCE_RC=${RESOURCE_RC}" # 仍然传递路径，但在脚本内部决定是否写入
-            ${PLATFORM_FLAG}               # <--- 传递平台标志
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateResources.cmake"
-        DEPENDS ${WEB_ASSETS_SOURCES}
-        BYPRODUCTS ${GENERATED_RESOURCE_FILES} # <--- 使用变量
-        COMMENT "Preprocessing web assets on Windows host for target ${CMAKE_SYSTEM_NAME}..."
-    )
-
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    # TODO: 为Linux主机添加工具查找逻辑
-    message(WARNING "Web asset preprocessing for Linux host is not yet configured.")
-
+# 1. 查找 Node.js 和 npm
+if(VERITNOTE_NODE_PATH AND EXISTS "${VERITNOTE_NODE_PATH}")
+    set(NODE_EXECUTABLE "${VERITNOTE_NODE_PATH}")
 else()
-    message(WARNING "Unsupported host system for web asset preprocessing: ${CMAKE_HOST_SYSTEM_NAME}")
+    find_program(NODE_EXECUTABLE node NO_CMAKE_FIND_ROOT_PATH)
 endif()
+if(NOT NODE_EXECUTABLE OR NOT EXISTS "${NODE_EXECUTABLE}")
+    message(FATAL_ERROR "Node.js not found! Please define VERITNOTE_NODE_PATH in CMakeUserPresets.json or ensure 'node' is in your PATH.")
+endif()
+message(STATUS "Using Node.js: ${NODE_EXECUTABLE}")
+
+if(VERITNOTE_NPM_PATH AND EXISTS "${VERITNOTE_NPM_PATH}")
+    set(NPM_EXECUTABLE "${VERITNOTE_NPM_PATH}")
+else()
+    find_program(NPM_EXECUTABLE NAMES npm NO_CMAKE_FIND_ROOT_PATH)
+endif()
+if(NOT NPM_EXECUTABLE OR NOT EXISTS "${NPM_EXECUTABLE}")
+    message(FATAL_ERROR "npm not found! Please define VERITNOTE_NPM_PATH in CMakeUserPresets.json or ensure 'npm' is in your PATH.")
+endif()
+message(STATUS "Using npm: ${NPM_EXECUTABLE}")
+
+# 2. 查找 TSGO (TS7 编译器)
+if(VERITNOTE_TSGO_PATH AND EXISTS "${VERITNOTE_TSGO_PATH}")
+    set(TSGO_EXECUTABLE "${VERITNOTE_TSGO_PATH}")
+else()
+    find_program(TSGO_EXECUTABLE tsgo NO_CMAKE_FIND_ROOT_PATH)
+endif()
+if(NOT TSGO_EXECUTABLE OR NOT EXISTS "${TSGO_EXECUTABLE}")
+    message(FATAL_ERROR "tsgo not found! Please define VERITNOTE_TSGO_PATH in CMakeUserPresets.json or install it globally.")
+endif()
+message(STATUS "Using tsgo: ${TSGO_EXECUTABLE}")
+
+# 3. 查找 Google Closure Compiler
+if(NOT VERITNOTE_CLOSURE_COMPILER_PATH OR NOT EXISTS "${VERITNOTE_CLOSURE_COMPILER_PATH}")
+    find_file(CLOSURE_COMPILER_DEFAULT_SCRIPT_PATH
+        NAMES cli.js
+        PATHS "$ENV{APPDATA}/npm/node_modules/google-closure-compiler"
+              "/usr/local/lib/node_modules/google-closure-compiler"
+        NO_CMAKE_FIND_ROOT_PATH NO_DEFAULT_PATH
+    )
+    if(CLOSURE_COMPILER_DEFAULT_SCRIPT_PATH)
+        set(VERITNOTE_CLOSURE_COMPILER_PATH "${CLOSURE_COMPILER_DEFAULT_SCRIPT_PATH}" CACHE FILEPATH "Path to GCC" FORCE)
+    else()
+        message(FATAL_ERROR "google-closure-compiler not found! Please define VERITNOTE_CLOSURE_COMPILER_PATH in CMakeUserPresets.json or install it via npm.")
+    endif()
+endif()
+message(STATUS "Using Closure Compiler: ${VERITNOTE_CLOSURE_COMPILER_PATH}")
+
+# 4. 查找 UPX (占位)
+if(VERITNOTE_UPX_PATH AND EXISTS "${VERITNOTE_UPX_PATH}")
+    set(UPX_EXECUTABLE "${VERITNOTE_UPX_PATH}")
+else()
+    find_program(UPX_EXECUTABLE upx NO_CMAKE_FIND_ROOT_PATH)
+endif()
+if(NOT UPX_EXECUTABLE OR NOT EXISTS "${UPX_EXECUTABLE}")
+    message(WARNING "upx not found. Executable packing will be skipped. (Define VERITNOTE_UPX_PATH to enable later)")
+else()
+    message(STATUS "Using UPX: ${UPX_EXECUTABLE}")
+endif()
+
+# --- 前端自动化预处理管道 ---
+file(GLOB_RECURSE WEB_ASSETS_SOURCES "${WEB_ASSETS_DIR}/*")
+
+if(WIN32)
+    set(GENERATED_RESOURCE_FILES ${RESOURCE_H} ${RESOURCE_RC})
+    set(PLATFORM_FLAG "-DTARGET_IS_WINDOWS=1")
+else()
+    set(GENERATED_RESOURCE_FILES ${RESOURCE_H})
+    set(PLATFORM_FLAG "-DTARGET_IS_ANDROID=1")
+endif()
+
+# 定义包含TS编译、Externs生成、闭包编译、资源生成的完整工作流
+add_custom_command(
+    TARGET preprocess_web_assets
+    PRE_BUILD
+    # 1. 拷贝原始文件到处理目录
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${PROCESSED_ASSETS_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROCESSED_ASSETS_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${WEB_ASSETS_DIR}/" "${PROCESSED_ASSETS_DIR}/"
+    
+    # 2. 调用 TS 编译和 Externs 生成 模块
+    COMMAND ${CMAKE_COMMAND}
+        -D "TSGO_CMD=${TSGO_EXECUTABLE}"
+        -D "NODE_CMD=${NODE_EXECUTABLE}"
+        -D "NPM_CMD=${NPM_EXECUTABLE}"
+        -D "SRC_WEB_ASSETS_DIR=${WEB_ASSETS_DIR}"
+        -D "PROCESSED_DIR=${PROCESSED_ASSETS_DIR}"
+        -D "TS_CLOSURE_TOOL_DIR=${CMAKE_CURRENT_SOURCE_DIR}/TSClosure"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/TSClosureCompile.cmake"
+        
+    # 3. 调用 JS闭包编译 模块
+    COMMAND ${CMAKE_COMMAND}
+        -D "PROCESSED_DIR=${PROCESSED_ASSETS_DIR}"
+        -D "NODE_CMD=${NODE_EXECUTABLE}"
+        -D "CLOSURE_COMPILER_SCRIPT=${VERITNOTE_CLOSURE_COMPILER_PATH}"
+        -D "USE_ADVANCED_MODE=${CLOSURE_OPTIMIZATION}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/JSClosureCompile.cmake"
+        
+    # 4. 生成 C++ 资源头文件和RC
+    COMMAND ${CMAKE_COMMAND}
+        -D "WEB_ASSETS_DIR_SRC=${WEB_ASSETS_DIR}"
+        -D "PROCESSED_ASSETS_DIR_DST=${PROCESSED_ASSETS_DIR}"
+        -D "RESOURCE_H=${RESOURCE_H}"
+        -D "RESOURCE_RC=${RESOURCE_RC}"
+        ${PLATFORM_FLAG}
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateResources.cmake"
+        
+    DEPENDS ${WEB_ASSETS_SOURCES}
+    BYPRODUCTS ${GENERATED_RESOURCE_FILES}
+    COMMENT "Processing TypeScript, compiling Web Assets and generating resources..."
+)
 
 
 # --- 定义不同平台的源文件 ---
@@ -188,13 +232,14 @@ set(ANDROID_SOURCES
 
 
 # --- 添加可执行文件 (仅限 Windows) ---
+message(STATUS "==== Setting Executable ====")
 if(WIN32)
     add_executable(VeritNote WIN32
         ${CORE_SOURCES}
         ${WINDOWS_SOURCES}
     )
 
-    # --- 【修改】更新头文件包含路径 ---
+    # --- 更新头文件包含路径 ---
     target_include_directories(VeritNote PUBLIC
         "${CMAKE_CURRENT_BINARY_DIR}" # for resources.h
         "${CMAKE_CURRENT_SOURCE_DIR}/src" # for "include/Backend.h"
@@ -203,7 +248,7 @@ if(WIN32)
         "${VENDOR_DIR}/wil/include"
     )
 
-    # --- 链接库 (保持不变) ---
+    # --- 链接库 ---
     target_link_libraries(VeritNote PRIVATE
         "${VENDOR_DIR}/WebView2/x64/WebView2LoaderStatic.lib"
         user32.lib
@@ -212,7 +257,7 @@ if(WIN32)
         version.lib
     )
 
-    # --- 编译和链接选项 (保持不变) ---
+    # --- 编译和链接选项 ---
     if(MSVC)
         target_compile_options(VeritNote PRIVATE
             $<$<CONFIG:Release>:/O2 /Oi /Ot /GL /Gy /fp:fast /EHsc /GR->
@@ -227,7 +272,7 @@ if(WIN32)
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
     endif()
 elseif(ANDROID)
-    # 对于 Android，我们构建一个共享库 (.so)
+    # 对于 Android，构建一个共享库 (.so)
     # 库的名称 "VeritNote" 必须和 Java/Kotlin 中 System.loadLibrary("VeritNote") 的名称一致
     add_library(VeritNote SHARED
         ${CORE_SOURCES}
