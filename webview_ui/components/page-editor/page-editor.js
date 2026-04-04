@@ -570,15 +570,13 @@ export class PageEditor extends Editor {
     // 找到基类的 UI 回调，控制保存按钮状态:
     onBeforeSave() {
         if (this.elements.saveBtn) {
-            this.elements.saveBtn.style.opacity = '0.5';
-            this.elements.saveBtn.style.pointerEvents = 'none';
+            this.elements.saveBtn.classList.add('unsaved');
         }
     }
 
     onAfterSave(success) {
         if (this.elements.saveBtn) {
-            this.elements.saveBtn.style.opacity = '1';
-            this.elements.saveBtn.style.pointerEvents = 'auto';
+            this.elements.saveBtn.classList.remove('unsaved');
         }
     }
 
@@ -2346,7 +2344,6 @@ export class PageEditor extends Editor {
         if (activeTab) {
             // --- Save Button State ---
             // The `isUnsaved` state is managed by the TabManager.
-            this.elements.saveBtn.disabled = !activeTab.isUnsaved;
             this.elements.saveBtn.classList.toggle('unsaved', activeTab.isUnsaved);
 
             // --- Mode Toggle State ---
@@ -2356,7 +2353,6 @@ export class PageEditor extends Editor {
         } else {
             // Fallback for when there is no active tab (should rarely happen when an editor is active).
             // This logic is inherited from the old main.js for robustness.
-            this.elements.saveBtn.disabled = true;
             this.elements.saveBtn.classList.remove('unsaved');
             this.elements.modeToggle.classList.add('edit-active');
             this.elements.modeToggle.classList.remove('preview-active');

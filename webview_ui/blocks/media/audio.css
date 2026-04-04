@@ -1,0 +1,72 @@
+/* blocks/media/audio.css */
+
+.audio-block-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px 8px 12px;
+    background-color: var(--bg-secondary, #f4f5f7);
+    border: 1px solid var(--border-primary, #e2e8f0);
+    border-radius: 50px; /* 胶囊形状 */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    max-width: 100%;
+    width: fit-content;
+    transition: box-shadow 0.2s;
+}
+
+    .audio-block-wrapper:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+.audio-icon-deco {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--bg-tertiary, #e2e8f0);
+    border-radius: 50%;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+/* 规整 HTML5 Audio 原生播放器的默认样式 */
+.audio-block-wrapper audio {
+    height: 36px;
+    outline: none;
+    border-radius: 20px;
+}
+
+/* 音频右侧的外链按钮 */
+.audio-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-primary, #fff);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-primary);
+    transition: all 0.2s ease;
+}
+
+    .audio-link:hover {
+        background: var(--primary-color, #2383e2);
+        color: #fff;
+        border-color: var(--primary-color, #2383e2);
+    }
+
+/* 暗色模式适配建议 (如果你的系统有 .dark-theme 类) */
+.dark-theme .audio-block-wrapper {
+    background-color: var(--bg-secondary, #1e1e1e);
+    border-color: var(--border-primary, #333);
+}
+
+.dark-theme .audio-icon-deco {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.dark-theme .audio-link {
+    background: var(--bg-secondary, #2d2d2d);
+}

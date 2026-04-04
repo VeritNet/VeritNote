@@ -78,6 +78,8 @@ window['initializeMainComponent'] = () => {
     const progressBar = document.getElementById('progress-bar');
     const exportStatus = document.getElementById('export-status');
     const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
+    const workspaceName = document.getElementById('workspace-name');
+    const workspaceSettingsBtn = document.getElementById('workspace-settings-btn');
     const appContainer = document.querySelector('.app-container');
     const sidebarContainer = document.getElementById('sidebar');
     const sidebarResizer = document.getElementById('sidebar-resizer');
@@ -307,6 +309,13 @@ window['initializeMainComponent'] = () => {
         const workspaceData = e['detail']['payload'];
         if (workspaceData && workspaceData.path) {
             window.workspaceRootPath = workspaceData.path;
+            
+            // --- 更新工作区名称显示 ---
+            if (workspaceName) {
+                // 从路径中提取最后一个文件夹名称
+                const pathParts = workspaceData.path.split(/[\\/]/);
+                workspaceName.textContent = pathParts.filter(Boolean).pop() || workspaceData.path;
+            }
         }
         sidebar.dataset['workspaceData'] = JSON.stringify(workspaceData);
         if (workspaceData && workspaceData.children && workspaceData.children.length > 0) {
@@ -390,6 +399,13 @@ window['initializeMainComponent'] = () => {
             }
         } else {
             tabManager.openTab(path, null, type);
+        }
+    });
+
+    // --- 工作区设置按钮监听 ---
+    workspaceSettingsBtn.addEventListener('click', () => {
+        if (window.workspaceRootPath) {
+            window.openConfigModal('folder', window.workspaceRootPath);
         }
     });
 

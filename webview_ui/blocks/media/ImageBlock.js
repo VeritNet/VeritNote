@@ -1,0 +1,122 @@
+﻿// blocks/media/ImageBlock.js
+class ImageBlock extends Block {
+    static type = 'image';
+    static icon = '🖼️';
+    static label = 'Image';
+    static description = 'Embed an image from a URL or upload.';
+    static keywords = ['image', 'img', 'picture', 'photo'];
+    static canBeToggled = true;
+
+    constructor(data, editor) {
+        super(data, editor);
+        // --- REFACTORED: Use properties for src and href ---
+        if (!this.properties.src) {
+            this.properties.src = '';
+        }
+        if (!this.properties.href) {
+            this.properties.href = '';
+        }
+        // Content is no longer used for the image tag itself
+        this.content = '';
+    }
+
+    get data() {
+        // --- REFACTORED: Save properties, content is always empty ---
+        return {
+            id: this.id,
+            type: this.type,
+            content: '',
+            properties: this.properties,
+            children: [],
+        };
+    }
+
+    static getPropertiesSchema() {
+        return [
+            // 核心属性
+            { name: 'src', display: 'Image Source', type: 'text' },
+            { name: 'href', display: 'Link URL', type: 'text' },
+            { name: 'alt', display: 'Alt Text', type: 'text', placeholder: 'Description for accessibility' },
+
+            // 尺寸与适应
+            { name: 'width', display: 'Width', type: 'text', placeholder: '100% or 300px' },
+            { name: 'height', display: 'Height', type: 'text', placeholder: 'auto or 200px' },
+            { name: 'objectFit', display: 'Object Fit', type: 'combo', values: [{display: 'fill', value: 'fill'}, {display: 'contain', value: 'contain'}, {display: 'cover', value: 'cover'}, {display: 'none', value: 'none'}, {display: 'scale-down', value: 'scale-down'}] },
+
+            // 滤镜特效 (非常实用)
+            { name: 'filter', display: 'Filter', type: 'text', placeholder: 'grayscale(100%) blur(2px)' },
+
+            // 继承通用
+            ...super.getPropertiesSchema()
+        ];
+    }
+
+    _renderContent() {
+        const p = this.properties;
+
+        // 构建样式字符串
+        let style = `display: block;`;
+        if (p.width) style += `width: ${p.width};`;
+        if (p.height) style += `height: ${p.height};`;
+        if (p.objectFit) style += `object-fit: ${p.objectFit};`;
+        if (p.filter) style += `filter: ${p.filter};`;
+
+        // 注意：圆角等样式应该应用在 img 标签上，而不是外层 wrapper，因为 wrapper 可能是全宽的
+        if (p.borderRadius) style += `border-radius: ${p.borderRadius};`;
+
+        if (p.src) {
+            const alt = p.alt || 'image';
+            const imgHtml = `<img src="${p.src}" alt="${alt}" style="${style}">`;
+
+            // 如果存在超链接属性，则用 <a> 标签包裹图片
+            if (p.href) {
+                this.contentElement.innerHTML = `<a href="${p.href}" target="_blank" rel="noopener noreferrer">${imgHtml}</a>`;
+            } else {
+                this.contentElement.innerHTML = imgHtml;
+            }
+        } else {
+            this.contentElement.innerHTML = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
+        }
+    }
+    
+    // Images are not directly editable
+    onInput(e) { /* no-op */ }
+    onKeyDown(e) { /* no-op */ }
+
+    get toolbarButtons() {
+        const buttons = [
+            { icon: '🖼️', title: 'Set Image Source', action: 'editImage' },
+            { icon: '🔗', title: 'Set Image Link', action: 'linkImage' }
+        ];
+        buttons.push(...super.toolbarButtons);
+        return buttons;
+    }
+    
+    handleToolbarAction(action, buttonElement) {
+        if (action === 'editImage') {
+            // --- REFACTORED: Updates properties.src ---
+            this.BAPI_PE.popoverManager.showImageSource(
+                buttonElement,
+                this.properties.src,
+                (value) => {
+                    this.properties.src = value || '';
+                    this._renderContent(); // Re-render the block with the new image source
+                    this.BAPI_PE.emitChange(true, 'edit-image-src', this);
+                }
+            );
+        } else if (action === 'linkImage') {
+            this.BAPI_PE.popoverManager.showLink(
+                buttonElement,
+                this.properties.href,
+                (value) => {
+                    this.properties.href = value || '';
+                    // No visual change in the editor, just save the data
+                    this.BAPI_PE.emitChange(true, 'edit-image-link', this);
+                    this._renderContent(); // Re-render to update the link <a> wrapping
+                }
+            );
+        }
+    }
+}
+
+window['registerBlock'](ImageBlock);

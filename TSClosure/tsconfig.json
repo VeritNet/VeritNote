@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "rootDir": "."
+  },
+  "include": [
+    "cli.ts",
+    "generate_externs.ts"
+  ]
+}

@@ -287,14 +287,14 @@ body.is-dragging-block #references-view.active {
 }
 
 
-#save-btn.unsaved {
-    background-color: #4a6a8f;
-    color: var(--text-on-accent-bg);
+#save-btn {
+    background: none;
+    color: var(--tc-3);
 }
-
-    #save-btn.unsaved:hover {
-        background-color: #5a7ea8;
-    }
+#save-btn.unsaved {
+    background: var(--bg-2);
+    color: var(--tc-1);
+}
 
 .mode-toggle {
     position: relative;

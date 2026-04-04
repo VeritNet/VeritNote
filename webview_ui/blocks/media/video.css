@@ -1,0 +1,65 @@
+/* blocks/media/video.css */
+
+.block-content[data-type="video"] {
+    position: relative;
+}
+
+.video-block-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+    .video-block-wrapper video {
+        background-color: var(--bg-tertiary, #000); /* 视频未加载或无信箱模式时显示黑底 */
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+.media-placeholder {
+    width: 100%;
+    background: var(--bg-accent);
+    border: 2px dashed var(--border-primary);
+    padding: var(--spacing-l);
+    text-align: center;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+    .media-placeholder:hover {
+        background: var(--bg-hover);
+    }
+
+/* 视频右上角悬浮链接按钮 */
+.video-link {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.video-block-wrapper:hover .video-link {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.video-link:hover {
+    background: rgba(0, 0, 0, 0.85);
+    color: var(--primary-color, #60A5FA);
+}
