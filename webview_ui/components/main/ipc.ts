@@ -5,8 +5,8 @@ export const ipc = {
         console.log("IPC: Sending message to C++:", { action, payload });
         if (window.AndroidBridge && window.AndroidBridge.postMessage) {
             window.AndroidBridge.postMessage(JSON.stringify({ "action": action, "payload": payload }));
-        } else if (window.chrome && window.chrome.webview) {
-            window.chrome.webview.postMessage({ "action": action, "payload": payload });
+        } else if (window.chrome && (window.chrome.webview as { postMessage: (msg: any) => void })) {
+            (window.chrome.webview as { postMessage: (msg: any) => void }).postMessage({ "action": action, "payload": payload });
         } else {
             console.warn("WebView environment not detected. Message not sent:", { action, payload });
         }
@@ -96,15 +96,17 @@ export const ipc = {
         ipc.send('fetchDataContent', { 'dataBlockId': requestIdentifier, 'path': path });
     },
 
-    openWorkspaceDialog: () => {
+    openWorkspaceDialog: (): Promise<string> => {
         return new Promise((resolve) => {
-            const handleDialogClose = (event: any) => {
+            const handleDialogClose = (event: Event) => {
+                const customEvent = event as CustomEvent;
+                const path = customEvent.detail['payload']['path'];
                 window.removeEventListener('workspaceDialogClosed', handleDialogClose);
-                resolve(event.detail['payload']['path']); // 返回选择的路径
+                resolve(path as string);
             };
-            
+
             window.addEventListener('workspaceDialogClosed', handleDialogClose, { once: true });
-            
+
             ipc.send('openWorkspaceDialog');
         });
     },

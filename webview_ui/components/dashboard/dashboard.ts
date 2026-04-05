@@ -1,23 +1,31 @@
 ﻿import { ipc } from '../main/ipc.js';
 
-export const initializeDashboardComponent = () => {
-    const searchInput:HTMLInputElement = document.getElementById('search-input') as HTMLInputElement;
-    const recentList:HTMLDivElement = document.getElementById('recent-list') as HTMLDivElement;
-    const openWorkspaceBtn = document.getElementById('open-workspace-btn');
-    const dragRegion = document.getElementById('drag-region');
-    const aboutBtn = document.getElementById('about-btn');
-    const aboutModal = document.getElementById('about-modal');
-    const closeModalBtn = aboutModal.querySelector('.close-btn');
-    const copyLinkBtn = document.getElementById('copy-link-btn');
+// 建议定义工作区接口
+interface Workspace {
+    name: string;
+    path: string;
+    lastOpened: string;
+}
 
-    const minimizeBtn = document.getElementById('minimize-btn');
-    const maximizeBtn = document.getElementById('maximize-btn');
-    const closeBtn = document.getElementById('close-btn');
+export const initializeDashboardComponent = () => {
+    // 使用断言确保元素存在，或在后续使用时添加可选链
+    const searchInput = document.getElementById('search-input') as HTMLInputElement;
+    const recentList = document.getElementById('recent-list') as HTMLDivElement;
+    const openWorkspaceBtn = document.getElementById('open-workspace-btn') as HTMLElement;
+    const dragRegion = document.getElementById('drag-region') as HTMLElement;
+    const aboutBtn = document.getElementById('about-btn') as HTMLElement;
+    const aboutModal = document.getElementById('about-modal') as HTMLElement;
+    const closeModalBtn = aboutModal.querySelector('.close-btn') as HTMLElement;
+    const copyLinkBtn = document.getElementById('copy-link-btn') as HTMLElement;
+
+    const minimizeBtn = document.getElementById('minimize-btn') as HTMLElement;
+    const maximizeBtn = document.getElementById('maximize-btn') as HTMLElement;
+    const closeBtn = document.getElementById('close-btn') as HTMLElement;
 
     const STORAGE_KEY = 'veritnote_recent_workspaces';
 
     // --- 辅助函数: 从路径/URI中获取文件名 ---
-    function getFileNameFromPath(path) {
+    function getFileNameFromPath(path: string): string {
         if (window.currentOS === 'android') {
             // 对于 "content://..." URI, 文件名是最后一个 '/' 之后的部分
             return path.substring(path.lastIndexOf('/') + 1);
@@ -28,7 +36,7 @@ export const initializeDashboardComponent = () => {
     }
 
     // --- Data Logic ---
-    function getRecentWorkspaces() {
+    function getRecentWorkspaces(): Workspace[] {
         try {
             const stored = window.localStorage.getItem(STORAGE_KEY);
             return stored ? JSON.parse(stored) : [];
@@ -37,17 +45,17 @@ export const initializeDashboardComponent = () => {
         }
     }
 
-    function saveRecentWorkspaces(workspaces) {
+    function saveRecentWorkspaces(workspaces: Workspace[]): void {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(workspaces));
     }
 
-    function addRecentWorkspace(path) {
+    function addRecentWorkspace(path: string): void {
         let workspaces = getRecentWorkspaces();
         const now = new Date().toISOString();
         const name = getFileNameFromPath(path);
         
         // Remove existing entry for the same path to move it to the top
-        workspaces = workspaces.filter(ws => ws.path !== path);
+        workspaces = workspaces.filter((ws: Workspace) => ws.path !== path);
         
         // Add new entry to the top
         workspaces.unshift({ name, path, lastOpened: now });
@@ -66,7 +74,7 @@ export const initializeDashboardComponent = () => {
     // --- UI Rendering ---
     function renderList(filter = '') {
         const workspaces = getRecentWorkspaces();
-        const filtered = workspaces.filter(ws => 
+        const filtered = workspaces.filter((ws: Workspace) => 
             ws.name.toLowerCase().includes(filter.toLowerCase()) || 
             ws.path.toLowerCase().includes(filter.toLowerCase())
         );
@@ -76,7 +84,7 @@ export const initializeDashboardComponent = () => {
             return;
         }
 
-        recentList.innerHTML = filtered.map(ws => `
+        recentList.innerHTML = filtered.map((ws: Workspace) => `
             <div class="item" data-path="${ws.path}" title="${ws.path}">
                 <div class="item-details">
                     <div class="name">${ws.name}</div>
