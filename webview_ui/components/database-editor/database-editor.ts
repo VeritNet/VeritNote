@@ -1,14 +1,19 @@
 ﻿// components/data-editor/database-editor.js
 
-import { Editor } from '../editor';
-import { ipc } from '../main/ipc';
+import { Editor } from '../editor.js';
+import { ipc } from '../main/ipc.js';
 export class DatabaseEditor extends Editor {
+    dbData;
+
+    activePresetId;
+    elements;
+    previewBlockInstance; // 持有实时预览的 DataBlock 实例
+
     constructor(container, filePath, tabManager, computedConfig, context) {
         super(container, filePath, tabManager, computedConfig, context);
 
         this.type = 'database'; // 基类变量赋值
 
-        // DB 数据结构
         this.dbData = {
             'config': {},
             'data': { 'mode': 'embedded', 'embeddedData': [], 'externalUrl': '' },
@@ -17,7 +22,7 @@ export class DatabaseEditor extends Editor {
 
         this.activePresetId = null;
         this.elements = {};
-        this.previewBlockInstance = null; // 持有实时预览的 DataBlock 实例
+        this.previewBlockInstance = null;
     }
 
     async load() {
@@ -234,7 +239,7 @@ export class DatabaseEditor extends Editor {
                 <span>${preset.name}</span>
                 <span class="delete-preset" data-id="${preset.id}" style="font-size:10px; padding:2px;">❌</span>
             `;
-            tab.onclick = (e) => {
+            tab.onclick = (e:any) => {
                 if (e.target.classList.contains('delete-preset')) {
                     if (confirm("Delete this preset?")) {
                         this.dbData['presets'] = this.dbData['presets'].filter(p => p.id !== preset.id);

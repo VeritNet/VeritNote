@@ -146,7 +146,7 @@ export const createKvForm = (config, onChangeCallback) => {
 
         // 2. 再处理子容器的装饰线显隐
         root.querySelectorAll('.kv-children').forEach(childContainer => {
-            const hasVisibleChild = Array.from(childContainer.querySelectorAll(':scope > .kv-item'))
+            const hasVisibleChild = (Array.from(childContainer.querySelectorAll(':scope > .kv-item')) as Array<HTMLElement>)
                 .some(i => i.style.display !== 'none');
             childContainer.style.display = hasVisibleChild ? 'flex' : 'none';
 
@@ -171,7 +171,7 @@ export const createKvForm = (config, onChangeCallback) => {
     };
 
     // 监听输入和原生 change
-    container.addEventListener('input', (e) => {
+    container.addEventListener('input', (e:any) => {
         // 同步颜色选择器背景
         if (e.target.type === 'color') {
             const preview = e.target.nextElementSibling;
@@ -185,7 +185,7 @@ export const createKvForm = (config, onChangeCallback) => {
     container.addEventListener('change', triggerChange);
 
     // 监听点击 (针对 ui-lib 自定义组件，如 tgl 和 seg)
-    container.addEventListener('click', (e) => {
+    container.addEventListener('click', (e:any) => {
         // Tgl 开关手动切换逻辑
         const tgl = e.target.closest('.tgl');
         if (tgl) {

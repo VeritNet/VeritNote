@@ -1,22 +1,45 @@
 ﻿// components/page-editor/page-editor.js
 
-import { Editor } from '../editor';
+import { Editor } from '../editor.js';
 
-import { PopoverManager } from './popovers';
-import { PageHistoryManager } from './HistoryManager';
-import { PageReferenceManager } from './ReferenceManager';
-import { PageSelectionManager } from './SelectionManager';
+import { PopoverManager } from './popovers.js';
+import { PageHistoryManager } from './HistoryManager.js';
+import { PageReferenceManager } from './ReferenceManager.js';
+import { PageSelectionManager } from './SelectionManager.js';
 
 export class PageEditor extends Editor {
-    constructor(container, filePath, tabManager, computedConfig, context) {
+        
+    elements; // To store references to DOM elements
+    mode; // 'edit' or 'preview'
+
+    // --- Core Editor State ---
+    blocks;
+    history;
+    activeCommandBlock;
+    draggedBlock;
+    currentDropInfo;
+    activeToolbarBlock;
+    toolbarHideTimeout;
+    currentSelection;
+    richTextEditingState;
+
+    // --- Property to track the currently hovered container's children-container element ---
+    hoveredChildrenContainer;
+
+    // --- Sub-managers for organization ---
+    PageSelectionManager;
+    // The following will be initialized after HTML is loaded
+    PageReferenceManager;
+    popoverManager;
+
+    constructor(container, filePath, tabManager, computedConfig?, context?) {
         super(container, filePath, tabManager, computedConfig, context);
 
         this.type = 'page'; // 基类变量赋值
         
-        this.elements = {}; // To store references to DOM elements
-        this.mode = 'edit'; // 'edit' or 'preview'
+        this.elements = {};
+        this.mode = 'edit';
         
-        // --- Core Editor State (from old Editor class) ---
         this.blocks = [];
         this.history = new PageHistoryManager(this);
         this.activeCommandBlock = null;
@@ -28,12 +51,9 @@ export class PageEditor extends Editor {
         this.richTextEditingState = { isActive: false, blockId: null, savedRange: null };
         this.elements.commandMenuSelectedIndex = 0;
 
-         // --- Property to track the currently hovered container's children-container element ---
         this.hoveredChildrenContainer = null;
 
-        // --- Sub-managers for organization ---
         this.PageSelectionManager = new PageSelectionManager(this);
-        // The following will be initialized after HTML is loaded
         this.PageReferenceManager = null; 
         this.popoverManager = null;
     }
@@ -102,9 +122,7 @@ export class PageEditor extends Editor {
             ['showReferenceDrop']: (targetElement, callback) => {
                 return this.popoverManager.showReferenceDrop(targetElement, callback);
             }
-        },
-
-        ['quoteContentCache']: this.quoteContentCache
+        }
     }
 
 
@@ -343,7 +361,7 @@ export class PageEditor extends Editor {
     }
     
     _initGlobalEventListeners() {
-        document.addEventListener('mousedown', (e) => {
+        document.addEventListener('mousedown', (e:any) => {
             // --- SELECTION LOGIC ---
             const clickedBlockEl = e.target.closest('.block-container');
             const isMultiSelectKey = e.ctrlKey || e.metaKey || e.shiftKey;
@@ -376,7 +394,7 @@ export class PageEditor extends Editor {
         document.addEventListener('selectionchange', this._onSelectionChange.bind(this));
 
 
-        window.addEventListener('page:saved', (e) => {
+        window.addEventListener('page:saved', (e:any) => {
             const savedPath = e.detail.path;
             if (!savedPath) return;
 
@@ -822,7 +840,7 @@ export class PageEditor extends Editor {
         if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.getSelectionSize() > 0) {
             
             // First, check if the user is actively editing text.
-            const activeEl = document.activeElement;
+            const activeEl = document.activeElement as HTMLElement;
             if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
                 // If the focus is inside any editable field, DO NOTHING here.
                 // Let the browser's default behavior (deleting a character) or the
@@ -895,7 +913,7 @@ export class PageEditor extends Editor {
         // This logic is transplanted from the old main.js global keydown listener.
         if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.getSelectionSize() > 0) {
             // First, check if the user is actively editing text inside an input field or a contenteditable element.
-            const activeEl = document.activeElement;
+            const activeEl = document.activeElement as HTMLElement;
             const isEditingText = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
             
             // If the focus is inside an editable field, we should NOT delete the block.
@@ -968,12 +986,13 @@ export class PageEditor extends Editor {
 
         // Add the click-away listener
         setTimeout(() => {
-            this._handleDocumentClickForMenu = (e) => {
+            const _handleDocumentClickForMenu = (e) => {
                 if (!this.elements.commandMenu.contains(e.target)) {
                     this.hideCommandMenu();
+                    document.removeEventListener('mousedown', _handleDocumentClickForMenu);
                 }
             };
-            document.addEventListener('mousedown', this._handleDocumentClickForMenu);
+            document.addEventListener('mousedown', _handleDocumentClickForMenu);
         }, 0);
     }
 
@@ -991,11 +1010,6 @@ export class PageEditor extends Editor {
             }, 150); // Match the CSS transition duration
             
             this.elements.commandMenuSelectedIndex = 0;
-
-            if (this._handleDocumentClickForMenu) {
-                document.removeEventListener('mousedown', this._handleDocumentClickForMenu);
-                this._handleDocumentClickForMenu = null; // Clean up the reference
-            }
         }
     }
 
@@ -2191,9 +2205,9 @@ export class PageEditor extends Editor {
                 this.popoverManager.showColorPicker(
                     button,
                     (color) => {
-                        document.execCommand('styleWithCSS', false, true);
+                        document.execCommand('styleWithCSS', false, 'true');
                         forceRestoreAndExecute('foreColor', color);
-                        document.execCommand('styleWithCSS', false, false);
+                        document.execCommand('styleWithCSS', false, 'false');
                     }
                 );
                 break;
@@ -2529,11 +2543,12 @@ export class PageEditor extends Editor {
             opt.classList.toggle('active', opt.dataset['view'] === viewName);
         });
     
-        Object.values(views).forEach(view => {
+        Object.keys(views).forEach(key => {
+            const view = views[key as keyof typeof views];
             if (view) view.classList.remove('active');
         });
-        if (views[viewName]) {
-            views[viewName].classList.add('active');
+        if (views[viewName as keyof typeof views]) {
+            (views[viewName as keyof typeof views] as HTMLElement).classList.add('active');
         }
     }
 
@@ -2678,8 +2693,8 @@ export class PageEditor extends Editor {
     };
 
     _generateUUID() {
-        return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
-            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        return (String([1e7]) + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+            ((c as any) ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> (c as any) / 4).toString(16)
         );
     }
     
@@ -2701,7 +2716,7 @@ export class PageEditor extends Editor {
      * @param {string} [exportContext.pathPrefix='./'] - The relative path prefix for assets.
      * @returns {Promise<string>} A promise that resolves to the final HTML string.
      */
-    async getSanitizedHtml(isForExport = false, exportContext = {}) {
+    async getSanitizedHtml(isForExport = false, exportContext:any = {}) {
         const {
             options = {},
             pathPrefix = './'

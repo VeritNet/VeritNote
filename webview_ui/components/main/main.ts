@@ -1,36 +1,36 @@
 ﻿// components/main/main.js
 
 
-import { initializeDashboardComponent } from '../dashboard/dashboard';
+import { initializeDashboardComponent } from '../dashboard/dashboard.js';
 window['initializeDashboardComponent'] = initializeDashboardComponent;
 
-import { PageEditor } from '../page-editor/page-editor';
-import { DatabaseEditor } from '../database-editor/database-editor';
+import { PageEditor } from '../page-editor/page-editor.js';
+import { DatabaseEditor } from '../database-editor/database-editor.js';
 
-import { ipc } from './ipc';
+import { ipc } from './ipc.js';
 
-import { initGlobalState } from './global-state';
+import { initGlobalState } from './global-state.js';
 initGlobalState();
 
-import { ExportManager } from './export-manager';
+import { ExportManager } from './export-manager.js';
 
-import { DEFAULT_CONFIG } from './default-config';
-import { INHERIT_VALUE } from './default-config';
+import { DEFAULT_CONFIG } from './default-config.js';
+import { INHERIT_VALUE } from './default-config.js';
 
-import { ConfigModal } from './ConfigModal';
+import { ConfigModal } from './ConfigModal.js';
 
-import { initUiLib, UiTools } from '../ui-lib/ui-lib';
+import { initUiLib, UiTools } from '../ui-lib/ui-lib.js';
 
-import { init_error_handle } from './error';
+import { init_error_handle } from './error.js';
 
 
 // ==================================================================
 
-window['blockRegistry'] = new Map();
+window['blockRegistry'] = new Map<string, Block>();
 /**
  * Registers a Block class so the editor knows how to create it.
  */
-window['registerBlock'] = function (blockClass) {
+window['registerBlock'] = function (blockClass: Block) {
     if (blockClass.type) {
         window['blockRegistry'].set(blockClass.type, blockClass);
     } else {
@@ -118,6 +118,11 @@ window['initializeMainComponent'] = () => {
     // --- Tab Management ---
     // This is the core of the new architecture. It manages different types of tabs.
     class TabManager {
+        tabs;
+        tabOrder;
+        activeTabPath;
+        draggedElement;
+
         constructor() {
             this.tabs = new Map();
             this.tabOrder = [];
@@ -128,7 +133,7 @@ window['initializeMainComponent'] = () => {
             return this.tabs.get(this.activeTabPath);
         }
         
-        async openTab(path, context = {}, type) {
+        async openTab(path, context:any = {}, type) {
             const finalConfig = await new Promise((resolve) => {
                 const fileConfigurationResolvedHandler = (e) => {
                     const payload = e['detail']['payload'];
@@ -267,7 +272,7 @@ window['initializeMainComponent'] = () => {
                 if (path === this.activeTabPath) { tabItem.classList.add('active'); }
                 if (tab.isUnsaved) { tabItem.classList.add('unsaved'); }
                 tabItem.innerHTML = `<span class="unsaved-dot"></span><span class="tab-name">${tab.name.replace('.veritnote','')}</span><button class="tab-close-btn">&times;</button>`;
-                tabItem.addEventListener('mousedown', (e) => {
+                tabItem.addEventListener('mousedown', (e:any) => {
                     if (e.button === 1) { this.closeTab(path); return; }
                     if (!e.target.classList.contains('tab-close-btn')) { this.switchTab(path); }
                 });
@@ -284,7 +289,7 @@ window['initializeMainComponent'] = () => {
         }
         handleDragStart(e, path) { e.dataTransfer.setData('text/plain', path); this.draggedElement = e.target; setTimeout(() => this.draggedElement.classList.add('dragging'), 0); }
         handleDragOver(e, targetPath) { e.preventDefault(); const draggingElem = this.draggedElement; if (!draggingElem || draggingElem === e.currentTarget) return; const targetElem = e.currentTarget; const rect = targetElem.getBoundingClientRect(); const isAfter = e.clientX > rect.left + rect.width / 2; if (isAfter) { dynamicTabsContainer.insertBefore(draggingElem, targetElem.nextSibling); } else { dynamicTabsContainer.insertBefore(draggingElem, targetElem); } }
-        handleDrop(e, path) { e.preventDefault(); const newOrder = []; dynamicTabsContainer.querySelectorAll('.tab-item').forEach(item => newOrder.push(item.dataset['path'])); this.tabOrder = newOrder; }
+        handleDrop(e, path) { e.preventDefault(); const newOrder = []; dynamicTabsContainer.querySelectorAll('.tab-item').forEach(item => newOrder.push((item as HTMLElement).dataset['path'])); this.tabOrder = newOrder; }
         handleDragEnd(e) { if (this.draggedElement) { this.draggedElement.classList.remove('dragging'); } this.draggedElement = null; this.render(); }
     }
 
@@ -333,7 +338,7 @@ window['initializeMainComponent'] = () => {
 
 
     // This listener now dispatches events to the relevant tab.
-    window.addEventListener('fileLoaded', (e) => {
+    window.addEventListener('fileLoaded', (e:any) => {
         const payload = e['detail']['payload'];
         if (e.detail.error) {
             alert(`Error loading file: ${e.detail.error}`);
@@ -355,7 +360,7 @@ window['initializeMainComponent'] = () => {
     });
 
 
-    window.addEventListener('workspaceUpdated', (e) => {
+    window.addEventListener('workspaceUpdated', (e:any) => {
         const payload = e['detail']['payload'] || e.detail;
         if (!payload) { console.error("Received workspaceUpdated event with no data."); return; }
         const { path, eventType } = payload;
@@ -368,7 +373,7 @@ window['initializeMainComponent'] = () => {
     });
     
     // --- Event Listeners (for Main component) ---
-    sidebar.addEventListener('click', async (e) => { // async
+    sidebar.addEventListener('click', async (e:any) => { // async
         const settingsBtn = e.target.closest('.item-settings-btn');
         if (settingsBtn) {
             const parentNode = settingsBtn.closest('.tree-item');
@@ -698,7 +703,7 @@ window['initializeMainComponent'] = () => {
             contextMenu.style.display = 'none';
         }
     }
-    sidebar.addEventListener('contextmenu', (e) => {
+    sidebar.addEventListener('contextmenu', (e:any) => {
         e.preventDefault();
         contextMenuTarget = e.target.closest('.tree-item, #workspace-tree');
         if (!contextMenuTarget) return;
@@ -707,14 +712,14 @@ window['initializeMainComponent'] = () => {
         contextMenu.style.display = 'block';
     });
 
-    document.addEventListener('mousedown', (e) => {
+    document.addEventListener('mousedown', (e:any) => {
         // Only handles closing the context menu now.
         if (!e.target.closest('#context-menu')) {
             hideContextMenu();
         }
     });
 
-    contextMenu.addEventListener('click', (e) => {
+    contextMenu.addEventListener('click', (e:any) => {
         if (!contextMenuTarget) return;
         const action = e.target.dataset['action'];
         let targetPath = contextMenuTarget.dataset['path'] || '';
@@ -866,9 +871,9 @@ window['initializeMainComponent'] = () => {
 
     startCookBtn.addEventListener('click', () => {
         const options = {
-            copyLocal: document.getElementById('copy-local-images').checked,
-            downloadOnline: document.getElementById('download-online-images').checked,
-            disableDrag: document.getElementById('disable-drag-export').checked
+            copyLocal: (document.getElementById('copy-local-images') as HTMLInputElement).checked,
+            downloadOnline: (document.getElementById('download-online-images') as HTMLInputElement).checked,
+            disableDrag: (document.getElementById('disable-drag-export') as HTMLInputElement).checked
         };
         cookSettingsModal.style.display = 'none';
 

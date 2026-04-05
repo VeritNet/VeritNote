@@ -1,5 +1,15 @@
 ﻿// page-editor/HistoryManager.js
 export class PageHistoryManager {
+        editor;
+        maxStackSize;
+
+        undoStack;
+        redoStack;
+
+        isUndoingOrRedoing; // A flag to prevent cycles
+        coalescingTimeout;
+        lastActionType;
+
     constructor(editor, maxStackSize = 100) {
         this.editor = editor;
         this.maxStackSize = maxStackSize;
@@ -7,7 +17,7 @@ export class PageHistoryManager {
         this.undoStack = [];
         this.redoStack = [];
 
-        this.isUndoingOrRedoing = false; // A flag to prevent cycles
+        this.isUndoingOrRedoing = false;
         this.coalescingTimeout = null;
         this.lastActionType = null;
     }

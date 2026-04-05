@@ -1,7 +1,7 @@
 ﻿// Inter-Process Communication: JS <-> C++
 export const ipc = {
     // 向 C++ 后端发送消息
-    send: (action, payload = {}) => {
+    send: (action: any, payload = {}) => {
         console.log("IPC: Sending message to C++:", { action, payload });
         if (window.AndroidBridge && window.AndroidBridge.postMessage) {
             window.AndroidBridge.postMessage(JSON.stringify({ "action": action, "payload": payload }));
@@ -16,7 +16,7 @@ export const ipc = {
     init: () => {
         // Windows WebView2 的监听方式
         if (window.chrome && window.chrome.webview) {
-            window.chrome.webview.addEventListener('message', event => {
+            window.chrome.webview.addEventListener('message', (event: MessageEvent) => {
                 ipc.messageHandler(event.data);
             });
         }
@@ -24,7 +24,7 @@ export const ipc = {
         if (!window.chrome) window.chrome = {};
         if (!window.chrome.webview) window.chrome.webview = {};
         
-        window.chrome.webview.messageHandler = (jsonString) => {
+        window.chrome.webview.messageHandler = (jsonString: any) => {
             try {
                 const message = JSON.parse(jsonString);
                 console.log("IPC: Received message from C++:" + message);
@@ -35,7 +35,7 @@ export const ipc = {
         };
     },
     // 统一的消息处理逻辑
-    messageHandler: (message) => {
+    messageHandler: (message: any) => {
         const customEvent = new CustomEvent(message.action, { detail: message });
         window.dispatchEvent(customEvent);
     },
@@ -48,10 +48,10 @@ export const ipc = {
 
 
     // Unified File I/O
-    loadFile: (path, context = {}) => {
+    loadFile: (path: any, context = {}) => {
         ipc.send('loadFile', { path, context });
     },
-    saveFile: (path, config, content) => {
+    saveFile: (path: any, config: any, content: any) => {
         ipc.send('saveFile', { path, config, content });
     },
     
@@ -60,45 +60,45 @@ export const ipc = {
     startExport: () => {
         ipc.send('exportPages');
     },
-    exportPageAsHtml: (path, html) => {
+    exportPageAsHtml: (path: any, html: any) => {
         ipc.send('exportPageAsHtml', { 'path': path, 'html': html });
     },
-    exportDatabaseAsJs: (path, js) => {
+    exportDatabaseAsJs: (path: any, js: any) => {
         ipc.send('exportDatabaseAsJs', { 'path': path, 'js': js });
     },
     cancelExport: () => {
         ipc.send('cancelExport');
     },
-    createItem: (parentPath, name, type) => {
+    createItem: (parentPath: any, name: any, type: any) => {
         ipc.send('createItem', { 'parentPath': parentPath, 'name': name, 'type': type });
     },
-    deleteItem: (path) => {
+    deleteItem: (path: any) => {
         ipc.send('deleteItem', { 'path': path });
     },
 
-    openFileDialog: (type) => {
+    openFileDialog: (type: any) => {
         ipc.send('openFileDialog', { 'type': type });
     },
 
-    prepareExportLibs: (libPaths) => {
+    prepareExportLibs: (libPaths: any) => {
         ipc.send('prepareExportLibs', { 'paths': libPaths });
     },
 
-    processExportImages: (tasks) => {
+    processExportImages: (tasks: any) => {
         ipc.send('processExportImages', { 'tasks': tasks });
     },
 
-    fetchQuoteContent: (requestIdentifier, referenceLink) => {
+    fetchQuoteContent: (requestIdentifier: any, referenceLink: any) => {
         ipc.send('fetchQuoteContent', { 'quoteBlockId': requestIdentifier, 'referenceLink': referenceLink });
     },
 
-    fetchDataContent: (requestIdentifier, path) => {
+    fetchDataContent: (requestIdentifier: any, path: any) => {
         ipc.send('fetchDataContent', { 'dataBlockId': requestIdentifier, 'path': path });
     },
 
     openWorkspaceDialog: () => {
         return new Promise((resolve) => {
-            const handleDialogClose = (event) => {
+            const handleDialogClose = (event: any) => {
                 window.removeEventListener('workspaceDialogClosed', handleDialogClose);
                 resolve(event.detail['payload']['path']); // 返回选择的路径
             };
@@ -108,10 +108,10 @@ export const ipc = {
             ipc.send('openWorkspaceDialog');
         });
     },
-    openWorkspace: (path) => ipc.send('openWorkspace', { 'path': path }),
+    openWorkspace: (path: any) => ipc.send('openWorkspace', { 'path': path }),
     goToDashboard: () => ipc.send('goToDashboard'),
     toggleFullscreen: () => ipc.send('toggleFullscreen'),
-    setWorkspace: (path) => ipc.send('setWorkspace', { 'path': path }),
+    setWorkspace: (path: any) => ipc.send('setWorkspace', { 'path': path }),
 
     minimizeWindow: () => ipc.send('minimizeWindow'),
     maximizeWindow: () => ipc.send('maximizeWindow'),
@@ -120,9 +120,9 @@ export const ipc = {
     checkWindowState: () => ipc.send('checkWindowState'),
 
     ensureWorkspaceConfigs: () => ipc.send('ensureWorkspaceConfigs'),
-    readConfigFile: (path) => ipc.send('readConfigFile', { 'path': path }),
-    writeConfigFile: (path, data) => ipc.send('writeConfigFile', { 'path': path, 'data': data }),
-    resolveFileConfiguration: (path) => ipc.send('resolveFileConfiguration', { 'path': path }),
+    readConfigFile: (path: any) => ipc.send('readConfigFile', { 'path': path }),
+    writeConfigFile: (path: any, data: any) => ipc.send('writeConfigFile', { 'path': path, 'data': data }),
+    resolveFileConfiguration: (path: any) => ipc.send('resolveFileConfiguration', { 'path': path }),
 };
 
 // 立即初始化监听器
@@ -132,10 +132,10 @@ ipc.init();
 // --- Block API from IPC (BAPI_IPC)
 window['BAPI_IPC'] = {
     // IPC Functions
-    ['fetchQuoteContent']: (requestIdentifier, referenceLink) => {
+    ['fetchQuoteContent']: (requestIdentifier: any, referenceLink: any) => {
         return ipc.fetchQuoteContent(requestIdentifier, referenceLink);
     },
-    ['fetchDataContent']: (requestIdentifier, path) => {
+    ['fetchDataContent']: (requestIdentifier: any, path: any) => {
         return ipc.fetchDataContent(requestIdentifier, path);
     },
 };

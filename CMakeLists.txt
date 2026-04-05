@@ -205,7 +205,7 @@ add_custom_command(
         
     DEPENDS ${WEB_ASSETS_SOURCES}
     BYPRODUCTS ${GENERATED_RESOURCE_FILES}
-    COMMENT "Processing TypeScript, compiling Web Assets and generating resources..."
+    COMMENT "Processing Web Assets Resources..."
 )
 
 

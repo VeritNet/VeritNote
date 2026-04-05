@@ -1,16 +1,26 @@
 // components/editor.js
 // Editor 基类，提供文件加载、保存、配置应用等核心功能，供具体编辑器（如 PageEditor）继承和扩展
 
-import { ipc } from './main/ipc';
+import { ipc } from './main/ipc.js';
 
 export class Editor {
-    constructor(container, filePath, tabManager, computedConfig, context = {}) {
+    container;
+    filePath; // To store the file's own config header
+    type; // e.g. 'page', 'database'
+    tabManager;
+    computedConfig;
+    context; // 透传参数，如 blockIdToFocus
+
+    fileConfig = {};
+    isReady = false;
+
+    constructor(container: any, filePath: any, tabManager: any, computedConfig: any, context = {}) {
         this.container = container;
-        this.filePath = filePath; // To store the file's own config header
-        this.type = ''; // e.g. 'page', 'database'
+        this.filePath = filePath;
+        this.type = '';
         this.tabManager = tabManager;
         this.computedConfig = computedConfig || {};
-        this.context = context; // 透传参数，如 blockIdToFocus
+        this.context = context;
 
         this.fileConfig = {};
         this.isReady = false;
@@ -26,7 +36,7 @@ export class Editor {
      * @param {any} savableContent 需要被持久化保存的 content 数据
      * @returns
      */
-    save(savableContent) {
+    save(savableContent?: any) {
         if (!this.isReady) return;
 
         // 调用子类可选的保存前UI处理
@@ -36,7 +46,7 @@ export class Editor {
     }
 
     // 被 main.js 监听到 fileLoaded 后调用
-    onFileLoaded(payload) {
+    onFileLoaded(payload: any) {
         if (payload.path !== this.filePath) return;
 
         this.fileConfig = payload.config || {};
@@ -51,7 +61,7 @@ export class Editor {
     }
 
     // 被 main.js 监听到 fileSaved 后调用
-    onFileSaved(payload) {
+    onFileSaved(payload: any) {
         if (payload.path !== this.filePath) return;
 
         if (payload.success) {
@@ -73,7 +83,7 @@ export class Editor {
         console.log(`Configuration change detected for: ${this.filePath}. Re-evaluating styles.`);
         ipc.resolveFileConfiguration(this.filePath);
 
-        const fileConfigurationResolvedHandler = (e) => {
+        const fileConfigurationResolvedHandler = (e: any) => {
             const payload = e['detail']['payload'];
             if (payload.path === this.filePath) {
                 if (payload.config) {
@@ -86,12 +96,12 @@ export class Editor {
         window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
     }
 
-    setFileConfig(newConfig) {
+    setFileConfig(newConfig: any) {
         this.fileConfig = newConfig;
         this.save();
     }
 
-    applyConfiguration(config) {
+    applyConfiguration(config: any) {
         this.computedConfig = config;
         const themeContainers = this.getThemeContainers();
 
@@ -116,17 +126,17 @@ export class Editor {
     // --- 需要子类覆盖的抽象/虚拟方法 ---
 
     // 接收后端传来的 content 和 context 进行解析与渲染
-    onContentParsed(content, context) { }
+    onContentParsed(content: any, context: any) { }
 
     // 获取需要应用 CSS Variables 和 Background 的 DOM 容器
     getThemeContainers() { return { backgrounds: [this.container], views: [this.container] }; }
 
     onFocus() { }
     destroy() { this.container.innerHTML = ''; }
-    onKeyDown(e) { }
+    onKeyDown(e: any) { }
 
     // 可选的保存前后 UI 处理，子类可覆盖实现
     onBeforeSave() { }
 
-    onAfterSave(success) { }
+    onAfterSave(success: any) { }
 }

@@ -40,6 +40,7 @@ function generateExterns(typeChecker, sourceFile) {
     function emit(str) { output += str; }
 
     // --- Type Translator ---
+    // 递归解析复杂的 TypeScript 类型并转换为 Closure JSDoc 类型
     function typeToClosure(node) {
         if (!node) return '*';
         switch (node.kind) {
@@ -47,16 +48,47 @@ function generateExterns(typeChecker, sourceFile) {
             case ts.SyntaxKind.NumberKeyword: return 'number';
             case ts.SyntaxKind.BooleanKeyword: return 'boolean';
             case ts.SyntaxKind.AnyKeyword: return '*';
+            case ts.SyntaxKind.UnknownKeyword: return '*';
             case ts.SyntaxKind.VoidKeyword: return 'void';
+            case ts.SyntaxKind.NullKeyword: return 'null';
+            case ts.SyntaxKind.UndefinedKeyword: return 'undefined';
+            case ts.SyntaxKind.SymbolKeyword: return 'symbol';
+            case ts.SyntaxKind.ObjectKeyword: return 'Object';
             case ts.SyntaxKind.TypeReference:
-                const ref = node;
-                return ref.typeName.getText();
+                const typeName = node.typeName.getText();
+                // 处理泛型参数, 例如 Array<{...}> 或 Promise<...>
+                if (node.typeArguments && node.typeArguments.length > 0) {
+                    const args = node.typeArguments.map(typeToClosure).join(', ');
+                    return `${typeName}<${args}>`;
+                }
+                return typeName;
             case ts.SyntaxKind.ArrayType:
                 return `Array<${typeToClosure(node.elementType)}>`;
             case ts.SyntaxKind.UnionType:
-                return `(${node.types.map(typeToClosure).join('|')})`;
+                const types = node.types.map(typeToClosure);
+                return `(${Array.from(new Set(types)).join('|')})`;
             case ts.SyntaxKind.FunctionType:
                 return 'Function';
+            case ts.SyntaxKind.TypeLiteral: // 处理 { path?: string, config: any } 等内联对象
+                const props = [];
+                for (const member of node.members) {
+                    if (ts.isPropertySignature(member) && member.name) {
+                        let t = typeToClosure(member.type);
+                        if (member.questionToken) t = `(${t}|undefined)`;
+                        props.push(`${member.name.getText()}: ${t}`);
+                    }
+                }
+                // 如果对象包含属性，则生成 Closure 记录类型，否则返回 Object 兜底
+                return props.length > 0 ? `{${props.join(', ')}}` : 'Object';
+            case ts.SyntaxKind.TupleType:
+                return 'Array'; // GCC 对元组支持有限，用 Array 兜底最安全
+            case ts.SyntaxKind.LiteralType:
+                if (ts.isStringLiteral(node.literal)) return 'string';
+                if (ts.isNumericLiteral(node.literal)) return 'number';
+                if (node.literal.kind === ts.SyntaxKind.TrueKeyword || node.literal.kind === ts.SyntaxKind.FalseKeyword) return 'boolean';
+                return '*';
+            case ts.SyntaxKind.ParenthesizedType:
+                return typeToClosure(node.type);
             default:
                 return '?';
         }
@@ -70,14 +102,47 @@ function generateExterns(typeChecker, sourceFile) {
         emit(';\n');
     }
 
-    function writeFunction(name, params, namespace) {
+    // 核心函数：提取参数和返回类型并输出标准的 JSDoc 注释及函数桩代码
+    function writeFunctionFromNode(nameText, node, namespace, extraJsDoc = []) {
+        const params = [];
+        const jsdoc = [...extraJsDoc];
+
+        // 提取并解析参数
+        if (node.parameters) {
+            for (const p of node.parameters) {
+                const pName = p.name.getText();
+                params.push(pName);
+                let typeStr = typeToClosure(p.type);
+                if (p.questionToken) {
+                    typeStr = `${typeStr}=`; // GCC 可选参数语法
+                } else if (p.dotDotDotToken) {
+                    typeStr = `...${typeStr}`; // GCC Rest 参数语法
+                }
+                jsdoc.push(`@param {${typeStr}} ${pName}`);
+            }
+        }
+
+        // 提取返回值
+        if (node.type && !extraJsDoc.includes('@constructor')) {
+            const retType = typeToClosure(node.type);
+            if (retType !== 'void') {
+                jsdoc.push(`@return {${retType}}`);
+            }
+        }
+
+        // 输出 JSDoc 注释块
+        if (jsdoc.length > 0) {
+            emit(`/**\n`);
+            jsdoc.forEach(line => emit(` * ${line}\n`));
+            emit(` */\n`);
+        }
+
         const paramsStr = params.join(', ');
-        if (namespace.length > 0) {
-            let fqn = namespace.join('.');
-            if (ts.isIdentifier(name)) fqn += `.${name.getText()}`;
+        if (namespace && namespace.length > 0) {
+            const fqn = namespace.concat([nameText]).join('.');
             emit(`${fqn} = function(${paramsStr}) {};\n`);
         } else {
-            emit(`function ${name.getText()}(${paramsStr}) {}\n`);
+            emit(`function ${nameText}(${paramsStr}) {}\n`);
         }
     }
 
@@ -87,30 +152,37 @@ function generateExterns(typeChecker, sourceFile) {
         const typeName = namespace.concat([nameText]).join('.');
         if (PREDECLARED_CLOSURE_EXTERNS_LIST.includes(typeName)) return;
 
-        // 生成类或接口构造函数声明
         const isClass = ts.isClassDeclaration(decl);
-        emit(`\n/**\n * @${isClass ? 'constructor' : 'record'}\n * @struct\n */\n`);
-        writeFunction(decl.name, [], namespace);
+
+        // 查找显式构造函数以获取准确参数，若无则使用空参数
+        const ctor = decl.members.find(ts.isConstructorDeclaration) || { parameters: [] };
+
+        // 声明类/接口的根 (通过构造函数模式)
+        emit(`\n`);
+        writeFunctionFromNode(nameText, ctor, namespace, [
+            isClass ? '@constructor' : '@record',
+            '@struct'
+        ]);
 
         // 遍历属性和方法
         for (const member of decl.members) {
             if (ts.isPropertySignature(member) || ts.isPropertyDeclaration(member)) {
-                if (ts.isIdentifier(member.name)) {
+                if (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)) {
                     let type = typeToClosure(member.type);
-                    if (member.questionToken) type = `${type}|undefined`;
+                    if (member.questionToken) type = `(${type}|undefined)`;
+
                     emit(`/** @type {${type}} */\n`);
                     const isStatic = ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Static;
-                    emit(`${typeName}${isStatic ? '' : '.prototype'}.${member.name.getText()};\n`);
+                    const target = isStatic ? typeName : `${typeName}.prototype`;
+                    emit(`${target}.${member.name.getText()};\n`);
                 }
             } else if (ts.isMethodSignature(member) || ts.isMethodDeclaration(member)) {
-                if (ts.isIdentifier(member.name)) {
-                    const params = member.parameters.map(p => p.name.getText());
+                if (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)) {
                     const isStatic = ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Static;
                     const methodNamespace = namespace.concat([nameText]);
                     if (!isStatic) methodNamespace.push('prototype');
 
-                    emit(`/**\n * @return {${typeToClosure(member.type)}}\n */\n`);
-                    writeFunction(member.name, params, methodNamespace);
+                    writeFunctionFromNode(member.name.getText(), member, methodNamespace);
                 }
             }
         }
@@ -130,11 +202,6 @@ function generateExterns(typeChecker, sourceFile) {
 
     // --- AST 遍历逻辑 ---
     function visitor(node, namespace) {
-        // 遇到全局声明恢复命名空间
-        if (ts.isModuleDeclaration(node) && (node.flags & ts.NodeFlags.GlobalAugmentation)) {
-            namespace = [];
-        }
-
         switch (node.kind) {
             case ts.SyntaxKind.ClassDeclaration:
             case ts.SyntaxKind.InterfaceDeclaration:
@@ -146,7 +213,8 @@ function generateExterns(typeChecker, sourceFile) {
                     if (ts.isIdentifier(decl.name)) {
                         const name = decl.name.getText();
                         if (PREDECLARED_CLOSURE_EXTERNS_LIST.includes(name)) continue;
-                        emit(`/** @type {${typeToClosure(decl.type)}} */\n`);
+                        // 注意这里会自动外包一层 {} 以适配 JSDoc 语法格式，如 /** @type {{a: string}} */
+                        emit(`\n/** @type {${typeToClosure(decl.type)}} */\n`);
                         writeVariableStatement(name, namespace);
                     }
                 }
@@ -154,9 +222,7 @@ function generateExterns(typeChecker, sourceFile) {
             case ts.SyntaxKind.FunctionDeclaration:
                 const fnDecl = node;
                 if (fnDecl.name) {
-                    const params = fnDecl.parameters.map(p => p.name.getText());
-                    emit(`/** @return {${typeToClosure(fnDecl.type)}} */\n`);
-                    writeFunction(fnDecl.name, params, namespace);
+                    writeFunctionFromNode(fnDecl.name.getText(), fnDecl, namespace);
                 }
                 break;
             case ts.SyntaxKind.EnumDeclaration:
@@ -166,10 +232,18 @@ function generateExterns(typeChecker, sourceFile) {
                 const modDecl = node;
                 if (modDecl.body) {
                     const modName = modDecl.name.getText().replace(/['"]/g, '');
-                    const newNamespace = namespace.concat([modName]);
-                    emit('/** @const */\n');
-                    writeVariableStatement(modName, namespace, '{}');
-                    visitor(modDecl.body, newNamespace);
+                    // 判断是否为 global (修复 Bug 1)
+                    const isGlobal = modName === 'global' || (modDecl.flags & ts.NodeFlags.GlobalAugmentation);
+
+                    if (isGlobal) {
+                        // 如果是全局增强，抹除命名空间直接继续解析
+                        visitor(modDecl.body, []);
+                    } else {
+                        const newNamespace = namespace.concat([modName]);
+                        emit('\n/** @const */\n');
+                        writeVariableStatement(modName, namespace, '{}');
+                        visitor(modDecl.body, newNamespace);
+                    }
                 }
                 break;
             case ts.SyntaxKind.ModuleBlock:

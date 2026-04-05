@@ -1,8 +1,8 @@
-﻿import { ipc } from '../main/ipc';
+﻿import { ipc } from '../main/ipc.js';
 
 export const initializeDashboardComponent = () => {
-    const searchInput = document.getElementById('search-input');
-    const recentList = document.getElementById('recent-list');
+    const searchInput:HTMLInputElement = document.getElementById('search-input') as HTMLInputElement;
+    const recentList:HTMLDivElement = document.getElementById('recent-list') as HTMLDivElement;
     const openWorkspaceBtn = document.getElementById('open-workspace-btn');
     const dragRegion = document.getElementById('drag-region');
     const aboutBtn = document.getElementById('about-btn');
@@ -112,7 +112,7 @@ export const initializeDashboardComponent = () => {
     maximizeBtn.addEventListener('click', () => ipc.maximizeWindow());
     closeBtn.addEventListener('click', () => ipc.closeWindow());
 
-    recentList.addEventListener('click', (e) => {
+    recentList.addEventListener('click', (e:any) => {
         const item = e.target.closest('.item');
         const removeBtn = e.target.closest('.remove-btn');
 
@@ -136,7 +136,7 @@ export const initializeDashboardComponent = () => {
         }
     });
     copyLinkBtn.addEventListener('click', () => {
-        const linkInput = document.getElementById('github-link');
+        const linkInput:HTMLInputElement = document.getElementById('github-link') as HTMLInputElement;
         linkInput.select();
         document.execCommand('copy');
         copyLinkBtn.textContent = 'Copied!';

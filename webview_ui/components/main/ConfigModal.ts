@@ -1,5 +1,5 @@
 ﻿// --- Converts any valid color string to #rrggbb format ---
-import { INHERIT_VALUE } from './default-config';
+import { INHERIT_VALUE } from './default-config.js';
 
 function toHexColor(colorStr) {
     if (!colorStr || typeof colorStr !== 'string') return '#000000';
@@ -17,6 +17,14 @@ function toHexColor(colorStr) {
 
 
 export class ConfigModal {
+    title;
+    configData;
+    defaults;
+    onSave;
+    onClose;
+    element;
+    activeDropdown;
+
     constructor({ title, configData, defaults, onSave, onClose }) {
         this.title = title;
         this.configData = JSON.parse(JSON.stringify(configData)); // Deep copy
@@ -158,7 +166,7 @@ export class ConfigModal {
             const arrow = combo.querySelector('.input-combobox-arrow');
             const dropdown = combo.querySelector('.input-combobox-dropdown');
 
-            const toggleDropdown = (show) => {
+            const toggleDropdown = (show?) => {
                 const shouldShow = typeof show === 'boolean' ? show : dropdown.style.display !== 'block';
                 if (shouldShow) {
                     if (this.activeDropdown && this.activeDropdown !== dropdown) {

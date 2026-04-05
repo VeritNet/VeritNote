@@ -1,10 +1,23 @@
-import { ipc } from '../main/ipc';
+import { ipc } from '../main/ipc.js';
 
-import { PageEditor } from './page-editor';
+import { PageEditor } from './page-editor.js';
 
 export class PageReferenceManager {
+    editor; // The PageEditor instance
+
+    container;
+    placeholder;
+
+    draggedItem;
+    isLinkingMode;
+    linkingCallback;
+
+    _boundRender;
+    _boundHandleBlockUpdate;
+    _boundHandleBlockDelete;
+
     constructor(editor) {
-        this.editor = editor; // The PageEditor instance
+        this.editor = editor;
 
         this.container = editor.elements.referencesView;
         this.placeholder = this.container.querySelector('.empty-references-placeholder');

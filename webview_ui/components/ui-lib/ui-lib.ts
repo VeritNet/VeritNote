@@ -1,5 +1,5 @@
 // Tools
-import { createKvForm } from './tools/kv-form';
+import { createKvForm } from './tools/kv-form.js';
 
 
 /**
@@ -21,7 +21,7 @@ export const initUiLib = () => {
      */
 
     // 处理鼠标在菜单项上的悬浮和移动
-    document.addEventListener('mouseover', (e) => {
+    document.addEventListener('mouseover', (e:any) => {
         // 寻找鼠标当前悬浮的是否是 menu-item
         const item = e.target.closest('.menu-item');
         if (!item) return;
@@ -41,7 +41,7 @@ export const initUiLib = () => {
     });
 
     // 处理鼠标离开整个菜单区域的渐隐
-    document.addEventListener('mouseout', (e) => {
+    document.addEventListener('mouseout', (e:any) => {
         // 寻找鼠标刚刚离开的元素所属的 menu
         const menu = e.target.closest('.menu');
         if (!menu || menu.contains(e.relatedTarget)) return;
@@ -67,14 +67,14 @@ export const initUiLib = () => {
     // 页面加载时初始化现有的 Seg
     document.querySelectorAll('.seg-item[act="true"]').forEach(updateSeg);
 
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', (e:any) => {
         const item = e.target.closest('.seg-item');
         if (!item) return;
         const seg = item.closest('.seg');
         if (!seg) return;
 
         // 移除兄弟节点的激活状态
-        Array.from(seg.querySelectorAll('.seg-item')).forEach(el => el.removeAttribute('act'));
+        Array.from(seg.querySelectorAll('.seg-item') as Array<HTMLElement>).forEach(el => el.removeAttribute('act'));
         item.setAttribute('act', 'true');
         updateSeg(item);
     });
@@ -105,7 +105,7 @@ export const initUiLib = () => {
 
     // 拖拽逻辑
     // 拖拽逻辑与单击区分
-    document.addEventListener('mousedown', (e) => {
+    document.addEventListener('mousedown', (e:any) => {
         if (!e.target.matches('.inp.num-slider')) return;
         const input = e.target;
 
@@ -149,7 +149,7 @@ export const initUiLib = () => {
     });
 
     // 手动输入时也要更新背景进度条
-    document.addEventListener('input', (e) => {
+    document.addEventListener('input', (e:any) => {
         if (e.target.matches('.inp.num-slider')) updateNumSliderPct(e.target);
     });
 
@@ -173,7 +173,7 @@ export const initUiLib = () => {
             ? trigger.value.trim().toLowerCase()
             : (box.getAttribute('value') || "").trim().toLowerCase();
 
-        const items = menu.querySelectorAll('.menu-item');
+        const items = menu.querySelectorAll('.menu-item') as Array<HTMLElement>;
         const match = Array.from(items).find(i =>
             (i.getAttribute('value') || "").toLowerCase() === currentVal ||
             i.innerText.trim().toLowerCase() === currentVal
@@ -182,7 +182,7 @@ export const initUiLib = () => {
     };
 
     // 点击显示
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', (e:any) => {
         // 点击下拉按钮或普通下拉框(.sel)展开/收缩
         const trigger = e.target.closest('.combo-box .btn.sq, .combo-box .sel');
         if (trigger) {
@@ -242,14 +242,14 @@ export const initUiLib = () => {
     });
 
     // 聚焦显示
-    document.addEventListener('focusin', (e) => {
+    document.addEventListener('focusin', (e:any) => {
         const trigger = e.target.closest('.combo-box .inp, .combo-box .sel');
         if (trigger) openMenu(trigger.closest('.combo-box'), trigger.closest('.combo-box').querySelector('.menu.dropdown'), trigger);
     });
 
 
     // 组合框输入搜索逻辑
-    document.addEventListener('input', (e) => {
+    document.addEventListener('input', (e:any) => {
         const box = e.target.closest('.combo-box');
         if (box && e.target.classList.contains('inp')) {
             const keyword = e.target.value.toLowerCase();

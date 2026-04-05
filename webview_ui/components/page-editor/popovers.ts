@@ -1,6 +1,6 @@
 ﻿// components/page-editor/popovers.js
 
-import { ipc } from '../main/ipc';
+import { ipc } from '../main/ipc.js';
 
 const PRESET_COLORS = [
     '#000000', '#444444', '#666666', '#999999', '#CCCCCC', '#EEEEEE', '#F3F3F3', '#FFFFFF',
@@ -10,9 +10,17 @@ const PRESET_COLORS = [
 ];
 
 export class PopoverManager {
+    editor;
+    popover; // Get popover from the editor's elements
+
+    isPopoverJustOpened;
+    currentPopoverCallback;
+    wasSidebarForcedOpen;
+    previousRightSidebarView;
+
     constructor(editorInstance) {
         this.editor = editorInstance;
-        this.popover = this.editor.elements.popover; // Get popover from the editor's elements
+        this.popover = this.editor.elements.popover;
         
         this.isPopoverJustOpened = false;
         this.currentPopoverCallback = null;
@@ -25,7 +33,7 @@ export class PopoverManager {
 
     _initGlobalListener() {
         // Use a single, smart listener on the document for closing popovers.
-        document.addEventListener('mousedown', (e) => {
+        document.addEventListener('mousedown', (e:any) => {
             if (this.popover.style.display === 'block' && !this.isPopoverJustOpened) {
                 if (!this.popover.contains(e.target)) {
                     // Special case: don't close popover if clicking a reference item in linking mode

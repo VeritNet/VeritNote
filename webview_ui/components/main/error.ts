@@ -2,7 +2,7 @@ export const init_error_handle = function () {
     const createToast = (shortMsg, fullDetail) => {
         const container = document.getElementById('error-toast-container');
         if (!container) return;
-        const toast = document.createElement('div');
+        const toast = document.createElement('div') as HTMLElement;
         toast.className = 'error-toast';
         toast.innerHTML = `
             <svg style="flex-shrink:0;color:#ff4d4f" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -14,7 +14,7 @@ export const init_error_handle = function () {
         `;
 
         // 复制逻辑
-        toast.querySelector('.copy-detail-btn').onclick = (e) => {
+        (toast.querySelector('.copy-detail-btn') as HTMLElement).onclick = (e) => {
             e.stopPropagation();
             navigator.clipboard.writeText(fullDetail).then(() => {
                 const btn = toast.querySelector('.copy-detail-btn');
@@ -24,7 +24,7 @@ export const init_error_handle = function () {
             });
         };
 
-        toast.querySelector('.close-btn').onclick = () => toast.remove();
+        (toast.querySelector('.close-btn') as HTMLElement).onclick = () => toast.remove();
         container.appendChild(toast);
     };
 

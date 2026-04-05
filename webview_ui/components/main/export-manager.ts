@@ -1,10 +1,10 @@
 ﻿// components/main/export-manager.js
 
-import { ipc } from './ipc';
+import { ipc } from './ipc.js';
 
-import { PageEditor } from '../page-editor/page-editor';
+import { PageEditor } from '../page-editor/page-editor.js';
 
-import { DEFAULT_CONFIG } from './default-config';
+import { DEFAULT_CONFIG } from './default-config.js';
 
 export const ExportManager = class ExportManager {
     static async runExportProcess(exportConfig) {
@@ -56,7 +56,7 @@ export const ExportManager = class ExportManager {
         if (allImageTasks.length > 0) {
             const uniqueTasks = Array.from(new Map(allImageTasks.map(t => [t['originalSrc'], t])).values());
             ipc.processExportImages(uniqueTasks);
-            imageSrcMap = await new Promise(resolve => window.addEventListener('exportImagesProcessed', (e) => resolve(e.detail.payload['srcMap']), { once: true }));
+            imageSrcMap = await new Promise(resolve => window.addEventListener('exportImagesProcessed', (e:any) => resolve(e.detail.payload['srcMap']), { once: true }));
         }
 
         // 4. 生成与导出最终文件
@@ -243,6 +243,12 @@ export const ExportManager = class ExportManager {
 
 // 专门处理 Page 类型导出的处理器
 window.PageExporter = class PageExporter {
+    path;
+    options;
+    workspaceData;
+    pathPrefix;
+    tempEditor;
+
     constructor(path, options, workspaceData, pathPrefix) {
         this.path = path;
         this.options = options;
@@ -357,7 +363,7 @@ window.PageExporter = class PageExporter {
 
         // 获取并重载配置 (用于生成自定义 Style)
         ipc.resolveFileConfiguration(this.path)
-        const resolved = await new Promise(resolve => {
+        const resolved:any = await new Promise(resolve => {
             const handler = (e) => {
                 if (e.detail.payload.path === this.path) {
                     window.removeEventListener('fileConfigurationResolved', handler);
@@ -398,7 +404,7 @@ window.PageExporter = class PageExporter {
         const customStyleTag = styleRules.length > 0 ? `<style id="veritnote-custom-styles">\n/* Page overrides */\n${styleRules.join('\n\n')}\n</style>` : '';
 
         // 组装 Lib
-        const requiredLibsForThisPage = new Set();
+        const requiredLibsForThisPage: Set<string> = new Set();
         const scanLibs = (blocks) => {
             if (!blocks) return;
             blocks.forEach(b => {
@@ -435,6 +441,11 @@ window.PageExporter = class PageExporter {
 
 
 window.DatabaseExporter = class DatabaseExporter {
+    path;
+    options;
+    workspaceData;
+    pathPrefix;
+
     constructor(path, options, workspaceData, pathPrefix) {
         this.path = path;
         this.options = options;

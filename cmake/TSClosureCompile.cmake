@@ -4,13 +4,13 @@ message(STATUS "[TS Pipeline] Starting TypeScript processing in ${PROCESSED_DIR}
 # 1. 编译前端 components 的 TS 代码 (就地输出 JS 到处理目录)
 message(STATUS "[TS Pipeline] Compiling components TypeScript...")
 execute_process(
-    COMMAND "${TSGO_CMD}" -p "${PROCESSED_DIR}/components/tsconfig.json"
+    COMMAND "${TSGO_CMD}.cmd" -p "${PROCESSED_DIR}/components/tsconfig.json"
     WORKING_DIRECTORY "${PROCESSED_DIR}/components"
     RESULT_VARIABLE ts_result
     ERROR_VARIABLE ts_err
 )
 if(NOT ts_result EQUAL 0)
-    message(FATAL_ERROR "Frontend TS compile failed:\n${ts_err}")
+    message(FATAL_ERROR "[TS Pipeline] Project TS compile failed:\n${ts_err}")
 endif()
 
 
@@ -35,7 +35,7 @@ if(NOT EXISTS "${TS_CLOSURE_TOOL_DIR}/node_modules/typescript")
     )
 
     if(NOT npm_result EQUAL 0)
-        message(FATAL_ERROR "Failed to install typescript via npm:\n${npm_err}\n${npm_result}")
+        message(FATAL_ERROR "[TS Pipeline] Failed to install typescript via npm:\n${npm_err}\n${npm_result}")
     endif()
     message(STATUS "[TS Pipeline] typescript installed successfully.")
 endif()
@@ -50,7 +50,7 @@ execute_process(
     ERROR_VARIABLE extern_err
 )
 if(NOT extern_result EQUAL 0)
-    message(FATAL_ERROR "Externs generation failed:\n${extern_err}")
+    message(FATAL_ERROR "[TS Pipeline] externs.js generation failed:\n${extern_err}")
 endif()
 
 message(STATUS "[TS Pipeline] TypeScript processing and Externs generation complete.")
