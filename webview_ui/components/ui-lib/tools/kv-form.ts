@@ -1,19 +1,40 @@
-// tools/kv-form.js
+// 定义表单项的配置结构
+export interface KvFormItem {
+    name: string;
+    type: 'chk' | 'tgl' | 'text' | 'num' | 'sel' | 'combo' | 'seg' | 'color';
+    display?: string;
+    describe?: string;
+    value?: any;
+    placeholder?: string;
+    min?: number;
+    max?: number;
+    step?: number;
+    values?: (string | number | { value: string | number; display: string })[];
+    condition?: string | number | boolean;
+    children?: KvFormItem[];
+}
 
-export const createKvForm = (config, onChangeCallback) => {
+// 定义返回值接口
+export interface KvFormInstance {
+    dom: HTMLDivElement;
+    getValue: () => Record<string, any>;
+    destroy: () => void;
+}
+
+export const createKvForm = (config: KvFormItem[], onChangeCallback?: () => void): KvFormInstance => {
     const container = document.createElement('div');
     container.className = 'kv-form-container';
     container.setAttribute('fx', 'col');
 
     // === 1. 构建独立控件的 HTML ===
-    const buildControlHtml = (item) => {
-        const val = item['value'];
-        switch (item['type']) {
+    const buildControlHtml = (item: KvFormItem): string => {
+        const val = item.value;
+        switch (item.type) {
             case 'chk':
                 return `<input type="checkbox" class="chk" ${val ? 'checked' : ''}>`;
             case 'tgl':
                 return `<div class="tgl" on="${!!val}"></div>`;
-            case 'text': case 'text':
+            case 'text':
                 return `<input type="text" class="inp" value="${val || ''}" placeholder="${item.placeholder || ''}">`;
             case 'num':
                 const min = item.min !== undefined ? `min="${item.min}"` : '';
@@ -22,14 +43,14 @@ export const createKvForm = (config, onChangeCallback) => {
                 return `<input type="number" class="inp num-slider" ${min} ${max} ${step} value="${val || 0}">`;
             case 'sel':
                 const selOptions = (item.values || []).map(v => {
-                    const isObj = typeof v === 'object';
-                    const valAttr = isObj ? v.value : v;
-                    const display = isObj ? v.display : v;
+                    const isObj = typeof v === 'object' && v !== null;
+                    const valAttr = isObj ? (v as any).value : v;
+                    const display = isObj ? (v as any).display : v;
                     return `<div class="menu-item" value="${valAttr}">${display}</div>`;
                 }).join('');
                 // 找到当前值对应的显示文本
-                const currentObj = (item.values || []).find(v => (typeof v === 'object' ? v.value : v) == val);
-                const displayText = currentObj ? (typeof currentObj === 'object' ? currentObj.display : currentObj) : (val || '');
+                const currentObj = (item.values || []).find(v => (typeof v === 'object' && v !== null ? (v as any).value : v) == val);
+                const displayText = currentObj ? (typeof currentObj === 'object' ? (currentObj as any).display : currentObj) : (val || '');
                 return `
                     <div class="combo-box" value="${val || ''}">
                         <div class="sel" tabindex="0">${displayText}</div>
@@ -37,8 +58,8 @@ export const createKvForm = (config, onChangeCallback) => {
                     </div>`;
             case 'combo':
                 const comboItems = (item.values || []).map(v => {
-                    const isObj = typeof v === 'object';
-                    return `<div class="menu-item" value="${isObj ? v.value : v}">${isObj ? v.display : v}</div>`;
+                    const isObj = typeof v === 'object' && v !== null;
+                    return `<div class="menu-item" value="${isObj ? (v as any).value : v}">${isObj ? (v as any).display : v}</div>`;
                 }).join('');
                 return `
                     <div class="combo-box fw">
@@ -52,9 +73,9 @@ export const createKvForm = (config, onChangeCallback) => {
                     </div>`;
             case 'seg':
                 const segItems = (item.values || []).map(v => {
-                    const isObj = typeof v === 'object';
-                    const valAttr = isObj ? v.value : v;
-                    const display = isObj ? v.display : v;
+                    const isObj = typeof v === 'object' && v !== null;
+                    const valAttr = isObj ? (v as any).value : v;
+                    const display = isObj ? (v as any).display : v;
                     return `<div class="seg-item" data-val="${valAttr}" ${valAttr == val ? 'act="true"' : ''}>${display}</div>`;
                 }).join('');
                 return `<div class="seg">${segItems}</div>`;
@@ -70,30 +91,28 @@ export const createKvForm = (config, onChangeCallback) => {
     };
 
     // === 2. 递归构建整个表单 DOM ===
-    const renderItems = (items, parentWrapper) => {
+    const renderItems = (items: KvFormItem[], parentWrapper: HTMLElement) => {
         items.forEach(item => {
             const itemEl = document.createElement('div');
-            // 使用 fx="col" 保证行与子项容器垂直排列
             itemEl.className = 'kv-item';
             itemEl.setAttribute('fx', 'col');
-            itemEl.setAttribute('data-name', item['name']);
-            itemEl.setAttribute('data-type', item['type']);
-            if (item['condition'] !== undefined) itemEl.setAttribute('data-condition', item['condition']);
+            itemEl.setAttribute('data-name', item.name);
+            itemEl.setAttribute('data-type', item.type);
+            if (item.condition !== undefined) itemEl.setAttribute('data-condition', String(item.condition));
 
-            // fx="row" 水平对齐, fx="sb" 两端对齐, hv-bg="3" 悬浮高亮
             itemEl.innerHTML = `
-                <div class="kv-row" fx="row" pd="xs" gap="s" hv-bg="3" rd="m" style="min-height:34px;" title="${item['describe'] || ''}">
-                    <div class="kv-label" tc="2">${item['display'] || item['name']}</div>
+                <div class="kv-row" fx="row" pd="xs" gap="s" hv-bg="3" rd="m" style="min-height:34px;" title="${item.describe || ''}">
+                    <div class="kv-label" tc="2">${item.display || item.name}</div>
                     <div class="kv-control" fx="row" fx="fe">${buildControlHtml(item)}</div>
                 </div>
             `;
 
-            if (item['children'] && item['children'].length > 0) {
+            if (item.children && item.children.length > 0) {
                 const childContainer = document.createElement('div');
                 childContainer.className = 'kv-children';
                 childContainer.setAttribute('fx', 'col');
                 childContainer.setAttribute('gap', 'xs');
-                renderItems(item['children'], childContainer);
+                renderItems(item.children, childContainer);
                 itemEl.appendChild(childContainer);
             }
             parentWrapper.appendChild(itemEl);
@@ -104,36 +123,36 @@ export const createKvForm = (config, onChangeCallback) => {
 
     // === 3. 数据提取与视图控制 ===
 
-    // 获取某一行的当前值
-    const getRowValue = (itemEl) => {
+    const getRowValue = (itemEl: HTMLElement): any => {
         const type = itemEl.getAttribute('data-type');
-        const controlWrap = itemEl.querySelector(':scope > .kv-row > .kv-control');
+        const controlWrap = itemEl.querySelector(':scope > .kv-row > .kv-control') as HTMLElement;
+        if (!controlWrap) return null;
 
         switch (type) {
-            case 'chk': return controlWrap.querySelector('.chk').checked;
-            case 'tgl': return controlWrap.querySelector('.tgl').getAttribute('on') === 'true';
+            case 'chk': return (controlWrap.querySelector('.chk') as HTMLInputElement).checked;
+            case 'tgl': return controlWrap.querySelector('.tgl')?.getAttribute('on') === 'true';
             case 'text':
+                return (controlWrap.querySelector('input') as HTMLInputElement).value;
             case 'num':
-                const inp = controlWrap.querySelector('input, select');
-                return type === 'num' ? Number(inp.value) : inp.value;
-            case 'sel': return controlWrap.querySelector('.combo-box').getAttribute('value') || '';
-            case 'combo': return controlWrap.querySelector('.inp').value;
+                return Number((controlWrap.querySelector('input, select') as HTMLInputElement).value);
+            case 'sel': return controlWrap.querySelector('.combo-box')?.getAttribute('value') || '';
+            case 'combo': return (controlWrap.querySelector('.inp') as HTMLInputElement).value;
             case 'seg':
                 const activeSeg = controlWrap.querySelector('.seg-item[act="true"]');
                 return activeSeg ? activeSeg.getAttribute('data-val') : '';
-            case 'color': return controlWrap.querySelector('input[type="color"]').value;
+            case 'color': return (controlWrap.querySelector('input[type="color"]') as HTMLInputElement).value;
             default: return null;
         }
     };
 
     // 根据父节点值更新所有子节点的显隐状态 (递归)
-    const updateVisibility = (root) => {
+    const updateVisibility = (root: HTMLElement) => {
         // 1. 先处理所有项的显隐状态
-        const allItems = root.querySelectorAll('.kv-item');
+        const allItems = root.querySelectorAll('.kv-item') as NodeListOf<HTMLElement>;
         allItems.forEach(item => {
             const cond = item.getAttribute('data-condition');
             if (cond !== null) {
-                const parentItem = item.parentElement.closest('.kv-item');
+                const parentItem = item.parentElement?.closest('.kv-item') as HTMLElement;
                 const parentVal = String(getRowValue(parentItem));
                 const isActive = (cond === parentVal);
                 item.style.display = isActive ? 'flex' : 'none';
@@ -148,11 +167,11 @@ export const createKvForm = (config, onChangeCallback) => {
         root.querySelectorAll('.kv-children').forEach(childContainer => {
             const hasVisibleChild = (Array.from(childContainer.querySelectorAll(':scope > .kv-item')) as Array<HTMLElement>)
                 .some(i => i.style.display !== 'none');
-            childContainer.style.display = hasVisibleChild ? 'flex' : 'none';
+            (childContainer as HTMLElement).style.display = hasVisibleChild ? 'flex' : 'none';
 
             // 同步给父级，方便 buildJson 判断是否需要进入递归
             const parentItem = childContainer.closest('.kv-item');
-            parentItem.setAttribute('data-has-active-children', hasVisibleChild ? 'true' : 'false');
+            parentItem?.setAttribute('data-has-active-children', hasVisibleChild ? 'true' : 'false');
         });
     };
 
@@ -210,21 +229,23 @@ export const createKvForm = (config, onChangeCallback) => {
 
     // === 5. 构建标准化 JSON 输出 ===
 
-    const buildJson = (wrapper) => {
-        const result = {};
+    const buildJson = (wrapper: HTMLElement): Record<string, any> => {
         // 仅抓取当前容器下一级的 kv-item
-        const items = wrapper.querySelectorAll(':scope > .kv-item');
+        const result: Record<string, any> = {};
+        const items = wrapper.querySelectorAll(':scope > .kv-item') as NodeListOf<HTMLElement>;
 
         items.forEach(item => {
             // 如果节点未激活，则忽略
             if (item.getAttribute('data-active') === 'false') return;
 
             const name = item.getAttribute('data-name');
+            if (!name) return;
+            
             const val = getRowValue(item);
             const hasActiveChildren = item.getAttribute('data-has-active-children') === 'true';
 
             if (hasActiveChildren) {
-                const childContainer = item.querySelector(':scope > .kv-children');
+                const childContainer = item.querySelector(':scope > .kv-children') as HTMLElement;
                 result[name] = [val, buildJson(childContainer)];
             } else {
                 result[name] = val;

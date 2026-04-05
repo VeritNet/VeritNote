@@ -14,7 +14,7 @@ export class Editor {
     fileConfig = {};
     isReady = false;
 
-    constructor(container: any, filePath: any, tabManager: any, computedConfig: any, context = {}) {
+    constructor(container, filePath, tabManager, computedConfig, context = {}) {
         this.container = container;
         this.filePath = filePath;
         this.type = '';
@@ -36,7 +36,7 @@ export class Editor {
      * @param {any} savableContent 需要被持久化保存的 content 数据
      * @returns
      */
-    save(savableContent?: any) {
+    save(savableContent?) {
         if (!this.isReady) return;
 
         // 调用子类可选的保存前UI处理
@@ -46,7 +46,7 @@ export class Editor {
     }
 
     // 被 main.js 监听到 fileLoaded 后调用
-    onFileLoaded(payload: any) {
+    onFileLoaded(payload) {
         if (payload.path !== this.filePath) return;
 
         this.fileConfig = payload.config || {};
@@ -61,7 +61,7 @@ export class Editor {
     }
 
     // 被 main.js 监听到 fileSaved 后调用
-    onFileSaved(payload: any) {
+    onFileSaved(payload) {
         if (payload.path !== this.filePath) return;
 
         if (payload.success) {
@@ -96,12 +96,12 @@ export class Editor {
         window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
     }
 
-    setFileConfig(newConfig: any) {
+    setFileConfig(newConfig) {
         this.fileConfig = newConfig;
         this.save();
     }
 
-    applyConfiguration(config: any) {
+    applyConfiguration(config) {
         this.computedConfig = config;
         const themeContainers = this.getThemeContainers();
 
@@ -126,17 +126,17 @@ export class Editor {
     // --- 需要子类覆盖的抽象/虚拟方法 ---
 
     // 接收后端传来的 content 和 context 进行解析与渲染
-    onContentParsed(content: any, context: any) { }
+    onContentParsed(content, context) { }
 
     // 获取需要应用 CSS Variables 和 Background 的 DOM 容器
     getThemeContainers() { return { backgrounds: [this.container], views: [this.container] }; }
 
     onFocus() { }
     destroy() { this.container.innerHTML = ''; }
-    onKeyDown(e: any) { }
+    onKeyDown(e) { }
 
     // 可选的保存前后 UI 处理，子类可覆盖实现
     onBeforeSave() { }
 
-    onAfterSave(success: any) { }
+    onAfterSave(success) { }
 }

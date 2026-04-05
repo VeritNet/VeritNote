@@ -409,11 +409,22 @@ class Block {
                     if (gIdx === this.properties.customCSS.length - 1 && target.value.trim() !== '') {
                         this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
                         const newGroupIdx = gIdx + 1;
+
+                        // 如果是从 1 变成 2 个组，给原本那唯一的第 1 个组补上删除按钮
+                        if (this.properties.customCSS.length === 2) {
+                            const firstGroupHeader = cssContainer.querySelector('.css-rule-block[data-group="0"] > div:first-child');
+                            if (firstGroupHeader && !firstGroupHeader.querySelector('.css-group-del')) {
+                                firstGroupHeader.insertAdjacentHTML('beforeend', `<button class="btn sq css-group-del" bg="none" bd="none" hv-tc="err" data-group="0" title="Delete Group"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`);
+                            }
+                        }
+
+                        // 新组生成时自带删除按钮（因为总量必定 >= 2了），且必须包含第一行初始空白 key-value
                         const newGroupHtml = `
                         <div class="css-rule-block" bg="1" bd="1" rd="s" pd="s" style="position:relative;" data-group="${newGroupIdx}">
                             <div fx="row" gap="s" style="margin-bottom:8px; border-bottom:1px solid var(--bd-1); padding-bottom:8px;">
                                 <span tc="2" style="font-family:monospace; font-size:11px;">#block-${this.id.substr(0, 4)}</span>
                                 <input type="text" class="inp css-selector" style="flex-grow:1;" value="" placeholder="e.g. :hover" data-group="${newGroupIdx}">
+                                <button class="btn sq css-group-del" bg="none" bd="none" hv-tc="err" data-group="${newGroupIdx}" title="Delete Group"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                             </div>
                             <div fx="col" gap="xs" class="css-properties-list">
                                 <div fx="row" gap="xs" class="css-rule-row" data-group="${newGroupIdx}" data-rule="0">
@@ -438,14 +449,84 @@ class Block {
                     if (rIdx === group.rules.length - 1 && (rule.prop.trim() !== '' || rule.val.trim() !== '')) {
                         group.rules.push({ prop: '', val: '' });
                         const newRuleIdx = rIdx + 1;
+
+                        // 如果是该组的行数从 1 变成 2 个，给原本那唯一的第 1 行补上删除按钮
+                        if (group.rules.length === 2) {
+                            const firstRuleRow = cssContainer.querySelector(`.css-rule-row[data-group="${gIdx}"][data-rule="0"]`);
+                            if (firstRuleRow && !firstRuleRow.querySelector('.css-rule-del')) {
+                                firstRuleRow.insertAdjacentHTML('beforeend', `<button class="btn sq css-rule-del" bg="none" bd="none" hv-tc="err" data-group="${gIdx}" data-rule="0" title="Delete Rule"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`);
+                            }
+                        }
+
+                        // 新行生成时自带删除按钮
                         const newRuleHtml = `
                             <div fx="row" gap="xs" class="css-rule-row" data-group="${gIdx}" data-rule="${newRuleIdx}">
                                 <input type="text" class="inp css-key" value="" placeholder="prop" data-group="${gIdx}" data-rule="${newRuleIdx}">
                                 <span tc="2">:</span>
                                 <input type="text" class="inp css-val" value="" placeholder="value" data-group="${gIdx}" data-rule="${newRuleIdx}">
+                                <button class="btn sq css-rule-del" bg="none" bd="none" hv-tc="err" data-group="${gIdx}" data-rule="${newRuleIdx}" title="Delete Rule"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                             </div>`;
                         target.closest('.css-properties-list').insertAdjacentHTML('beforeend', newRuleHtml);
                     }
+                }
+            });
+
+            // 基于事件委托响应点击删除的逻辑，移除DOM并重构剩余DOM的 dataset 索引映射，确保不打断用户交互
+            cssContainer.addEventListener('click', (e) => {
+                const ruleDelBtn = e.target.closest('.css-rule-del');
+                const groupDelBtn = e.target.closest('.css-group-del');
+
+                if (ruleDelBtn) {
+                    const rIdx = parseInt(ruleDelBtn.dataset.rule);
+                    const gIdx = parseInt(ruleDelBtn.dataset.group);
+                    const group = this.properties.customCSS[gIdx];
+
+                    // 1. 底层数据删除
+                    group.rules.splice(rIdx, 1);
+
+                    // 2. DOM 删除及索引数据更新（确保下次输入时绑定的 array index 是对的）
+                    const row = ruleDelBtn.closest('.css-rule-row');
+                    const listContainer = row.parentElement;
+                    row.remove();
+
+                    Array.from(listContainer.querySelectorAll('.css-rule-row')).forEach((r, idx) => {
+                        r.dataset.rule = idx; // 刷新行的标识
+                        r.querySelectorAll('[data-rule]').forEach(el => el.dataset.rule = idx); // 刷新子元素(input/btn)的标识
+                    });
+
+                    // 3. 数量回落到 1 时，剥夺最后那个独苗的删除按钮
+                    if (group.rules.length === 1) {
+                        const lastBtn = listContainer.querySelector('.css-rule-del');
+                        if (lastBtn) lastBtn.remove();
+                    }
+
+                    this._applyCustomCSS(); // 让样式立即应用到画板
+                    this.BAPI_PE.emitChange(true, 'css-edit', this); // 记入历史记录
+                }
+                else if (groupDelBtn) {
+                    const gIdx = parseInt(groupDelBtn.dataset.group);
+
+                    // 1. 底层数据删除
+                    this.properties.customCSS.splice(gIdx, 1);
+
+                    // 2. DOM 删除及索引数据更新
+                    const block = groupDelBtn.closest('.css-rule-block');
+                    const rulesContainer = block.parentElement;
+                    block.remove();
+
+                    Array.from(rulesContainer.querySelectorAll('.css-rule-block')).forEach((b, idx) => {
+                        b.dataset.group = idx;
+                        b.querySelectorAll('[data-group]').forEach(el => el.dataset.group = idx);
+                    });
+
+                    // 3. 数量回落到 1 时，剥夺最后那个独苗组的删除按钮
+                    if (this.properties.customCSS.length === 1) {
+                        const lastBtn = rulesContainer.querySelector('.css-group-del');
+                        if (lastBtn) lastBtn.remove();
+                    }
+
+                    this._applyCustomCSS();
+                    this.BAPI_PE.emitChange(true, 'css-edit', this);
                 }
             });
 
@@ -651,19 +732,25 @@ class Block {
         let html = '<div class="custom-css-container" fx="col" gap="s" id="css-rules-container">';
 
         this.properties.customCSS.forEach((blockRule, index) => {
-            let propsHtml = blockRule.rules.map((rule, rIndex) => `
+            const showGroupDel = this.properties.customCSS.length > 1; // 组大于1个则显示
+            let propsHtml = blockRule.rules.map((rule, rIndex) => {
+                const showRuleDel = blockRule.rules.length > 1; // 行大于1个则显示
+                return `
                 <div fx="row" gap="xs" class="css-rule-row" data-group="${index}" data-rule="${rIndex}">
                     <input type="text" class="inp css-key" value="${rule.prop}" placeholder="prop" data-group="${index}" data-rule="${rIndex}">
                     <span tc="2">:</span>
                     <input type="text" class="inp css-val" value="${rule.val}" placeholder="value" data-group="${index}" data-rule="${rIndex}">
+                    ${showRuleDel ? `<button class="btn sq css-rule-del" bg="none" bd="none" hv-tc="err" data-group="${index}" data-rule="${rIndex}" title="Delete Rule"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : ''}
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             html += `
                 <div class="css-rule-block" bg="1" bd="1" rd="s" pd="s" style="position:relative;" data-group="${index}">
                     <div fx="row" gap="s" style="margin-bottom:8px; border-bottom:1px solid var(--bd-1); padding-bottom:8px;">
                         <span tc="2" style="font-family:monospace; font-size:11px;">#block-${this.id.substr(0, 4)}</span>
                         <input type="text" class="inp css-selector" style="flex-grow:1;" value="${blockRule.selector}" placeholder="e.g. :hover" data-group="${index}">
+                        ${showGroupDel ? `<button class="btn sq css-group-del" bg="none" bd="none" hv-tc="err" data-group="${index}" title="Delete Group"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : ''}
                     </div>
                     <div fx="col" gap="xs" class="css-properties-list">
                         ${propsHtml}

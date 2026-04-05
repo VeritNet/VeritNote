@@ -57,15 +57,15 @@ export const initUiLib = () => {
      * Seg 分段控制器滑动逻辑
      */
 
-    const updateSeg = (item) => {
-        const seg = item.closest('.seg');
+    const updateSeg = (item: HTMLElement) => {
+        const seg = item.closest('.seg') as HTMLElement;
         if (!seg) return;
         seg.style.setProperty('--seg-x', `${item.offsetLeft}px`);
         seg.style.setProperty('--seg-w', `${item.offsetWidth}px`);
     };
 
     // 页面加载时初始化现有的 Seg
-    document.querySelectorAll('.seg-item[act="true"]').forEach(updateSeg);
+    document.querySelectorAll('.seg-item[act="true"]').forEach(el => updateSeg(el as HTMLElement));
 
     document.addEventListener('click', (e:any) => {
         const item = e.target.closest('.seg-item');
@@ -81,7 +81,7 @@ export const initUiLib = () => {
 
     // 窗口尺寸变化时重新计算 Seg 位置
     window.addEventListener('resize', () => {
-        document.querySelectorAll('.seg-item[act="true"]').forEach(updateSeg);
+        document.querySelectorAll('.seg-item[act="true"]').forEach(el => updateSeg(el as HTMLElement));
     });
 
 
@@ -90,9 +90,9 @@ export const initUiLib = () => {
      * 拖拽数字输入框
      */
 
-    const updateNumSliderPct = (input) => {
-        const minAttr = parseFloat(input.getAttribute('min'));
-        const maxAttr = parseFloat(input.getAttribute('max'));
+    const updateNumSliderPct = (input: HTMLInputElement) => {
+        const minAttr = parseFloat(input.getAttribute('min') || '0'); // 修复圆括号多余问题
+        const maxAttr = parseFloat(input.getAttribute('max') || '100'); // 修复圆括号多余问题
         const min = isNaN(minAttr) ? 0 : minAttr;
         const max = isNaN(maxAttr) ? 100 : maxAttr;
         const val = parseFloat(input.value) || 0;
@@ -101,7 +101,7 @@ export const initUiLib = () => {
     };
 
     // 初始化现有的进度条
-    document.querySelectorAll('.inp.num-slider').forEach(updateNumSliderPct);
+    document.querySelectorAll('.inp.num-slider').forEach(el => updateNumSliderPct(el as HTMLInputElement));
 
     // 拖拽逻辑
     // 拖拽逻辑与单击区分
@@ -122,7 +122,7 @@ export const initUiLib = () => {
 
         let isDragging = false;
 
-        const onMouseMove = (moveEvent) => {
+        const onMouseMove = (moveEvent: MouseEvent) => {
             const deltaX = moveEvent.clientX - startX;
             // 移动超过 2px 才判定为拖拽，否则保留为点击操作
             if (Math.abs(deltaX) > 2) {
@@ -160,7 +160,7 @@ export const initUiLib = () => {
      */
 
     // 组合框聚焦/点击显示逻辑
-    const openMenu = (box, menu, trigger) => {
+    const openMenu = (box: HTMLElement, menu: HTMLElement & { _blockToggle?: boolean }, trigger: HTMLElement) => {
         if (menu.classList.contains('show')) return; // 避免重复触发
 
         document.querySelectorAll('.combo-box .menu.dropdown.show').forEach(m => m !== menu && m.classList.remove('show'));
@@ -169,12 +169,12 @@ export const initUiLib = () => {
 
         // 自动把当前选中项放到菜单第一项的位置
         // 优先匹配 value 属性，其次匹配文字内容
-        const currentVal = trigger.tagName === 'INPUT'
-            ? trigger.value.trim().toLowerCase()
+        const currentVal = (trigger as HTMLInputElement).value !== undefined
+            ? (trigger as HTMLInputElement).value.trim().toLowerCase()
             : (box.getAttribute('value') || "").trim().toLowerCase();
 
-        const items = menu.querySelectorAll('.menu-item') as Array<HTMLElement>;
-        const match = Array.from(items).find(i =>
+        const items = Array.from(menu.querySelectorAll('.menu-item')) as HTMLElement[]; // 使用 Array.from 转换为数组
+        const match = items.find(i =>
             (i.getAttribute('value') || "").toLowerCase() === currentVal ||
             i.innerText.trim().toLowerCase() === currentVal
         );
@@ -251,12 +251,12 @@ export const initUiLib = () => {
     // 组合框输入搜索逻辑
     document.addEventListener('input', (e:any) => {
         const box = e.target.closest('.combo-box');
-        if (box && e.target.classList.contains('inp')) {
-            const keyword = e.target.value.toLowerCase();
-            const menu = box.querySelector('.menu.dropdown');
-            const items = menu.querySelectorAll('.menu-item:not(.danger)');
+        if (box && (e.target as HTMLElement).classList.contains('inp')) {
+            const keyword = (e.target as HTMLInputElement).value.toLowerCase();
+            const menu = box.querySelector('.menu.dropdown') as HTMLElement;
+            const items = menu.querySelectorAll('.menu-item:not(.danger)') as NodeListOf<HTMLElement>;
 
-            items.forEach(item => {
+            items.forEach((item: HTMLElement) => {
                 // 同时获取显示文字和实际值进行复合搜索
                 const itemText = item.innerText.toLowerCase();
                 const itemVal = (item.getAttribute('value') || "").toLowerCase();
