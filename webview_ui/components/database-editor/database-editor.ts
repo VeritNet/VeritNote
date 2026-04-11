@@ -2,6 +2,9 @@
 
 import { Editor } from '../editor.js';
 import { ipc } from '../main/ipc.js';
+
+import { FileType } from '../main/main.js';
+import { TabManager } from '../main/tab-manager.js';
 export class DatabaseEditor extends Editor {
     dbData;
 
@@ -9,10 +12,10 @@ export class DatabaseEditor extends Editor {
     elements;
     previewBlockInstance; // 持有实时预览的 DataBlock 实例
 
-    constructor(container, filePath, tabManager, computedConfig, context) {
+    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, computedConfig: Record<string, any>, context = {}) {
         super(container, filePath, tabManager, computedConfig, context);
 
-        this.type = 'database'; // 基类变量赋值
+        this.type = FileType.database; // 基类变量赋值
 
         this.dbData = {
             'config': {},
@@ -36,20 +39,20 @@ export class DatabaseEditor extends Editor {
 
     _acquireElements() {
         this.elements = {
-            saveBtn: this.container.querySelector('#db-save-btn'),
-            modeRadios: this.container.querySelectorAll('input[name="db-mode"]'),
-            externalConfig: this.container.querySelector('#db-external-config'),
-            embeddedConfig: this.container.querySelector('#db-embedded-config'),
-            externalUrlInput: this.container.querySelector('#db-external-url'),
-            browseCsvBtn: this.container.querySelector('#db-browse-csv-btn'),
-            refreshDataBtn: this.container.querySelector('#db-refresh-data-btn'),
-            importCsvBtn: this.container.querySelector('#db-import-csv-btn'),
-            embeddedInfo: this.container.querySelector('#db-embedded-info'),
-            tabsContainer: this.container.querySelector('#db-presets-tabs'),
-            addPresetBtn: this.container.querySelector('#db-add-preset-btn'),
-            configPanel: this.container.querySelector('#db-preset-config-panel'),
-            previewContainer: this.container.querySelector('#db-preview-container'),
-            resizer: this.container.querySelector('#db-panel-resizer'),
+            saveBtn: this.container.querySelector('#db-save-btn') as HTMLButtonElement,
+            modeRadios: this.container.querySelectorAll('input[name="db-mode"]') as NodeListOf<HTMLInputElement>,
+            externalConfig: this.container.querySelector('#db-external-config') as HTMLElement,
+            embeddedConfig: this.container.querySelector('#db-embedded-config') as HTMLElement,
+            externalUrlInput: this.container.querySelector('#db-external-url') as HTMLInputElement,
+            browseCsvBtn: this.container.querySelector('#db-browse-csv-btn') as HTMLButtonElement,
+            refreshDataBtn: this.container.querySelector('#db-refresh-data-btn') as HTMLButtonElement,
+            importCsvBtn: this.container.querySelector('#db-import-csv-btn') as HTMLButtonElement,
+            embeddedInfo: this.container.querySelector('#db-embedded-info') as HTMLElement,
+            tabsContainer: this.container.querySelector('#db-presets-tabs') as HTMLElement,
+            addPresetBtn: this.container.querySelector('#db-add-preset-btn') as HTMLButtonElement,
+            configPanel: this.container.querySelector('#db-preset-config-panel') as HTMLElement,
+            previewContainer: this.container.querySelector('#db-preview-container') as HTMLElement,
+            resizer: this.container.querySelector('#db-panel-resizer') as HTMLElement,
         };
     }
 
@@ -217,8 +220,8 @@ export class DatabaseEditor extends Editor {
 
     _updateDataSourceUI() {
         const isEmbedded = this.dbData['data']['mode'] === 'embedded';
-        this.container.querySelector(`input[name="db-mode"][value="embedded"]`).checked = isEmbedded;
-        this.container.querySelector(`input[name="db-mode"][value="external"]`).checked = !isEmbedded;
+        (this.container.querySelector(`input[name="db-mode"][value="embedded"]`) as HTMLInputElement).checked = isEmbedded;
+        (this.container.querySelector(`input[name="db-mode"][value="external"]`) as HTMLInputElement).checked = !isEmbedded;
 
         this.elements.embeddedConfig.style.display = isEmbedded ? 'flex' : 'none';
         this.elements.externalConfig.style.display = !isEmbedded ? 'flex' : 'none';
@@ -329,7 +332,7 @@ export class DatabaseEditor extends Editor {
                     ['createBlockInstance']: (blockData) => {
                         const BlockClass = window['blockRegistry'].get(blockData.type);
                         if (BlockClass) {
-                            return new BlockClass(blockData, deepFakeEditor);
+                            return new BlockClass(blockData, deepFakeEditor as DatabaseEditor);
                         }
                         console.error(`Block type "${blockData.type}" is not registered.`);
                         return null;
@@ -341,7 +344,7 @@ export class DatabaseEditor extends Editor {
             const DataBlockClass = window['blockRegistry'].get('data');
             if (DataBlockClass) {
                 const blockData = { id: 'preview-1', type: 'data', properties: { 'dbPath': this.filePath, presetId: preset.id } };
-                this.previewBlockInstance = new DataBlockClass(blockData, fakeEditor);
+                this.previewBlockInstance = new DataBlockClass(blockData, fakeEditor as unknown as DatabaseEditor);
 
                 this.previewBlockInstance._dbJsonCache = this.dbData;
 

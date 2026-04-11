@@ -298,7 +298,7 @@ void WinBackend::ListWorkspace(const json& payload) {
             }
         }
         return tree_node;
-        };
+    };
 
     // --- 后续的 try-catch 块和发送消息的逻辑保持不变 ---
     try {

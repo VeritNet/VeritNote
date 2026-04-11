@@ -1,5 +1,6 @@
 // generate_externs.js
 const ts = require('typescript');
+const { typeToClosure } = require('./type.js');
 
 const PREDECLARED_CLOSURE_EXTERNS_LIST = [
     'exports', 'global', 'module', 'ErrorConstructor', 'Symbol', 'WorkerGlobalScope', 'Window', 'Document'
@@ -25,7 +26,7 @@ function moduleNameAsIdentifier(fileName) {
     return fileName.replace(/^.*[/\\]/, '').replace(/\.d\.ts$/, '').replace(/[^a-zA-Z0-9]/g, '_');
 }
 
-function generateExterns(typeChecker, sourceFile) {
+function generateExterns(typeChecker, sourceFile, options = { allowStructuralType: false }) {
     let output = '';
     const isExternalModule = ts.isExternalModule(sourceFile);
     let moduleNamespace = isExternalModule ? moduleNameAsIdentifier(sourceFile.fileName) : '';
@@ -39,60 +40,6 @@ function generateExterns(typeChecker, sourceFile) {
 
     function emit(str) { output += str; }
 
-    // --- Type Translator ---
-    // 递归解析复杂的 TypeScript 类型并转换为 Closure JSDoc 类型
-    function typeToClosure(node) {
-        if (!node) return '*';
-        switch (node.kind) {
-            case ts.SyntaxKind.StringKeyword: return 'string';
-            case ts.SyntaxKind.NumberKeyword: return 'number';
-            case ts.SyntaxKind.BooleanKeyword: return 'boolean';
-            case ts.SyntaxKind.AnyKeyword: return '*';
-            case ts.SyntaxKind.UnknownKeyword: return '*';
-            case ts.SyntaxKind.VoidKeyword: return 'void';
-            case ts.SyntaxKind.NullKeyword: return 'null';
-            case ts.SyntaxKind.UndefinedKeyword: return 'undefined';
-            case ts.SyntaxKind.SymbolKeyword: return 'symbol';
-            case ts.SyntaxKind.ObjectKeyword: return 'Object';
-            case ts.SyntaxKind.TypeReference:
-                const typeName = node.typeName.getText();
-                // 处理泛型参数, 例如 Array<{...}> 或 Promise<...>
-                if (node.typeArguments && node.typeArguments.length > 0) {
-                    const args = node.typeArguments.map(typeToClosure).join(', ');
-                    return `${typeName}<${args}>`;
-                }
-                return typeName;
-            case ts.SyntaxKind.ArrayType:
-                return `Array<${typeToClosure(node.elementType)}>`;
-            case ts.SyntaxKind.UnionType:
-                const types = node.types.map(typeToClosure);
-                return `(${Array.from(new Set(types)).join('|')})`;
-            case ts.SyntaxKind.FunctionType:
-                return 'Function';
-            case ts.SyntaxKind.TypeLiteral: // 处理 { path?: string, config: any } 等内联对象
-                const props = [];
-                for (const member of node.members) {
-                    if (ts.isPropertySignature(member) && member.name) {
-                        let t = typeToClosure(member.type);
-                        if (member.questionToken) t = `(${t}|undefined)`;
-                        props.push(`${member.name.getText()}: ${t}`);
-                    }
-                }
-                // 如果对象包含属性，则生成 Closure 记录类型，否则返回 Object 兜底
-                return props.length > 0 ? `{${props.join(', ')}}` : 'Object';
-            case ts.SyntaxKind.TupleType:
-                return 'Array'; // GCC 对元组支持有限，用 Array 兜底最安全
-            case ts.SyntaxKind.LiteralType:
-                if (ts.isStringLiteral(node.literal)) return 'string';
-                if (ts.isNumericLiteral(node.literal)) return 'number';
-                if (node.literal.kind === ts.SyntaxKind.TrueKeyword || node.literal.kind === ts.SyntaxKind.FalseKeyword) return 'boolean';
-                return '*';
-            case ts.SyntaxKind.ParenthesizedType:
-                return typeToClosure(node.type);
-            default:
-                return '?';
-        }
-    }
 
     function writeVariableStatement(name, namespace, value) {
         const qualifiedName = namespace.length > 0 ? namespace.concat([name]).join('.') : name;
@@ -159,8 +106,9 @@ function generateExterns(typeChecker, sourceFile) {
 
         // 声明类/接口的根 (通过构造函数模式)
         emit(`\n`);
+        const typeTag = isClass ? '@constructor' : (options.allowStructuralType ? '@record' : '@interface');
         writeFunctionFromNode(nameText, ctor, namespace, [
-            isClass ? '@constructor' : '@record',
+            typeTag,
             '@struct'
         ]);
 
@@ -252,13 +200,6 @@ function generateExterns(typeChecker, sourceFile) {
         }
     }
 
-    if (isExternalModule) {
-        emit(`/** @const */\nvar ${rootNamespace} = {};\n`);
-        if (hasExportEquals && exportAssignment) {
-            emit(`var ${moduleNamespace} = ${rootNamespace};\n`);
-        }
-    }
-
     for (const stmt of sourceFile.statements) {
         // 仅处理 Ambient 声明 (.d.ts 默认全都是，或 .ts 中的 declare)
         const isAmbient = (ts.getCombinedModifierFlags(stmt) & ts.ModifierFlags.Ambient) !== 0;
@@ -268,7 +209,16 @@ function generateExterns(typeChecker, sourceFile) {
         }
     }
 
-    return output;
+    if (output.trim() === '') return '';
+
+    let header = '';
+    if (isExternalModule) {
+        header += `/** @const */\nvar ${rootNamespace} = {};\n`;
+        if (hasExportEquals && exportAssignment) {
+            header += `var ${moduleNamespace} = ${rootNamespace};\n`;
+        }
+    }
+    return header + output;
 }
 
 // CommonJS 导出

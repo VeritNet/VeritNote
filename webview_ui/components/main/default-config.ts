@@ -1,6 +1,8 @@
-﻿export const INHERIT_VALUE = "inherit";
+import { FileType } from './main.js';
 
-const DEFAULT_PAGE_CONFIG = {
+export const INHERIT_VALUE = "inherit";
+
+const DEFAULT_PAGE_CONFIG: Record<string, any> = {
     // CSS Variables (keys match CSS --page- vars without the prefix)
     "font-family-sans": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
     "font-family-monospace": "\"Courier New\", Courier, monospace",
@@ -15,15 +17,13 @@ const DEFAULT_PAGE_CONFIG = {
     "line-height": "1.6"
 };
 
-const DEFAULT_DATABASE_CONFIG = {
+const DEFAULT_DATABASE_CONFIG: Record<string, any> = {
     "p-l-a-c-e-h-o-l-d-e-r": "placeholder",
 };
 
-    // 未来可以添加其他文件类型的默认配置
-    // const DEFAULT_GRAPH_CONFIG = { ... };
-
-export const DEFAULT_CONFIG = {
+// 未来可以添加其他文件类型的默认配置
+// const DEFAULT_GRAPH_CONFIG = { ... };
+export const DEFAULT_CONFIG: Partial<Record<FileType, Record<string, any>>> = {
     page: DEFAULT_PAGE_CONFIG,
     database: DEFAULT_DATABASE_CONFIG,
-    // graph: DEFAULT_GRAPH_CONFIG
 };

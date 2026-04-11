@@ -1,4 +1,4 @@
-﻿// components/page-editor/page-editor.js
+// components/page-editor/page-editor.js
 
 import { Editor } from '../editor.js';
 
@@ -7,8 +7,11 @@ import { PageHistoryManager } from './HistoryManager.js';
 import { PageReferenceManager } from './ReferenceManager.js';
 import { PageSelectionManager } from './SelectionManager.js';
 
+import { TabManager } from '../main/tab-manager.js';
+
+import { FileType } from '../main/main.js';
+
 export class PageEditor extends Editor {
-        
     elements; // To store references to DOM elements
     mode; // 'edit' or 'preview'
 
@@ -32,10 +35,10 @@ export class PageEditor extends Editor {
     PageReferenceManager;
     popoverManager;
 
-    constructor(container, filePath, tabManager, computedConfig?, context?) {
+    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, computedConfig?: Record<string, any>, context = {}) {
         super(container, filePath, tabManager, computedConfig, context);
 
-        this.type = 'page'; // 基类变量赋值
+        this.type = FileType.page; // 基类变量赋值
         
         this.elements = {};
         this.mode = 'edit';
@@ -428,7 +431,7 @@ export class PageEditor extends Editor {
      * @returns {Block | null} An instance of the corresponding Block class.
      */
     createBlockInstance(blockData) {
-        const BlockClass = window['blockRegistry'].get(blockData.type);
+        const BlockClass = window.blockRegistry.get(blockData.type);
         if (BlockClass) {
             return new BlockClass(blockData, this);
         }
@@ -458,7 +461,7 @@ export class PageEditor extends Editor {
      */
     _postRenderProcess() {
         this.container.querySelectorAll('.block-content[data-type="columns"]').forEach(columnsEl => {
-            const columnsBlock = this._findBlockInstanceById(this.blocks, columnsEl.dataset['id'])?.block;
+            const columnsBlock = this._findBlockInstanceById(this.blocks, (columnsEl as HTMLElement).dataset['id'])?.block;
             if (!columnsBlock || columnsBlock.children.length <= 1) return;
 
             for (let i = 1; i < columnsBlock.children.length; i++) {
@@ -1022,7 +1025,7 @@ export class PageEditor extends Editor {
     _getFilteredCommands(searchTerm) {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
         const filteredCommands = [];
-        window['blockRegistry'].forEach(BlockClass => {
+        window.blockRegistry.forEach(BlockClass => {
             if (BlockClass.canBeToggled) {
                 const match = BlockClass.label.toLowerCase().includes(lowerCaseSearchTerm) ||
                     BlockClass.keywords.some(k => k.toLowerCase().startsWith(lowerCaseSearchTerm));
@@ -2044,7 +2047,7 @@ export class PageEditor extends Editor {
         this.container.querySelectorAll('.show-add-area').forEach(el => {
             // 找到这个容器所属的 blockId
             const parentBlock = el.closest('[data-id]');
-            if (parentBlock && !activeContainerIds.has(parentBlock.dataset['id'])) {
+            if (parentBlock && !activeContainerIds.has((parentBlock as HTMLElement).dataset['id'])) {
                 el.classList.remove('show-add-area');
             }
         });

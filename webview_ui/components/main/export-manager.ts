@@ -1,4 +1,4 @@
-﻿// components/main/export-manager.js
+// components/main/export-manager.js
 
 import { ipc } from './ipc.js';
 
@@ -6,15 +6,53 @@ import { PageEditor } from '../page-editor/page-editor.js';
 
 import { DEFAULT_CONFIG } from './default-config.js';
 
+interface ExportOptions {
+    downloadOnline: boolean;
+    copyLocal: boolean;
+}
+
+interface ExportConfig {
+    options: ExportOptions;
+    allFilesToExport: string[];
+    workspaceData: WorkspaceTreeNode;
+    ui: {
+        exportStatus: HTMLElement;
+        progressBar: HTMLElement;
+    };
+}
+
+interface PageResult {
+    mainContentHtml: string;
+    customStyleTag: string;
+    libIncludes: string;
+    cssRelativePath: string;
+}
+
+interface ImageTask {
+    originalSrc: string;
+    pagePath: string;
+}
+
+interface ExportPrepareResult {
+    libs: string[];
+    imageTasks: ImageTask[];
+}
+
+interface ExportGenerateResult {
+    content: string;
+    savePath: string;
+    exportType: 'page_html' | 'database_js';
+}
+
+
 export const ExportManager = class ExportManager {
-    static async runExportProcess(exportConfig) {
+    static async runExportProcess(exportConfig: ExportConfig): Promise<void> {
         const { options, allFilesToExport, workspaceData, ui } = exportConfig;
         window.isExportCancelled = false;
-
         ui.exportStatus.textContent = 'Initializing exporters...';
         ui.progressBar.style.width = '5%';
 
-        const exporters = [];
+        const exporters: (InstanceType<typeof window.PageExporter> | InstanceType<typeof window.DatabaseExporter>)[] = [];
 
         // 1. 初始化对应文件的导出器
         for (const path of allFilesToExport) {
@@ -24,97 +62,102 @@ export const ExportManager = class ExportManager {
 
             if (path.endsWith('.veritnote')) {
                 exporters.push(new window.PageExporter(path, options, workspaceData, pathPrefix));
-            } else if (path.endsWith('.veritnotedb')) {
+            }
+            else if (path.endsWith('.veritnotedb')) {
                 exporters.push(new window.DatabaseExporter(path, options, workspaceData, pathPrefix));
             }
         }
 
-        if (window.isExportCancelled) return;
+        if (window.isExportCancelled)
+            return;
         ui.exportStatus.textContent = 'Preparing file resources...';
         ui.progressBar.style.width = '20%';
 
         // 2. 预检阶段：收集全局资源依赖
-        const allLibs = new Set();
-        const allImageTasks = [];
-        for (const exp of exporters) {
-            if (window.isExportCancelled) return;
-            const { libs, imageTasks } = await exp.prepare();
-            libs.forEach(l => allLibs.add(l));
-            if (imageTasks) allImageTasks.push(...imageTasks);
-        }
+        const allLibs = new Set<string>();
 
-        if (window.isExportCancelled) return;
+        const allImageTasks: ImageTask[] = [];
+        for (const exp of exporters) {
+            if (window.isExportCancelled)
+                return;
+
+            const { libs, imageTasks }: ExportPrepareResult = await exp.prepare();
+            libs.forEach(l => allLibs.add(l));
+            if (imageTasks)
+                allImageTasks.push(...imageTasks);
+        }
+        if (window.isExportCancelled)
+            return;
         ui.exportStatus.textContent = 'Processing external assets...';
 
         // 3. 全局资源打包 (Libs & Images)
         if (allLibs.size > 0) {
             ipc.prepareExportLibs(Array.from(allLibs));
-            await new Promise(resolve => window.addEventListener('exportLibsReady', resolve, { once: true }));
+            await new Promise<void>(resolve => window.addEventListener('exportLibsReady', () => resolve(), { once: true }));
         }
 
-        let imageSrcMap = {};
+        let imageSrcMap: Record<string, string> = {};
         if (allImageTasks.length > 0) {
             const uniqueTasks = Array.from(new Map(allImageTasks.map(t => [t['originalSrc'], t])).values());
             ipc.processExportImages(uniqueTasks);
-            imageSrcMap = await new Promise(resolve => window.addEventListener('exportImagesProcessed', (e:any) => resolve(e.detail.payload['srcMap']), { once: true }));
+            imageSrcMap = await new Promise<Record<string, string>>(resolve => window.addEventListener('exportImagesProcessed', (e: Event) => resolve((e as CustomEvent).detail.payload['srcMap']), { once: true }));
         }
 
         // 4. 生成与导出最终文件
         for (let i = 0; i < exporters.length; i++) {
-            if (window.isExportCancelled) return;
+            if (window.isExportCancelled)
+                return;
             const exp = exporters[i];
-
-            ui.exportStatus.textContent = `Cooking: ${exp.path.substring(exp.path.lastIndexOf('\\') + 1)}`;
-
+            ui.exportStatus.textContent = `Cooking: ${exp.path.substring(exp.path.lastIndexOf("\\") + 1)}`;
             const { content, savePath, exportType } = await exp.generate(imageSrcMap);
-
             if (exportType === 'page_html') {
                 ipc.exportPageAsHtml(savePath, content);
-            } else if (exportType === 'database_js') {
+            }
+            else if (exportType === 'database_js') {
                 ipc.exportDatabaseAsJs(savePath, content);
             }
-
             ui.progressBar.style.width = `${30 + ((i + 1) / exporters.length) * 70}%`;
         }
-
         ui.exportStatus.textContent = 'Done!';
         setTimeout(window.hideExportOverlay, 1500);
     }
 
     // 生成侧边栏HTML
-    static _generateSidebarHtml(node, currentPath, pathPrefix, workspaceRootPath) {
+    static _generateSidebarHtml(node: WorkspaceTreeNode, currentPath: string, pathPrefix: string, workspaceRootPath: string): string {
         let html = '';
         if (node.type === 'folder') {
-            const containsActivePage = (folderNode) => {
-                if (!folderNode.children) return false;
+            const containsActivePage = (folderNode: WorkspaceTreeNode): boolean => {
+                if (!folderNode.children)
+                    return false;
                 return folderNode.children.some(child => {
-                    if (child.path === currentPath) return true;
-                    if (child.type === 'folder') return containsActivePage(child);
+                    if (child.path === currentPath)
+                        return true;
+                    if (child.type === 'folder')
+                        return containsActivePage(child);
                     return false;
                 });
             };
             const isOpen = containsActivePage(node);
-
             html += `<div class="tree-node folder ${isOpen ? 'open' : ''}" data-path="${node.path}"><span class="icon"></span><span class="name">${node.name}</span></div>`;
             if (node.children && node.children.length > 0) {
                 html += `<div class="tree-node-children" style="${isOpen ? 'display: block;' : 'display: none;'}">`;
                 node.children.forEach(child => {
                     html += ExportManager._generateSidebarHtml(child, currentPath, pathPrefix, workspaceRootPath);
                 });
-                html += '</div>';
+                html += "</div>";
             }
-        } else if (node.type === 'page') {
-            const relativePath = node.path.substring(workspaceRootPath.length + 1).replace(/\\/g, '/').replace('.veritnote', '.html');
+        }
+        else if (node.type === "page") {
+            const relativePath = node.path.substring(workspaceRootPath.length + 1).replace(/\\/g, "/").replace(".veritnote", ".html");
             const isActive = (node.path === currentPath);
-            html += `<div class="tree-node page ${isActive ? 'active' : ''}" data-path="${node.path}" data-href="${pathPrefix}${relativePath}"><span class="icon"></span><span class="name">${node.name.replace('.veritnote', '')}</span></div>`;
+            html += `<div class="tree-node page ${isActive ? 'active' : ''}" data-path="${node.path}" data-href="${pathPrefix}${relativePath}"><span class="icon"></span><span class="name">${node.name.replace(".veritnote", "")}</span></div>`;
         }
         return html;
     }
 
-    // [复刻原逻辑] 组装最终的 DOCTYPE HTML 模板
-    static _assembleFinalHtml(path, pageResult, sidebarHtml, pathPrefix) {
+    // 组装最终的 DOCTYPE HTML 模板
+    static _assembleFinalHtml(path: string, pageResult: PageResult, sidebarHtml: string, pathPrefix: string): string {
         const { mainContentHtml, customStyleTag, libIncludes, cssRelativePath } = pageResult;
-
         const exportStyleOverrides = `
             <style>
                 body { overflow: hidden !important; }
@@ -122,7 +165,6 @@ export const ExportManager = class ExportManager {
                 #main-content { overflow-y: auto !important; height: 100vh; }
             </style>
         `;
-
         const fullSidebarTemplate = `
             <aside id="sidebar">
                 <div class="workspace-tree">${sidebarHtml}</div>
@@ -213,12 +255,11 @@ export const ExportManager = class ExportManager {
                 });
             });
         `;
-
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>${path.substring(path.lastIndexOf('\\') + 1).replace('.veritnote', '')}</title>
+    <title>${path.substring(path.lastIndexOf("\\") + 1).replace('.veritnote', '')}</title>
     <link rel="stylesheet" href="${cssRelativePath}">
     ${customStyleTag}
     ${exportStyleOverrides}
@@ -243,13 +284,14 @@ export const ExportManager = class ExportManager {
 
 // 专门处理 Page 类型导出的处理器
 window.PageExporter = class PageExporter {
-    path;
-    options;
-    workspaceData;
-    pathPrefix;
-    tempEditor;
+    path: string;
+    options: ExportOptions;
+    workspaceData: WorkspaceTreeNode;
+    pathPrefix: string;
+    tempEditor: PageEditor | null;
 
-    constructor(path, options, workspaceData, pathPrefix) {
+
+    constructor(path: string, options: ExportOptions, workspaceData: WorkspaceTreeNode, pathPrefix: string) {
         this.path = path;
         this.options = options;
         this.workspaceData = workspaceData;
@@ -258,9 +300,9 @@ window.PageExporter = class PageExporter {
     }
 
     // 阶段1：加载内容并收集所有需要的资源
-    async prepare() {
+    async prepare(): Promise<ExportPrepareResult> {
         const pageData = await new Promise(resolve => {
-            const handler = (e) => {
+            const handler = (e: any) => {
                 if (e.detail.payload && e.detail.payload.path === this.path) {
                     window.removeEventListener('fileLoaded', handler);
                     resolve(e.detail.payload);
@@ -269,33 +311,36 @@ window.PageExporter = class PageExporter {
             window.addEventListener('fileLoaded', handler);
             ipc.loadFile(this.path, {});
         });
-
         const container = document.createElement('div');
         this.tempEditor = new PageEditor(container, this.path, null);
         await this.tempEditor.loadContentForRender(pageData['content']['blocks']);
 
         // 等待所有异步块渲染完毕 (通过之前加入的 exportReadyPromise)
-        const gatherPromises = (blocks) => {
-            let promises = [];
+        const gatherPromises = (blocks: Block[]): Promise<void>[] => {
+
+            let promises: Promise<void>[] = [];
             blocks.forEach(b => {
                 promises.push(b.exportReadyPromise);
-                if (b.children) promises.push(...gatherPromises(b.children));
+                if (b.children)
+                    promises.push(...gatherPromises(b.children));
             });
             return promises;
         };
         await Promise.all(gatherPromises(this.tempEditor.blocks));
 
-        const libs = new Set();
+        const libs: Set<string> = new Set();
         const imageTasks = [];
 
         // 收集组件库和图片
-        const scan = (blocks) => {
-            if (!blocks) return;
+        const scan = (blocks: Block[]) => {
+            if (!blocks)
+                return;
             blocks.forEach(b => {
-                const BlockClass = window['blockRegistry'].get(b.type);
+                const BlockClass = window.blockRegistry.get(b.type);
                 if (BlockClass && BlockClass.requiredExportLibs) {
                     BlockClass.requiredExportLibs.forEach(l => libs.add(l));
                 }
+
                 // 图片收集逻辑
                 if (b.type === 'image' && b.properties?.src) {
                     const src = b.properties.src;
@@ -305,7 +350,8 @@ window.PageExporter = class PageExporter {
                         imageTasks.push({ 'originalSrc': src, 'pagePath': this.path });
                     }
                 }
-                if (b.children) scan(b.children);
+                if (b.children)
+                    scan(b.children);
             });
         };
         scan(this.tempEditor.blocks);
@@ -319,29 +365,30 @@ window.PageExporter = class PageExporter {
                 imageTasks.push({ 'originalSrc': src, 'pagePath': this.path });
             }
         }
-
         return { libs: Array.from(libs), imageTasks };
     }
 
     // 阶段2：利用获取到的映射生成最终 HTML
-    async generate(imageSrcMap) {
+    async generate(imageSrcMap: Record<string, string>): Promise<ExportGenerateResult> {
         // 在生成 HTML 前，遍历更新编辑器所有图片块的链接
-        const updateBlockImages = (blocks) => {
-            if (!blocks) return;
+        const updateBlockImages = (blocks: Block[]) => {
+            if (!blocks)
+                return;
             blocks.forEach(b => {
                 // 定位图片块及其 src 属性
                 if (b.type === 'image' && b.properties?.src) {
                     const originalSrc = b.properties.src;
                     if (imageSrcMap[originalSrc]) {
                         const newSrc = this.pathPrefix + imageSrcMap[originalSrc];
+
                         // 更新数据模型
                         b.properties.src = newSrc;
 
                         // 同步更新底层 DOM 节点（兼容 getsanitizedhtml 依赖 DOM 序列化的情况）
-                        const blockEl = b.element || b.container;
+                        const blockEl = b.element;
                         if (blockEl) {
                             const imgTags = blockEl.querySelectorAll('img');
-                            imgTags.forEach(img => {
+                            imgTags.forEach((img: HTMLImageElement) => {
                                 if (img.getAttribute('src') === originalSrc) {
                                     img.setAttribute('src', newSrc);
                                 }
@@ -349,25 +396,29 @@ window.PageExporter = class PageExporter {
                         }
                     }
                 }
+
                 // 递归处理嵌套子块
-                if (b.children) updateBlockImages(b.children);
+                if (b.children)
+                    updateBlockImages(b.children);
             });
         };
-        updateBlockImages(this.tempEditor.blocks);
+        updateBlockImages(this.tempEditor!.blocks);
 
         // 调用 getSanitizedHtml
-        const mainContentHtml = await this.tempEditor.getSanitizedHtml(true, {
+        const mainContentHtml = await this.tempEditor!.getSanitizedHtml(true, {
             options: this.options,
             pathPrefix: this.pathPrefix
         });
 
         // 获取并重载配置 (用于生成自定义 Style)
-        ipc.resolveFileConfiguration(this.path)
-        const resolved:any = await new Promise(resolve => {
-            const handler = (e) => {
-                if (e.detail.payload.path === this.path) {
+        ipc.resolveFileConfiguration(this.path);
+
+        const resolved: any = await new Promise(resolve => {
+            const handler = (e: Event) => {
+                const payload = (e as CustomEvent).detail.payload;
+                if (payload.path === this.path) {
                     window.removeEventListener('fileConfigurationResolved', handler);
-                    resolve(e.detail.payload);
+                    resolve(payload);
                 }
             };
             window.addEventListener('fileConfigurationResolved', handler);
@@ -390,36 +441,45 @@ window.PageExporter = class PageExporter {
                 const value = computedConfig[key];
                 if (key === 'background' && typeof value === 'object') {
                     const bgColor = (value.type === 'color') ? value.value : 'transparent';
-                    const bgImage = (value.type === 'image' && value.value) ? `url('${value.value.replace(/\\/g, '/')}')` : 'none';
+                    const bgImage = (value.type === 'image' && value.value) ? `url('${value.value.replace(/\\/g, "/")}')` : 'none';
                     backgroundStyleContent += `    background-color: ${bgColor};\n    background-image: ${bgImage};\n`;
-                } else {
+                }
+                else {
                     customStyleContent += `    --page-${key}: ${value};\n`;
                 }
             }
         }
 
         let styleRules = [];
-        if (backgroundStyleContent) styleRules.push(`.page-background-container {\n${backgroundStyleContent}}`);
-        if (customStyleContent) styleRules.push(`.editor-view {\n${customStyleContent}}`);
-        const customStyleTag = styleRules.length > 0 ? `<style id="veritnote-custom-styles">\n/* Page overrides */\n${styleRules.join('\n\n')}\n</style>` : '';
+        if (backgroundStyleContent)
+            styleRules.push(`.page-background-container {\n${backgroundStyleContent}}`);
+        if (customStyleContent)
+            styleRules.push(`.editor-view {\n${customStyleContent}}`);
+        const customStyleTag = styleRules.length > 0 ? `<style id="veritnote-custom-styles">\n/* Page overrides */\n${styleRules.join("\n\n")}\n</style>` : "";
+
 
         // 组装 Lib
         const requiredLibsForThisPage: Set<string> = new Set();
-        const scanLibs = (blocks) => {
-            if (!blocks) return;
+        const scanLibs = (blocks: Block[]) => {
+            if (!blocks)
+                return;
             blocks.forEach(b => {
-                const BC = window['blockRegistry'].get(b.type);
-                if (BC && BC.requiredExportLibs) BC.requiredExportLibs.forEach(l => requiredLibsForThisPage.add(l));
-                if (b.children) scanLibs(b.children);
+                const BC = window.blockRegistry.get(b.type);
+                if (BC && BC.requiredExportLibs)
+                    BC.requiredExportLibs.forEach(l => requiredLibsForThisPage.add(l));
+                if (b.children)
+                    scanLibs(b.children);
             });
-        }
-        scanLibs(this.tempEditor.blocks);
+        };
+        scanLibs(this.tempEditor!.blocks);
 
         let libIncludes = '';
         requiredLibsForThisPage.forEach(libPath => {
             const libRel = `${this.pathPrefix}${libPath}`;
-            if (libPath.endsWith('.css')) libIncludes += `    <link rel="stylesheet" href="${libRel}">\n`;
-            else if (libPath.endsWith('.js')) libIncludes += `    <script src="${libRel}"><\/script>\n`;
+            if (libPath.endsWith('.css'))
+                libIncludes += `    <link rel="stylesheet" href="${libRel}">\n`;
+            else if (libPath.endsWith('.js'))
+                libIncludes += `    <script src="${libRel}"><\/script>\n`;
         });
 
         const filteredWorkspaceData = { ...this.workspaceData };
@@ -437,16 +497,16 @@ window.PageExporter = class PageExporter {
             exportType: 'page_html'
         };
     }
-}
+};
 
 
 window.DatabaseExporter = class DatabaseExporter {
-    path;
-    options;
-    workspaceData;
-    pathPrefix;
+    path: string;
+    options: ExportOptions;
+    workspaceData: WorkspaceTreeNode;
+    pathPrefix: string;
 
-    constructor(path, options, workspaceData, pathPrefix) {
+    constructor(path: string, options: ExportOptions, workspaceData: WorkspaceTreeNode, pathPrefix: string) {
         this.path = path;
         this.options = options;
         this.workspaceData = workspaceData;
@@ -454,21 +514,26 @@ window.DatabaseExporter = class DatabaseExporter {
     }
 
     // 阶段1：收集资产
-    async prepare() {
+    async prepare(): Promise<ExportPrepareResult> {
         return { libs: [], imageTasks: [] };
     }
 
     // 阶段2：生成静态内容
-    async generate(imageSrcMap) {
-        const jsonString = await new Promise((resolve) => {
+    async generate(imageSrcMap: Record<string, string>): Promise<ExportGenerateResult> {
+        const jsonString = await new Promise<string>((resolve) => {
             const reqId = 'export-db-' + Date.now() + Math.random();
-            const listener = (e) => {
-                if (e.detail.payload.dataBlockId === reqId) {
+            const listener = (e: Event) => {
+                const payload = (e as CustomEvent).detail.payload;
+                if (payload.dataBlockId === reqId) {
                     window.removeEventListener('dataContentFetched', listener);
-                    let content = e.detail.payload.content;
+                    let content = payload.content;
                     if (typeof content === 'string') {
-                        try { content = JSON.parse(content); } catch (err) { }
+                        try {
+                            content = JSON.parse(content);
+                        }
+                        catch (err) { }
                     }
+
                     // 提纯 DB：只保留 Data 和 Presets
                     const exportData = {
                         data: content.data || { mode: 'embedded', embeddedData: [] },
@@ -493,4 +558,4 @@ window.DatabaseExporter = class DatabaseExporter {
             exportType: 'database_js'
         };
     }
-}
+};

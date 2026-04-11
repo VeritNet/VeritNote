@@ -1,7 +1,7 @@
 ﻿// Inter-Process Communication: JS <-> C++
 export const ipc = {
     // 向 C++ 后端发送消息
-    send: (action: any, payload = {}) => {
+    send: (action: string, payload = {}) => {
         console.log("IPC: Sending message to C++:", { action, payload });
         if (window.AndroidBridge && window.AndroidBridge.postMessage) {
             window.AndroidBridge.postMessage(JSON.stringify({ "action": action, "payload": payload }));
@@ -48,14 +48,13 @@ export const ipc = {
 
 
     // Unified File I/O
-    loadFile: (path: any, context = {}) => {
-        ipc.send('loadFile', { path, context });
+    loadFile: (path: string, context = {}) => {
+        ipc.send("loadFile", { path, context });
     },
-    saveFile: (path: any, config: any, content: any) => {
-        ipc.send('saveFile', { path, config, content });
+    saveFile: (path: string, config: Record<string, any>, content: any) => {
+        ipc.send("saveFile", { path, config, content });
     },
     
-
 
     startExport: () => {
         ipc.send('exportPages');

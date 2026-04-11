@@ -51,6 +51,7 @@ class Block {
 
     // --- Static properties for registration and slash command ---
     static type = 'block'; // Should be overridden by subclasses
+    static icon = '📦'; // Default icon (can be overridden)
     static label = 'Block'; // Default label for UI
     static description = 'A generic block.'; // Default description for UI
     static keywords = []; // Keywords for search

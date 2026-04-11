@@ -6,6 +6,7 @@ import { Editor } from './editor.js';
 
 declare global {
     interface Window {
+        blockRegistry: Map<string, typeof Block>;
         [key: string]: any;
     }
 
@@ -68,6 +69,7 @@ declare global {
         static previewExclusionSelectors: string[];
         static exportExclusionSelectors: string[];
         static type: string;
+        static icon: string;
         static label: string;
         static description: string;
         static keywords: string[];

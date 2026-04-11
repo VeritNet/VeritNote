@@ -9,6 +9,8 @@ export const UiTools = {
     createKvForm
 };
 
+export { KvFormItem } from './tools/kv-form.js';
+
 
 /**
  * 初始化 UI 库的全局事件监听和交互逻辑接口

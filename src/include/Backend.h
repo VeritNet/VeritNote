@@ -72,8 +72,8 @@ protected:
     void ProcessExportImages(const json& payload);
     void GoToDashboard();
     void CancelExport();
-    void ReadConfigFile(const json& payload);
-    void WriteConfigFile(const json& payload);
+    void ReadConfigFile(const json& payload); // Config File！不是 File Config！
+    void WriteConfigFile(const json& payload); // Config File！不是 File Config！
     void ResolveFileConfiguration(const json& payload);
     // File IO
     void LoadFile(const json& payload);

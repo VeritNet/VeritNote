@@ -1,7 +1,7 @@
-﻿// --- Converts any valid color string to #rrggbb format ---
+// --- Converts any valid color string to #rrggbb format ---
 import { INHERIT_VALUE } from './default-config.js';
 
-function toHexColor(colorStr) {
+function toHexColor(colorStr: string) {
     if (!colorStr || typeof colorStr !== 'string') return '#000000';
     if (colorStr.startsWith('#')) {
         if (colorStr.length === 4) { // Expand #rgb to #rrggbb
@@ -10,7 +10,7 @@ function toHexColor(colorStr) {
         return colorStr;
     }
     // For rgb() and others, we need to draw it to a canvas to get the hex value
-    const ctx = document.createElement('canvas').getContext('2d');
+    const ctx = document.createElement('canvas').getContext('2d') ;
     ctx.fillStyle = colorStr;
     return ctx.fillStyle;
 }
