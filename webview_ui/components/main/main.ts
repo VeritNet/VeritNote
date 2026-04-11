@@ -59,6 +59,7 @@ window['BAPI_WD'] = {
 };
 // ==================================================================
 
+
 export enum FileType {
     folder = 'folder',
     page = 'page',

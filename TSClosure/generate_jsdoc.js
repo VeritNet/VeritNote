@@ -48,6 +48,15 @@ function transformJSDoc(context) {
                     }
                 }
             }
+            // 4. 处理枚举 (Enums)
+            else if (ts.isEnumDeclaration(node)) {
+                let enumType = 'number';
+                // 简单探测：如果第一个成员有初始值且为字符串，则判定为 string enum
+                if (node.members.length > 0 && node.members[0].initializer && ts.isStringLiteral(node.members[0].initializer)) {
+                    enumType = 'string';
+                }
+                jsdocLines.push(`@enum {${enumType}}`);
+            }
 
             // 先遍历所有子节点，这样我们修改的父节点能包含已经被转换过的子节点
             const visitedNode = ts.visitEachChild(node, visit, context);
@@ -56,9 +65,11 @@ function transformJSDoc(context) {
             if (jsdocLines.length > 0) {
                 const commentText = "*\n " + jsdocLines.map(line => "* " + line).join("\n ") + "\n ";
 
-                // 【核心修复】：克隆节点。生成一个允许挂载注释的“虚拟/合成节点”
+                // 克隆节点。生成一个允许挂载注释的“虚拟/合成节点”
                 // ts.factory.cloneNode 是 TS 4+ 的标准 API，为了兼容老版本加上 fallback
                 const newNode = ts.factory ? ts.factory.cloneNode(visitedNode) : ts.getMutableClone(visitedNode);
+
+                ts.setEmitFlags(newNode, ts.EmitFlags.NoLeadingComments);
 
                 // 给新节点加上合成的头部注释
                 ts.addSyntheticLeadingComment(
@@ -80,13 +91,30 @@ function transformJSDoc(context) {
 }
 
 function generateJSDocForFile(sourceFile) {
-    // 运行 AST 转换器
-    const result = ts.transform(sourceFile, [transformJSDoc]);
+    // 1. 利用 Printer 强行把原文件中所有的注释都删掉
+    // 设置 removeComments: true 会让 TS 打印出一份绝对没有任何注释的纯代码字符串
+    const commentStrippingPrinter = ts.createPrinter({ removeComments: true });
+    const cleanCode = commentStrippingPrinter.printFile(sourceFile);
+
+    // 2. 将代码重新解析成一个新的 AST
+    // 这样新的 AST 节点里就完全没有原文件的注释信息了
+    const cleanSourceFile = ts.createSourceFile(
+        sourceFile.fileName,
+        cleanCode,
+        sourceFile.languageVersion || ts.ScriptTarget.Latest,
+        true
+    );
+
+    // 3. 在没有注释的 AST 上运行 transformJSDoc 转换器
+    const result = ts.transform(cleanSourceFile, [transformJSDoc]);
     const transformedFile = result.transformed[0];
 
-    // 使用 Printer 将修改后的 AST 重新打印为源码文本
-    const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-    return printer.printNode(ts.EmitHint.SourceFile, transformedFile, sourceFile);
+    // 4. 打印最终结果
+    // 这里的 printer 不要设置 removeComments，否则我们新加的 JSDoc 也会被删掉
+    const finalPrinter = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+
+    // 注意：这里第三个参数传入 cleanSourceFile，确保它作为打印的上下文
+    return finalPrinter.printNode(ts.EmitHint.SourceFile, transformedFile, cleanSourceFile);
 }
 
 module.exports = {

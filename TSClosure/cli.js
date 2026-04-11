@@ -5,12 +5,14 @@ const path = require('path');
 
 const { generateExterns, getGeneratedExterns } = require('./generate_externs');
 const { generateJSDocForFile } = require('./generate_jsdoc');
+const { transformEnumInContent } = require('./transform_enum');
 
 function printUsage() {
     console.error("Usage: node cli.js <mode> [options]");
     console.error("\nAvailable modes:");
     console.error("  generate-externs --project <path/to/tsconfig.json> --out <path/to/externs.js> [--allowStructuralType]");
     console.error("  generate-jsdoc   --project <path/to/tsconfig.json> [--outDir <path/to/dir>] [--overwrite]");
+    console.error("  transform-enum   --src <path/to/js_dir> [--outDir <path/to/dir>] [--overwrite]");
 }
 
 function handleGenerateExterns(args) {
@@ -130,6 +132,74 @@ function handleGenerateJSDoc(args) {
 }
 
 
+function walkDirSync(dir, fileList = []) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+        const filePath = path.join(dir, file);
+        if (fs.statSync(filePath).isDirectory()) {
+            walkDirSync(filePath, fileList);
+        } else if (filePath.endsWith('.js')) {
+            fileList.push(filePath);
+        }
+    }
+    return fileList;
+}
+
+function handleTransformEnum(args) {
+    const srcIndex = args.indexOf('--src');
+    if (srcIndex === -1) {
+        printUsage();
+        process.exit(1);
+    }
+
+    const srcDir = path.resolve(process.cwd(), args[srcIndex + 1]);
+    const isOverwrite = args.includes('--overwrite');
+
+    let outDir = path.resolve(process.cwd(), './ts-enum-out');
+    const outDirIndex = args.indexOf('--outDir');
+    if (outDirIndex !== -1 && args[outDirIndex + 1]) {
+        outDir = path.resolve(process.cwd(), args[outDirIndex + 1]);
+    }
+
+    if (!fs.existsSync(srcDir)) {
+        console.error(`Source directory does not exist: ${srcDir}`);
+        process.exit(1);
+    }
+
+    const jsFiles = fs.statSync(srcDir).isDirectory() ? walkDirSync(srcDir) : [srcDir];
+    let count = 0;
+
+    for (const file of jsFiles) {
+        const content = fs.readFileSync(file, 'utf8');
+        const newContent = transformEnumInContent(content);
+
+        // 如果内容发生了改变才进行覆盖/输出操作，优化性能
+        if (content !== newContent) {
+            let outputPath;
+            if (isOverwrite) {
+                outputPath = file;
+            } else {
+                const relativePath = path.relative(srcDir, file);
+                outputPath = path.join(outDir, relativePath);
+            }
+
+            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+            fs.writeFileSync(outputPath, newContent, 'utf8');
+            count++;
+        } else if (!isOverwrite) {
+            // 如果不覆盖且内容未变，原样拷贝以维持目录树完整性
+            const relativePath = path.relative(srcDir, file);
+            const outputPath = path.join(outDir, relativePath);
+            fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+            fs.copyFileSync(file, outputPath);
+        }
+    }
+
+    console.log(`[Success] Processed JS files. Transformed enums in ${count} files. Outputs are ${isOverwrite ? 'overwritten' : `at: ${outDir}`}`);
+}
+
+
+
 function main() {
     const args = process.argv.slice(2);
     if (args.length === 0) {
@@ -146,6 +216,9 @@ function main() {
             break;
         case 'generate-jsdoc':
             handleGenerateJSDoc(remainingArgs);
+            break;
+        case 'transform-enum':
+            handleTransformEnum(remainingArgs);
             break;
         default:
             console.error(`Unknown mode: ${mode}`);

@@ -89,10 +89,12 @@ export class TabManager {
             }
 
             this.switchTab(path);
-            if (context.blockIdToFocus) {
-                const activeTab = this.getActiveTab();
-                if (activeTab && activeTab.instance instanceof PageEditor) {
-                    activeTab.instance.PageSelectionManager.highlightBlock(context.blockIdToFocus);
+            if (context) {
+                if (context.blockIdToFocus) {
+                    const activeTab = this.getActiveTab();
+                    if (activeTab && activeTab.instance instanceof PageEditor) {
+                        activeTab.instance.PageSelectionManager.highlightBlock(context.blockIdToFocus);
+                    }
                 }
             }
 

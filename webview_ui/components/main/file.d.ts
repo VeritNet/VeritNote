@@ -7,4 +7,11 @@ declare global {
         type: FileType;
         children?: WorkspaceTreeNode[];
     }
+
+    /*enum FileType {
+        folder = 'folder',
+        page = 'page',
+        graph = 'graph',
+        database = 'database'
+    }*/
 }
