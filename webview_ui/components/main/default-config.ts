@@ -1,4 +1,4 @@
-import { FileType } from './file-types.js';
+import { FileType } from '../types.js';
 
 export const INHERIT_VALUE = "inherit";
 

@@ -1,6 +1,7 @@
 ﻿// components/page-editor/popovers.js
 
 import { ipc } from '../main/ipc.js';
+import * as file from '../main/file-helper.js';
 
 const PRESET_COLORS = [
     '#000000', '#444444', '#666666', '#999999', '#CCCCCC', '#EEEEEE', '#F3F3F3', '#FFFFFF',
@@ -153,7 +154,7 @@ export class PopoverManager {
                 if (this.wasSidebarForcedOpen) this.editor.setRightSidebarCollapsed(false);
                 
                 this.editor.PageReferenceManager.enableLinkingMode(true, (refData) => {
-                    const relativeFilePath = window.makePathRelativeToWorkspace(refData.filePath);
+                    const relativeFilePath = file.makePathRelativeToWorkspace(refData.filePath);
                     const link = `${relativeFilePath}#${refData.blockData.id}`;
                     if (this.currentPopoverCallback) this.currentPopoverCallback(link);
                     this.hide(); // hidePopover will handle restoring the view
@@ -183,8 +184,23 @@ export class PopoverManager {
         });
 
         popoverInput.addEventListener('input', () => this.editor.updateSearchResults(popoverInput.value, searchResults));
-        popoverInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (this.currentPopoverCallback) this.currentPopoverCallback(popoverInput.value); this.hide(); } });
-        searchResults.addEventListener('mousedown', (e) => { e.preventDefault(); const item = e.target.closest('.search-result-item'); if (item && this.currentPopoverCallback) { const relativePath = window.makePathRelativeToWorkspace(item.dataset['path']); this.currentPopoverCallback(relativePath); this.hide(); } });
+        popoverInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.currentPopoverCallback) {
+                    this.currentPopoverCallback(popoverInput.value);
+                };
+                this.hide()
+            }
+        });
+        searchResults.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const item = e.target.closest('.search-result-item');
+            if (item && this.currentPopoverCallback) {
+                const relativePath = file.makePathRelativeToWorkspace(item.dataset['path']);
+                this.currentPopoverCallback(relativePath); this.hide();
+            }
+        });
 
         const initialMode = existingValue && existingValue.indexOf('#') > -1 && existingValue.split('#')[1].length > 0 ? 'block' : 'page';
         setActiveMode(initialMode);
@@ -263,7 +279,7 @@ export class PopoverManager {
             dbStep.style.display = 'none';
             presetStep.style.display = 'block';
 
-            const absolutePath = window.resolveWorkspacePath(dbPath);
+            const absolutePath = file.resolveWorkspacePath(dbPath);
             const reqId = 'popover-fetch-' + Date.now();
 
             const listener = (e) => {
@@ -288,7 +304,7 @@ export class PopoverManager {
             e.preventDefault();
             const item = e.target.closest('.search-result-item');
             if (item) {
-                const relativePath = window.makePathRelativeToWorkspace ? window.makePathRelativeToWorkspace(item.dataset['path']) : item.dataset['path'];
+                const relativePath = file.makePathRelativeToWorkspace ? file.makePathRelativeToWorkspace(item.dataset['path']) : item.dataset['path'];
                 fetchAndShowPresets(relativePath);
             }
         });
@@ -488,7 +504,7 @@ export class PopoverManager {
                 if (this.wasSidebarForcedOpen) this.editor.setRightSidebarCollapsed(false);
                 
                 this.editor.PageReferenceManager.enableLinkingMode(true, (refData) => {
-                    const relativeFilePath = window.makePathRelativeToWorkspace(refData.filePath);
+                    const relativeFilePath = file.makePathRelativeToWorkspace(refData.filePath);
                     const link = `${relativeFilePath}#${refData.blockData.id}`;
                     if (this.currentPopoverCallback) this.currentPopoverCallback(link);
                     this.hide(); // hidePopover will handle restoring the view.

@@ -9,7 +9,8 @@ import { PageSelectionManager } from './SelectionManager.js';
 
 import { TabManager } from '../main/tab-manager.js';
 
-import { FileType } from '../main/file-types.js';
+import { FileType } from '../types.js';
+import * as file from '../main/file-helper.js';
 
 export class PageEditor extends Editor {
     elements; // To store references to DOM elements
@@ -207,22 +208,22 @@ export class PageEditor extends Editor {
 
     _acquireElements() {
         this.elements = {
-            rightSidebar: this.container.querySelector('#right-sidebar'),
-            rightSidebarResizer: this.container.querySelector('#right-sidebar-resizer'),
-            rightSidebarToggleBtn: this.container.querySelector('#right-sidebar-toggle-btn'),
-            rightSidebarViewToggle: this.container.querySelector('#right-sidebar-view-toggle'),
-            referencesView: this.container.querySelector('#references-view'),
-            detailsView: this.container.querySelector('#details-view'),
-            floatingToolbar: this.container.querySelector('#floating-toolbar'),
-            toggleToolbarBtn: this.container.querySelector('#toggle-toolbar-btn'),
-            toolbarPeekTrigger: this.container.querySelector('#toolbar-peek-trigger'),
-            saveBtn: this.container.querySelector('#save-btn'),
-            modeToggle: this.container.querySelector('#mode-toggle'),
-            commandMenu: this.container.querySelector('#command-menu'),
-            blockToolbar: this.container.querySelector('#block-toolbar'),
-            blockToolbarGraceArea: this.container.querySelector('#block-toolbar-grace-area'),
-            popover: this.container.querySelector('#popover'),
-            deleteDropZone: this.container.querySelector('#delete-drop-zone'),
+            rightSidebar: this.container.querySelector('#right-sidebar') as HTMLElement,
+            rightSidebarResizer: this.container.querySelector('#right-sidebar-resizer') as HTMLElement,
+            rightSidebarToggleBtn: this.container.querySelector('#right-sidebar-toggle-btn') as HTMLButtonElement,
+            rightSidebarViewToggle: this.container.querySelector('#right-sidebar-view-toggle') as HTMLElement,
+            referencesView: this.container.querySelector('#references-view') as HTMLElement,
+            detailsView: this.container.querySelector('#details-view') as HTMLElement,
+            floatingToolbar: this.container.querySelector('#floating-toolbar') as HTMLElement,
+            toggleToolbarBtn: this.container.querySelector('#toggle-toolbar-btn') as HTMLButtonElement,
+            toolbarPeekTrigger: this.container.querySelector('#toolbar-peek-trigger') as HTMLElement,
+            saveBtn: this.container.querySelector('#save-btn') as HTMLButtonElement,
+            modeToggle: this.container.querySelector('#mode-toggle') as HTMLElement,
+            commandMenu: this.container.querySelector('#command-menu') as HTMLElement,
+            blockToolbar: this.container.querySelector('#block-toolbar') as HTMLElement,
+            blockToolbarGraceArea: this.container.querySelector('#block-toolbar-grace-area') as HTMLElement,
+            popover: this.container.querySelector('#popover') as HTMLElement,
+            deleteDropZone: this.container.querySelector('#delete-drop-zone') as HTMLElement,
         };
         
 
@@ -785,7 +786,7 @@ export class PageEditor extends Editor {
             blockId = blockId || null; // 如果没有哈希，确保 blockId 为 null
 
             // 2. 使用全局辅助函数将相对工作区路径解析为绝对路径
-            const absolutePath = window.resolveWorkspacePath(filePath);
+            const absolutePath = file.resolveWorkspacePath(filePath);
 
             // 3. 调用 TabManager 来打开或切换到目标标签页
             // openTab 方法足够智能，如果标签页已打开，它会切换过去，
@@ -1932,7 +1933,7 @@ export class PageEditor extends Editor {
 
     _executeReferenceDropAction(action, refData, targetBlockInfo, position) {
         let newBlockInstance;
-        const relativeFilePath = window.makePathRelativeToWorkspace(refData.filePath);
+        const relativeFilePath = file.makePathRelativeToWorkspace(refData.filePath);
 
         switch (action) {
             case 'createQuote':

@@ -6,6 +6,9 @@ import { PageEditor } from '../page-editor/page-editor.js';
 
 import { DEFAULT_CONFIG } from './default-config.js';
 
+import * as file from './file-helper.js'; 
+import { FileType } from '../types.js';
+
 interface ExportOptions {
     downloadOnline: boolean;
     copyLocal: boolean;
@@ -424,7 +427,7 @@ window.PageExporter = class PageExporter {
             window.addEventListener('fileConfigurationResolved', handler);
         });
 
-        const computedConfig = window.computeFinalConfig(resolved.config, 'page');
+        const computedConfig = file.computeFinalConfig(resolved.config, FileType.Page);
 
         // 背景图片路径替换
         if (computedConfig.background?.type === 'image' && computedConfig.background.value) {

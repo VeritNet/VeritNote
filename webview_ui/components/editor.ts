@@ -3,7 +3,8 @@
 
 import { ipc } from './main/ipc.js';
 import { TabManager } from './main/tab-manager.js';
-import { FileType } from './main/file-types.js';
+import { FileType } from './types.js';
+import * as file from './main/file-helper.js';
 
 
 export abstract class Editor {
@@ -112,7 +113,7 @@ export abstract class Editor {
             const payload = e['detail']['payload'];
             if (payload.path === this.filePath) {
                 if (payload.config) {
-                    const newComputedConfig = window.computeFinalConfig(payload.config, this.type);
+                    const newComputedConfig = file.computeFinalConfig(payload.config, this.type);
                     this.computedConfig = newComputedConfig;
                     this.applyConfiguration();
                 }

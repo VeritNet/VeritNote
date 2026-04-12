@@ -3,8 +3,10 @@
 import { Editor } from '../editor.js';
 import { ipc } from '../main/ipc.js';
 
-import { FileType } from '../main/file-types.js';
+import { FileType } from '../types.js';
 import { TabManager } from '../main/tab-manager.js';
+
+import * as file from '../main/file-helper.js';
 export class DatabaseEditor extends Editor {
     dbData;
 
@@ -87,7 +89,7 @@ export class DatabaseEditor extends Editor {
             const listener = (e) => {
                 window.removeEventListener('fileDialogClosed', listener);
                 if (e.detail.payload.path) {
-                    this.elements.externalUrlInput.value = window.makePathRelativeToWorkspace(e.detail.payload.path);
+                    this.elements.externalUrlInput.value = file.makePathRelativeToWorkspace(e.detail.payload.path);
                     this.dbData['data']['externalUrl'] = this.elements.externalUrlInput.value;
                     this._markDirty();
                     this._refreshPreviewData();
@@ -101,7 +103,7 @@ export class DatabaseEditor extends Editor {
             const listener = async (e) => {
                 window.removeEventListener('fileDialogClosed', listener);
                 if (e.detail.payload.path) {
-                    const absolutePath = window.resolveWorkspacePath(e.detail.payload.path);
+                    const absolutePath = file.resolveWorkspacePath(e.detail.payload.path);
                     const res = await fetch(absolutePath);
                     const text = await res.text();
                     this.dbData['data']['embeddedData'] = this._parseCSV(text);

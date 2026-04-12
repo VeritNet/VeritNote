@@ -5,7 +5,7 @@ import { DatabaseEditor } from '../database-editor/database-editor.js';
 
 import { ipc } from './ipc.js';
 
-import { FileType } from './file-types.js';
+import { FileType } from '../types.js';
 
 
 

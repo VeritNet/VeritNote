@@ -1,4 +1,4 @@
-import { FileType } from './file-types.js';
+import { FileType } from '../types.js';
 
 declare global {
     interface WorkspaceTreeNode {
@@ -7,11 +7,4 @@ declare global {
         type: FileType;
         children?: WorkspaceTreeNode[];
     }
-
-    /*enum FileType {
-        folder = 'folder',
-        page = 'page',
-        graph = 'graph',
-        database = 'database'
-    }*/
 }

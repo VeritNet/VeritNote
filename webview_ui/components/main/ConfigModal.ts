@@ -2,7 +2,7 @@
 import { INHERIT_VALUE } from './default-config.js';
 
 
-import { FileType } from './file-types.js';
+import { FileType } from '../types.js';
 
 function toHexColor(colorStr: string) {
     if (!colorStr || typeof colorStr !== 'string') return '#000000';
