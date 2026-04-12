@@ -33,96 +33,6 @@
     z-index: 60;
 }
 
-.sidebar-header {
-    padding: var(--spacing-m);
-    border-bottom: 1px solid var(--border-primary);
-    flex-shrink: 0;
-    display: flex; /* Aligns button and title */
-    align-items: center;
-    gap: var(--spacing-s);
-    min-width: 0;
-}
-
-    .sidebar-header h3 {
-        font-size: 18px;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        margin: 0;
-    }
-
-#back-to-dashboard-btn {
-    position: static;
-    margin-right: 0;
-    padding: var(--spacing-s);
-    width: 36px;
-    height: 36px;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-    #back-to-dashboard-btn:hover {
-        background-color: var(--bg-tertiary);
-        color: var(--text-primary);
-    }
-
-
-/* 树容器 */
-#workspace-tree {
-    padding: var(--sp-xs);
-    overflow-y: auto;
-    flex-grow: 1;
-}
-
-.tree-item {
-    position: relative; /* 为绝对定位的设置按钮提供参照 */
-}
-
-    .tree-item .name {
-        flex-grow: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        padding-right: 28px; /* 给右侧的设置按钮留出空间 */
-        font-size: 13px;
-    }
-
-    /* 覆盖尺寸，并实现悬浮显示 */
-    .tree-item .item-settings-btn {
-        position: absolute;
-        right: 4px;
-        width: 24px !important;
-        height: 24px !important;
-        padding: 0 !important;
-        opacity: 0;
-        transition: opacity var(--tr-f), background-color var(--tr-f);
-    }
-
-    .tree-item:hover .item-settings-btn,
-    .item-settings-btn:focus {
-        opacity: 1;
-    }
-
-    .tree-item > svg:not(.chevron), .tree-item .type-icon svg {
-        width: 14px;
-        height: 14px;
-        flex-shrink: 0;
-        color: var(--tc-2);
-    }
-
-    .tree-item .icon.chevron {
-        width: 16px;
-        height: 16px;
-    }
-
 
 .sidebar-footer {
     padding: var(--spacing-s);
@@ -186,7 +96,6 @@
     margin-right: 0;
 }
 
-    .sidebar-collapsed #sidebar .sidebar-header,
     .sidebar-collapsed #sidebar .workspace-tree,
     .sidebar-collapsed #sidebar .sidebar-footer {
         opacity: 0;
@@ -204,7 +113,6 @@
     padding: var(--sp-s) !important;
 }
 
-    .sidebar-collapsed.sidebar-peek #sidebar .sidebar-header,
     .sidebar-collapsed.sidebar-peek #sidebar .workspace-tree,
     .sidebar-collapsed.sidebar-peek #sidebar .sidebar-footer {
         opacity: 1;

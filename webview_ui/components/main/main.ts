@@ -17,7 +17,7 @@ import { DEFAULT_CONFIG } from './default-config.js';
 
 import { ConfigModal } from './ConfigModal.js';
 
-import * as WorkspaceTree from './CP/workspace-tree.js';
+import * as WorkspaceMng from './CP/ws-mng/ws-mng.js';
 
 import { initUiLib, UiTools, KvFormItem } from '../ui-lib/ui-lib.js';
 
@@ -65,7 +65,9 @@ window['BAPI_WD'] = {
 // ==================================================================
 
 
-window['initializeMainComponent'] = () => {
+window['initializeMainComponent'] = async () => {
+    var workspaceData: WorkspaceTreeNode | null = null;
+
     init_error_handle();
 
     initUiLib();
@@ -75,21 +77,18 @@ window['initializeMainComponent'] = () => {
 
     // --- Element acquisition for MAIN component ---
     // 侧边栏及树视图相关
-    const sidebar = document.getElementById('workspace-tree') as HTMLElement;
+    //const sidebar = document.getElementById('workspace-tree') as HTMLElement;
+    const workspaceMngContainer = document.getElementById('workspace-mng') as HTMLDivElement;
     const sidebarContainer = document.getElementById('sidebar') as HTMLElement;
     const sidebarResizer = document.getElementById('sidebar-resizer') as HTMLElement;
     const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn') as HTMLButtonElement;
-    const workspaceName = document.getElementById('workspace-name') as HTMLElement;
 
     // 按钮与操作
     const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
-    const backToDashboardBtn = document.getElementById('back-to-dashboard-btn') as HTMLButtonElement;
-    const workspaceSettingsBtn = document.getElementById('workspace-settings-btn') as HTMLButtonElement;
     const startCookBtn = document.getElementById('start-cook-btn') as HTMLButtonElement;
     const cancelCookBtn = document.getElementById('cancel-cook-btn') as HTMLButtonElement;
 
     // 弹窗与 UI 状态
-    const contextMenu = document.getElementById('context-menu') as HTMLElement;
     const exportOverlay = document.getElementById('export-overlay') as HTMLElement;
     const cookSettingsModal = document.getElementById('cook-settings-modal') as HTMLElement;
     const progressBar = document.getElementById('progress-bar') as HTMLElement;
@@ -110,49 +109,26 @@ window['initializeMainComponent'] = () => {
 
     let activeConfigModal:(ConfigModal | null) = null;
 
-    const tabManager = new TabManager(updateSidebarActiveState);
+    const tabManager = new TabManager(WorkspaceMng.updateWorkspaceUI);
     window.tabManager = tabManager; // Make it globally accessible if needed by editors
 
-    // --- UI Update Functions (for Main component) ---
-    function updateSidebarActiveState() {
-        // 清理旧的高亮
-        sidebar.querySelectorAll('.tree-item[act="true"]').forEach(n => n.removeAttribute('act'));
-        if (tabManager.activeTabPath) {
-            const pathForQuery = tabManager.activeTabPath.replace(/\\/g, '\\\\');
-            // 找到对应的节点并加上 act="true"
-            const targetNode = sidebar.querySelector(`.tree-item.page[data-path="${pathForQuery}"]`);
-            if (targetNode) { targetNode.setAttribute('act', 'true'); }
-        }
-    }
 
-    WorkspaceTree.initWorkspaceTree(sidebar, contextMenu, tabManager, workspaceSettingsBtn);
+    // 初始化工作区管理组件
+    await WorkspaceMng.initWorkspaceMng(
+        workspaceMngContainer,
+        tabManager,
+        () => workspaceData
+    );
 
     // --- C++ message listeners (for Main component) ---
-    window.addEventListener('workspaceListed', (e:any) => {
+    window.addEventListener('workspaceListed', (e: any) => {
         console.log('workspaceListed');
-        const workspaceData = e['detail']['payload'] as WorkspaceTreeNode;
-        if (workspaceData && workspaceData.path) {
+        workspaceData = e['detail']['payload'] as WorkspaceTreeNode;
+        if (workspaceData) {
             window.workspaceRootPath = workspaceData.path;
-            
-            // --- 更新工作区名称显示 ---
-            if (workspaceName) {
-                // 从路径中提取最后一个文件夹名称
-                const pathParts = workspaceData.path.split(/[\\/]/);
-                workspaceName.textContent = pathParts.filter(Boolean).pop() || workspaceData.path;
-            }
         }
-        sidebar.dataset['workspaceData'] = JSON.stringify(workspaceData);
-        if (workspaceData && workspaceData.children && workspaceData.children.length > 0) {
-            // 不渲染根节点本身，而是直接循环渲染它内部的子节点
-            let childrenHtml = '';
-            workspaceData.children.forEach(child => {
-                childrenHtml += WorkspaceTree.renderWorkspaceTree(child);
-            });
-            sidebar.innerHTML = childrenHtml;
-        } else {
-            sidebar.innerHTML = `<div tc="2" pd="s" style="font-style: italic; font-size: 13px;">Workspace is empty.<br>Right-click to create a file.</div>`;
-        }
-        updateSidebarActiveState();
+        // 直接通知组件更新 UI，组件会自己去取最新的 workspaceData
+        WorkspaceMng.updateWorkspaceUI();
     });
 
 
@@ -301,21 +277,6 @@ window['initializeMainComponent'] = () => {
         }
     });
 
-    backToDashboardBtn.addEventListener('click', () => {
-        let unsavedFiles: string[] = [];
-        tabManager.tabs.forEach(tab => {
-            if (tab.isUnsaved) {
-                unsavedFiles.push(tab.name);
-            }
-        });
-        if (unsavedFiles.length > 0) {
-            if (!confirm(`You have unsaved changes in: ${unsavedFiles.join(', ')}.\n\nLeave without saving?`)) {
-                return;
-            }
-        }
-        ipc.goToDashboard();
-    });
-
 
 
     /**
@@ -323,13 +284,11 @@ window['initializeMainComponent'] = () => {
      * @returns {Array<{name: string, path: string}>}
      */
     window.getAllPageFiles = function () {
-        const workspaceDataStr = sidebar.dataset['workspaceData'];
-        if (!workspaceDataStr) return [];
+        if (!workspaceData) return [];
 
         try {
-            const rootNode = JSON.parse(workspaceDataStr);
             const results: { name: string, path: string }[] = [];
-            file.collectFilesByType(rootNode, FileType.Page, results);
+            file.collectFilesByType(workspaceData, FileType.Page, results);
             return results;
         } catch (e) {
             console.error("Failed to parse workspace tree for page search:", e);
@@ -342,13 +301,11 @@ window['initializeMainComponent'] = () => {
      * @returns {Array<{name: string, path: string}>}
      */
     window.getAllDatabaseFiles = function () {
-        const workspaceDataStr = sidebar.dataset['workspaceData'];
-        if (!workspaceDataStr) return [];
+        if (!workspaceData) return [];
 
         try {
-            const rootNode = JSON.parse(workspaceDataStr);
             const results: { name: string, path: string }[] = [];
-            file.collectFilesByType(rootNode, FileType.Database, results);
+            file.collectFilesByType(workspaceData, FileType.Database, results);
             return results;
         } catch (e) {
             console.error("Failed to parse workspace tree for database search:", e);
@@ -462,7 +419,6 @@ window['initializeMainComponent'] = () => {
         };
         cookSettingsModal.style.display = 'none';
 
-        const workspaceData = JSON.parse(sidebar.dataset['workspaceData'] || '{}');
         const allFilesToExport: string[] = [];
         const getAllFiles = (node: WorkspaceTreeNode, list: string[]) => {
             if (node.type === FileType.Folder && node.children) {

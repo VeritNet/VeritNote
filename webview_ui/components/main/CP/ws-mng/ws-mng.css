@@ -1,0 +1,97 @@
+#back-to-dashboard-btn {
+    position: static;
+    margin-right: 0;
+    padding: var(--spacing-s);
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+    #back-to-dashboard-btn:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+
+/* 树容器 */
+#workspace-tree {
+    padding: var(--sp-xs);
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.tree-item {
+    position: relative; /* 为绝对定位的设置按钮提供参照 */
+}
+
+    .tree-item .name {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 28px; /* 给右侧的设置按钮留出空间 */
+        font-size: 13px;
+    }
+
+    /* 覆盖尺寸，并实现悬浮显示 */
+    .tree-item .item-settings-btn {
+        position: absolute;
+        right: 4px;
+        width: 24px !important;
+        height: 24px !important;
+        padding: 0 !important;
+        opacity: 0;
+        transition: opacity var(--tr-f), background-color var(--tr-f);
+    }
+
+    .tree-item:hover .item-settings-btn,
+    .item-settings-btn:focus {
+        opacity: 1;
+    }
+
+    .tree-item > svg:not(.chevron), .tree-item .type-icon svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        color: var(--tc-2);
+    }
+
+    .tree-item .icon.chevron {
+        width: 16px;
+        height: 16px;
+    }
+
+
+/* 补充动画与布局 */
+#ws-search-panel {
+    overflow: hidden;
+    transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-out;
+}
+
+.search-panel-collapsed {
+    max-height: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.search-panel-expanded {
+    padding: 0 var(--sp-xs) var(--sp-s) var(--sp-xs);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ws-search-panel-btn {
+    height: 22px;
+    width: 22px;
+    font-size: 12px;
+}

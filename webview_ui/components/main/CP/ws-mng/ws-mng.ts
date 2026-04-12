@@ -1,9 +1,13 @@
-import { FileType } from '../../types.js';
-import { ipc } from '../ipc.js';
-import { TabManager } from '../tab-manager.js';
+import { FileType } from '../../../types.js';
+import { ipc } from '../../ipc.js';
+import { TabManager } from '../../tab-manager.js';
 
 
 const FOLDER_STATE_KEY = 'veritnote_folder_states';
+
+
+let WorkspaceData_ptr: (() => WorkspaceTreeNode) | null = null;
+let TabManager_ptr: TabManager = null; // 用于文件大纲项高亮逻辑
 
 
 /**
@@ -17,7 +21,7 @@ function getFolderOpenState(path: string) {
     } catch (e) { return false; }
 }
 
-export function renderWorkspaceTree(node: WorkspaceTreeNode) {
+function renderWorkspaceTree(node: WorkspaceTreeNode) {
     if (!node) return '';
     let html = '';
 
@@ -116,10 +120,50 @@ function onContextMenuAction(action: string, targetPath: string, parentPath: str
 }
 
 
-export function initWorkspaceTree(sidebar: HTMLElement, contextMenu: HTMLElement, tabManager: TabManager, backToDashboardBtn: HTMLButtonElement, workspaceSettingsBtn: HTMLButtonElement) {
-    let contextMenuTarget: (HTMLElement | null) = null;
 
-    // --- 辅助函数：从 localStorage 保存文件夹展开状态 ---
+export function updateWorkspaceUI() {
+    const data = WorkspaceData_ptr?.();
+    const treeContainer = document.getElementById('workspace-tree');
+    const nameEl = document.getElementById('workspace-name');
+
+    // 1. 更新名称显示
+    if (data && data.path && nameEl) {
+        const pathParts = data.path.split(/[\\/]/);
+        nameEl.textContent = pathParts.filter(Boolean).pop() || data.path;
+    }
+
+    // 2. 渲染树结构
+    if (treeContainer) {
+        if (data && data.children && data.children.length > 0) {
+            let html = '';
+            data.children.forEach((child: any) => { html += renderWorkspaceTree(child); });
+            treeContainer.innerHTML = html;
+        } else {
+            treeContainer.innerHTML = `<div tc="2" pd="s" style="font-style: italic; font-size: 13px;">Workspace is empty.</div>`;
+        }
+
+        // 3. 同步高亮状态
+        treeContainer.querySelectorAll('.tree-item[act="true"]').forEach(n => n.removeAttribute('act'));
+        if (TabManager_ptr?.activeTabPath) {
+            const pathForQuery = TabManager_ptr.activeTabPath.replace(/\\/g, '\\\\');
+            const targetNode = treeContainer.querySelector(`.tree-item.page[data-path="${pathForQuery}"]`);
+            if (targetNode) targetNode.setAttribute('act', 'true');
+        }
+    }
+}
+
+
+// 总初始化入口，由 main 传入容器、tabManager 及数据闭包
+export async function initWorkspaceMng(workspaceMng: HTMLDivElement, tabManager: TabManager, getWorkspaceData: () => any) {
+    WorkspaceData_ptr = getWorkspaceData;
+    TabManager_ptr = tabManager;
+    if (!workspaceMng) return;
+
+    // 异步获取 HTML 片段并注入容器
+    const res = await fetch('components/main/CP/ws-mng/ws-mng.html');
+    workspaceMng.innerHTML = await res.text();
+
+    // 将全局原本挂载的 toggle 方法转移到这里
     window.toggleFolderStateInStorage = function (path: string, isOpen: boolean) {
         try {
             const states = JSON.parse(window.localStorage.getItem(FOLDER_STATE_KEY) || '{}');
@@ -128,62 +172,71 @@ export function initWorkspaceTree(sidebar: HTMLElement, contextMenu: HTMLElement
         } catch (e) { }
     }
 
-    sidebar.addEventListener('contextmenu', (e: any) => {
-        e.preventDefault();
-        contextMenuTarget = e.target.closest('.tree-item, #workspace-tree');
-        if (!contextMenuTarget) return;
-        showContextMenu(contextMenu, e.clientX, e.clientY);
-    });
+    // 分发给各子区域绑定事件
+    initHeaderModule(tabManager);
+    initToolsModule();
+    initTreeModule(tabManager, getWorkspaceData);
+}
 
-    document.addEventListener('mousedown', (e: any) => {
-        // Only handles closing the context menu now.
-        if (!e.target.closest('#context-menu')) {
-            hideContextMenu(contextMenu);
-        }
-    });
+// 子功能 1：Header 按钮事件绑定 (从上次正确回答中迁移)
+function initHeaderModule(tabManager: TabManager) {
+    const btnBack = document.getElementById('back-to-dashboard-btn') as HTMLButtonElement;
+    const btnSet = document.getElementById('workspace-settings-btn') as HTMLButtonElement;
 
-    contextMenu.addEventListener('click', (e: any) => {
-        if (!contextMenuTarget) return;
-        let parentPath = '';
-        let targetPath = contextMenuTarget.dataset['path'] || '';
-        if (contextMenuTarget.id === 'workspace-tree') {
-            parentPath = JSON.parse(sidebar.dataset['workspaceData'] || '{}').path || '';
-        } else if (contextMenuTarget.classList.contains('folder')) {
-            parentPath = targetPath;
-        } else {
-            parentPath = targetPath.substring(0, targetPath.lastIndexOf('\\'));
-        }
-        if (!parentPath && sidebar.dataset['workspaceData']) {
-            parentPath = JSON.parse(sidebar.dataset['workspaceData']).path;
-        }
-        onContextMenuAction(e.target.dataset['action'], targetPath, parentPath);
-        hideContextMenu(contextMenu);
-    });
-
-
-    backToDashboardBtn.addEventListener('click', () => {
+    btnBack?.addEventListener('click', () => {
         let unsavedFiles: string[] = [];
-        tabManager.tabs.forEach(tab => {
-            if (tab.isUnsaved) {
-                unsavedFiles.push(tab.name);
-            }
-        });
-        if (unsavedFiles.length > 0) {
-            if (!confirm(`You have unsaved changes in: ${unsavedFiles.join(', ')}.\n\nLeave without saving?`)) {
-                return;
-            }
-        }
+        tabManager.tabs.forEach(tab => { if (tab.isUnsaved) unsavedFiles.push(tab.name); });
+        if (unsavedFiles.length > 0 && !confirm(`You have unsaved changes in: ${unsavedFiles.join(', ')}.\n\nLeave without saving?`)) return;
         ipc.goToDashboard();
     });
 
+    btnSet?.addEventListener('click', () => {
+        if (window.workspaceRootPath) window.openConfigModal(FileType.Folder, window.workspaceRootPath);
+    });
+}
 
-    sidebar.addEventListener('click', async (e: any) => { // async
+// 子功能 2：动态搜索工具栏逻辑 (你已确认正确的逻辑)
+function initToolsModule() {
+    const searchBtn = document.getElementById('ws-search-btn') as HTMLButtonElement;
+    const searchPanel = document.getElementById('ws-search-panel') as HTMLDivElement;
+    const searchInput = document.getElementById('ws-search-input') as HTMLInputElement;
+
+    searchBtn?.addEventListener('click', () => {
+        const isCollapsed = searchPanel.classList.contains('search-panel-collapsed');
+        if (isCollapsed) {
+            searchPanel.classList.remove('search-panel-collapsed');
+            searchPanel.classList.add('search-panel-expanded');
+            setTimeout(() => searchInput.focus(), 100);
+        } else {
+            closeSearchPanel();
+        }
+    });
+
+    searchInput?.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (searchInput.value.trim() === '' && document.activeElement !== searchInput) {
+                closeSearchPanel();
+            }
+        }, 150);
+    });
+
+    function closeSearchPanel() {
+        searchPanel.classList.remove('search-panel-expanded');
+        searchPanel.classList.add('search-panel-collapsed');
+    }
+}
+
+// 子功能 3：Tree 自身事件和 Context Menu
+function initTreeModule(tabManager: TabManager, getWorkspaceData: () => WorkspaceTreeNode) {
+    const treeDiv = document.getElementById('workspace-tree') as HTMLElement;
+    const contextMenu = document.getElementById('context-menu') as HTMLElement;
+    let contextMenuTarget: HTMLElement | null = null;
+
+    treeDiv?.addEventListener('click', (e: any) => {
         const settingsBtn = e.target.closest('.item-settings-btn');
         if (settingsBtn) {
             const parentNode = settingsBtn.closest('.tree-item');
-            const path = parentNode.dataset['path'];
-            const type = settingsBtn.dataset['type'];
-            window.openConfigModal(type, path);
+            window.openConfigModal(settingsBtn.dataset['type'], parentNode.dataset['path']);
             return;
         }
 
@@ -194,12 +247,9 @@ export function initWorkspaceTree(sidebar: HTMLElement, contextMenu: HTMLElement
         const type = target.dataset['type'];
 
         if (type == 'folder') {
-            // 读取当前属性状态
             const isCurrentlyOpen = target.getAttribute('open') === 'true';
             const willBeOpen = !isCurrentlyOpen;
-            // 设置新的属性触发旋转动画
             target.setAttribute('open', willBeOpen.toString());
-            // 存入 localStorage 以供下次渲染读取
             window.toggleFolderStateInStorage(path, willBeOpen);
 
             const children = target.nextElementSibling;
@@ -211,10 +261,33 @@ export function initWorkspaceTree(sidebar: HTMLElement, contextMenu: HTMLElement
         }
     });
 
-    // --- 工作区设置按钮监听 ---
-    workspaceSettingsBtn.addEventListener('click', () => {
-        if (window.workspaceRootPath) {
-            window.openConfigModal('folder', window.workspaceRootPath);
+    treeDiv?.addEventListener('contextmenu', (e: any) => {
+        e.preventDefault();
+        contextMenuTarget = e.target.closest('.tree-item, #workspace-tree');
+        if (!contextMenuTarget) return;
+        showContextMenu(contextMenu, e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mousedown', (e: any) => {
+        if (!e.target.closest('#context-menu')) hideContextMenu(contextMenu);
+    });
+
+    contextMenu?.addEventListener('click', (e: any) => {
+        if (!contextMenuTarget) return;
+        let parentPath = '';
+        let targetPath = contextMenuTarget.dataset['path'] || '';
+        const currentData = getWorkspaceData();
+
+        if (contextMenuTarget.id === 'workspace-tree') {
+            parentPath = currentData ? currentData.path : '';
+        } else if (contextMenuTarget.classList.contains('folder')) {
+            parentPath = targetPath;
+        } else {
+            parentPath = targetPath.substring(0, targetPath.lastIndexOf('\\'));
         }
+        if (!parentPath && currentData) parentPath = currentData.path;
+
+        onContextMenuAction(e.target.dataset['action'], targetPath, parentPath);
+        hideContextMenu(contextMenu);
     });
 }
