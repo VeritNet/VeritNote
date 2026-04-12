@@ -1,4 +1,4 @@
-import { FileType } from './main.js';
+import { FileType } from './file-types.js';
 
 export const INHERIT_VALUE = "inherit";
 
@@ -23,7 +23,7 @@ const DEFAULT_DATABASE_CONFIG: Record<string, any> = {
 
 // 未来可以添加其他文件类型的默认配置
 // const DEFAULT_GRAPH_CONFIG = { ... };
-export const DEFAULT_CONFIG: Partial<Record<FileType, Record<string, any>>> = {
-    page: DEFAULT_PAGE_CONFIG,
-    database: DEFAULT_DATABASE_CONFIG,
+export const DEFAULT_CONFIG: Partial<Record<FileType/* 将 enum FileType 的值（如'page', 'database'，通过enum的键动态访问）作为Record的键 */, Record<string, any>>> = {
+    [FileType.Page]: DEFAULT_PAGE_CONFIG,
+    [FileType.Database]: DEFAULT_DATABASE_CONFIG
 };

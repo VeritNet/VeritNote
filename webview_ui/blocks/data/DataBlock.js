@@ -130,7 +130,7 @@ class DataBlock extends Block {
 
         // 检查是否需要重新创建子块（类型改变或首次加载）
         if (!childBlock || childBlock.type !== preset.type) {
-            const RendererClass = window['blockRegistry'].get(preset.type);
+            const RendererClass = BAPI_WD.blockRegistry.get(preset.type);
             if (!RendererClass) throw new Error(`Unknown preset type: ${preset.type}`);
 
             const blockData = { type: preset.type };
@@ -309,7 +309,7 @@ class DataBlock extends Block {
 
         // 修复: 将 _renderDataContent(...) { 转换为 function( ... ) {
         let renderersSetup = '';
-        window['blockRegistry'].forEach((BlockClass, type) => {
+        BAPI_WD.blockRegistry.forEach((BlockClass, type) => {
             if (BlockClass.prototype._renderDataContent) {
                 let funcStr = BlockClass.prototype._renderDataContent.toString();
                 // 匹配方法名并替换为 function 关键字

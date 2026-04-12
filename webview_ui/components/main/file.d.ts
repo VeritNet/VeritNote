@@ -1,4 +1,4 @@
-import { FileType } from './main.js';
+import { FileType } from './file-types.js';
 
 declare global {
     interface WorkspaceTreeNode {

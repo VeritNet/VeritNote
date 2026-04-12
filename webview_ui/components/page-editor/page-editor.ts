@@ -9,7 +9,7 @@ import { PageSelectionManager } from './SelectionManager.js';
 
 import { TabManager } from '../main/tab-manager.js';
 
-import { FileType } from '../main/main.js';
+import { FileType } from '../main/file-types.js';
 
 export class PageEditor extends Editor {
     elements; // To store references to DOM elements
@@ -35,10 +35,10 @@ export class PageEditor extends Editor {
     PageReferenceManager;
     popoverManager;
 
-    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, computedConfig?: Record<string, any>, context = {}) {
-        super(container, filePath, tabManager, computedConfig, context);
+    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, context = {}) {
+        super(container, filePath, tabManager, context);
 
-        this.type = FileType.page; // 基类变量赋值
+        this.type = FileType.Page; // 基类变量赋值
         
         this.elements = {};
         this.mode = 'edit';
@@ -133,26 +133,43 @@ export class PageEditor extends Editor {
     // --- 1. Core Lifecycle Methods
     // --- ========================================================== ---
 
-    async load() {
+    override async onLoad() {
         const response = await fetch('components/page-editor/page-editor.html');
         this.container.innerHTML = await response.text();
 
         this._acquireElements();
-
-        // 调用基类的 config 应用逻辑
-        this.applyConfiguration(this.computedConfig);
 
         this.PageReferenceManager = new PageReferenceManager(this);
         this.popoverManager = new PopoverManager(this);
 
         this._initListeners();
         this._initUiState();
-
-        // 通知基类去 loadFile
-        super.load();
     }
 
-    onContentParsed(content, context) {
+    override applyConfiguration() {
+        const themeContainers = this.getThemeContainers();
+        for (const key in this.computedConfig) {
+            const value = this.computedConfig[key];
+            if (key === 'background' && typeof value === 'object') {
+                const bgColor = (value.type === 'color') ? value.value : 'transparent';
+                const bgImage = (value.type === 'image' && value.value) ? `url('${value.value.replace(/\\/g, '/')}')` : 'none';
+                themeContainers.backgrounds.forEach(c => {
+                    if (c) {
+                        c.style.backgroundColor = bgColor;
+                        c.style.backgroundImage = bgImage;
+                    }
+                });
+                continue;
+            }
+            const cssVarName = `--page-${key}`;
+            themeContainers.views.forEach(c => {
+                if (c)
+                    c.style.setProperty(cssVarName, value);
+            });
+        }
+    }
+
+    override onContentParsed(content, context) {
         const blockDataList = (content && Array.isArray(content['blocks'])) ? content['blocks'] : [];
         this.blocks = blockDataList.map(data => this.createBlockInstance(data)).filter(Boolean);
         this.blocks.forEach(block => block.parent = null);
@@ -170,13 +187,13 @@ export class PageEditor extends Editor {
     }
 
     
-    onFocus() {
+    override onFocus() {
         if (!this.isReady) return;
         this.PageSelectionManager._updateVisuals();
         this.updateToolbarState();
     }
     
-    destroy() {
+    override destroy() {
         if (this.PageReferenceManager) {
             this.PageReferenceManager.destroy();
         }
@@ -415,7 +432,7 @@ export class PageEditor extends Editor {
 
             // 对所有打开的 Tab 进行通知
             this.tabManager.tabs.forEach(tab => {
-                if (tab.instance && tab.instance.blocks) {
+                if (tab.instance && tab.instance instanceof PageEditor) {
                     notifyBlocksRecursive(tab.instance.blocks);
                 }
             });
@@ -589,13 +606,13 @@ export class PageEditor extends Editor {
     }
 
     // 找到基类的 UI 回调，控制保存按钮状态:
-    onBeforeSave() {
+    override onBeforeSave() {
         if (this.elements.saveBtn) {
             this.elements.saveBtn.classList.add('unsaved');
         }
     }
 
-    onAfterSave(success) {
+    override onAfterSave(success) {
         if (this.elements.saveBtn) {
             this.elements.saveBtn.classList.remove('unsaved');
         }
@@ -773,7 +790,7 @@ export class PageEditor extends Editor {
             // 3. 调用 TabManager 来打开或切换到目标标签页
             // openTab 方法足够智能，如果标签页已打开，它会切换过去，
             // 并将 blockId 传递给编辑器以滚动到指定块。
-            await this.tabManager.openTab(absolutePath, { blockIdToFocus: blockId }, 'page');
+            await this.tabManager.openTab(absolutePath, { blockIdToFocus: blockId }, FileType.Page);
         }
     }
 
@@ -835,10 +852,9 @@ export class PageEditor extends Editor {
     }
 
     // --- Global Keydown Handler ---
-    onKeyDown(e) {
+    override onKeyDown(e) {
         const activeTab = this.tabManager.getActiveTab();
         if (!activeTab) return;
-        const activeEditor = activeTab.editor;
     
         if ((e.key === 'Delete' || e.key === 'Backspace') && this.PageSelectionManager.getSelectionSize() > 0) {
             

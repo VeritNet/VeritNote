@@ -5,7 +5,7 @@ import { DatabaseEditor } from '../database-editor/database-editor.js';
 
 import { ipc } from './ipc.js';
 
-import { FileType } from './main.js';
+import { FileType } from './file-types.js';
 
 
 
@@ -60,33 +60,9 @@ export class TabManager {
     }
 
     async openTab(path: string, context: any = {}, type: FileType) {
-        const finalConfig: Record<string, any> = await new Promise((resolve) => {
-            const fileConfigurationResolvedHandler = (e: any) => {
-                const payload = e['detail']['payload'];
-                if (payload.path === path) {
-                    window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
-
-                    // 计算并返回配置
-                    const config = window.computeFinalConfig(payload.config || {}, type);
-                    resolve(config);
-                }
-            };
-            window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
-            ipc.resolveFileConfiguration(path);
-        });
-
+        // 如果标签页已存在，直接切换过去
         if (this.tabs.has(path)) {
             const existingTab = this.tabs.get(path);
-            // --- FIX: Update the existing tab's configuration if it has changed ---
-            // This is useful if the config was changed while the tab was open but inactive.
-            if (existingTab) {
-                if (JSON.stringify(existingTab.computedConfig) !== JSON.stringify(finalConfig)) {
-                    existingTab.computedConfig = finalConfig;
-                    if (existingTab.instance && typeof existingTab.instance.applyConfiguration === 'function') {
-                        existingTab.instance.applyConfiguration(finalConfig);
-                    }
-                }
-            }
 
             this.switchTab(path);
             if (context) {
@@ -101,6 +77,7 @@ export class TabManager {
             return;
         }
 
+        // 如果标签页不存在，创建新的标签页
         const fileName = getFileNameFromPath(path);
 
         const tabId = `tab-${Date.now()}-${Math.random()}`;
@@ -115,14 +92,14 @@ export class TabManager {
 
         let tabInstance = null;
 
-        if (type === FileType.page) {
-            tabInstance = new PageEditor(wrapper, path, this, finalConfig, context);
+        if (type === FileType.Page) {
+            tabInstance = new PageEditor(wrapper, path, this, context);
         }
-        else if (type === FileType.graph) {
-            //tabInstance = new GraphEditor(wrapper, path, this, finalConfig, context);
+        else if (type === FileType.Graph) {
+            //tabInstance = new GraphEditor(wrapper, path, this, context);
         }
-        else if (type === FileType.database) {
-            tabInstance = new DatabaseEditor(wrapper, path, this, finalConfig, context);
+        else if (type === FileType.Database) {
+            tabInstance = new DatabaseEditor(wrapper, path, this, context);
         }
         if (!tabInstance)
             return;
@@ -134,7 +111,7 @@ export class TabManager {
             isUnsaved: false,
             instance: tabInstance,
             dom: { wrapper, tabItem: null as HTMLElement | null },
-            computedConfig: finalConfig
+            computedConfig: null
         };
 
         this.tabs.set(path, newTab);

@@ -92,6 +92,12 @@ void Backend::HandleWebMessage(const std::string& message) {
         else if (action == "saveFile") {
             SaveFile(payload);
 		}
+		else if (action == "readFileConfig") {
+            ReadFileConfig(payload);
+        }
+        else if (action == "writeFileConfig") {
+            WriteFileConfig(payload);
+        }
 
         else if (action == "exportPageAsHtml") {
             ExportPageAsHtml(payload);
@@ -497,6 +503,64 @@ void Backend::SaveFile(const json& payload) {
     response["payload"]["path"] = path_str;
     response["payload"]["success"] = success;
     if (!success) response["error"] = "Failed to write file.";
+
+    SendMessageToJS(response);
+}
+
+void Backend::ReadFileConfig(const json& payload) {
+    std::string path_str = payload.value("path", "");
+    std::wstring path = this->string_to_wstring(path_str);
+
+    json response;
+    response["action"] = "fileConfigRead";
+    response["payload"]["path"] = path_str;
+
+    std::string contentStr = ReadFileContent(path);
+    if (!contentStr.empty()) {
+        try {
+            json fileJson = json::parse(contentStr);
+            response["payload"]["config"] = fileJson.value("config", json::object());
+        }
+        catch (const std::exception& e) {
+            response["error"] = std::string("JSON Parse Error: ") + e.what();
+            response["payload"]["config"] = json::object();
+        }
+    }
+    else {
+        response["payload"]["config"] = json::object();
+    }
+    SendMessageToJS(response);
+}
+
+void Backend::WriteFileConfig(const json& payload) {
+    std::string path_str = payload.value("path", "");
+    std::wstring path = this->string_to_wstring(path_str);
+    json newConfig = payload.value("config", json::object());
+
+    json fileContent = json::object();
+    std::string contentStr = ReadFileContent(path);
+
+    // 1. 读取并保留原有文件内容（尤其是 content）
+    if (!contentStr.empty()) {
+        try {
+            fileContent = json::parse(contentStr);
+        }
+        catch (...) {
+            // 如果文件损坏，依然初始化为一个对象
+        }
+    }
+
+    // 2. 仅覆盖 config 字段
+    fileContent["config"] = newConfig;
+
+    // 3. 写入文件
+    bool success = WriteFileContent(path, fileContent.dump(2));
+
+    json response;
+    response["action"] = "fileConfigWritten";
+    response["payload"]["path"] = path_str;
+    response["payload"]["success"] = success;
+    if (!success) response["error"] = "Failed to write file config.";
 
     SendMessageToJS(response);
 }

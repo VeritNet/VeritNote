@@ -22,6 +22,8 @@ import { initUiLib, UiTools, KvFormItem } from '../ui-lib/ui-lib.js';
 
 import { init_error_handle } from './error.js';
 
+import { FileType } from './file-types.js';
+
 
 // ==================================================================
 
@@ -55,17 +57,10 @@ window['BAPI_WD'] = {
                 ['destroy']: returns.destroy
             };
         }
-    }
+    },
+    ['blockRegistry']: window.blockRegistry
 };
 // ==================================================================
-
-
-export enum FileType {
-    folder = 'folder',
-    page = 'page',
-    graph = 'graph',
-    database = 'database'
-}
 
 
 window['initializeMainComponent'] = () => {
@@ -266,9 +261,11 @@ window['initializeMainComponent'] = () => {
     window.openConfigModal = async function(type: FileType, path: string) {
         if (activeConfigModal) return;
     
-        let configPath: string, configData, availableSettings;
+        let configPath: string;
+        let configData: Record<string, any>;
+        let availableSettings: Partial<Record<FileType, Record<string, any>>>;
     
-        if (type === FileType.folder) {
+        if (type === FileType.Folder) {
             configPath = path + '\\veritnoteconfig';
             ipc.readConfigFile(configPath);
             const configFileReadHandler = (e: any) => {
@@ -281,70 +278,49 @@ window['initializeMainComponent'] = () => {
                 }
             };
             window.addEventListener('configFileRead', configFileReadHandler);
-        } else if (type === FileType.page) {
+        } else {
             configPath = path;
-            const tab = tabManager.tabs.get(path);
-            if (!tab || !tab.instance) {
-                alert("Open the file before changing its settings.");
-                return;
-            }
-            configData = tab.instance.fileConfig;
-            availableSettings = { page: DEFAULT_CONFIG.page };
-            activeConfigModalWithConfig(configData, availableSettings);
-        } else if (type === FileType.database) {
-            configPath = path;
-            const tab = tabManager.tabs.get(path);
-            if (!tab || !tab.instance) {
-                alert("Open the file before changing its settings.");
-                return;
-            }
-            configData = tab.instance.fileConfig;
-            availableSettings = { database: DEFAULT_CONFIG.database };
-            activeConfigModalWithConfig(configData, availableSettings);
+            ipc.readFileConfig(configPath);
+            const fileConfigReadHandler = (e: any) => {
+                const payload = e['detail']['payload'];
+                if (payload.path === configPath) {
+                    const configData = payload.config || {};
+                    availableSettings = { [type]: DEFAULT_CONFIG[type] };
+                    activeConfigModalWithConfig(configData, availableSettings);
+                    window.removeEventListener('fileConfigRead', fileConfigReadHandler); // 防止内存泄漏和多次触发
+                }
+            };
+            window.addEventListener('fileConfigRead', fileConfigReadHandler);
         }
 
         function activeConfigModalWithConfig(configData: Record<string, any>, availableSettings: Partial<Record<FileType, Record<string, any>>>) {
-            activeConfigModal = new ConfigModal({
-                title: `Settings for ${path.substring(path.lastIndexOf('\\') + 1)}`,
-                configData: configData,
-                defaults: availableSettings,
-                onSave: async (newConfig: Record<string, any>) => {
-                    if (type === 'folder') {
+            activeConfigModal = new ConfigModal(
+                `Settings for ${path.substring(path.lastIndexOf('\\') + 1)}`,
+                configData,
+                availableSettings,
+                async (newConfig: Record<string, any>) => {
+                    if (type === FileType.Folder) {
                         ipc.writeConfigFile(configPath, newConfig);
                         // The path is the folder path, not the config file path.
                         broadcastConfigurationChange(path);
-                    } else if (type === 'page') { // page
+                    } else {
+                        // 1. 调用新 IPC 接口直接在后台写入文件的 config 部分
+                        ipc.writeFileConfig(configPath, newConfig);
+
+                        // 2. 如果文件恰好处于打开状态，同步内存配置并应用，但无需触发完整保存
                         const tab = tabManager.tabs.get(path);
                         if (tab && tab.instance) {
-                            tab.instance.setFileConfig(newConfig);
+                            tab.instance.fileConfig = newConfig;
+                            tab.instance.onConfigurationChanged();
                         }
-                    } else if (type === 'database') {
-                        // !!!do something...!!!
-                    }
-
-                    // This part is for updating the currently selected item's config if it's open.
-                    // It's still useful for page configs or if the folder itself was represented as a tab.
-                    const tabToUpdate = tabManager.tabs.get(path);
-                    if (tabToUpdate && tabToUpdate.instance) {
-                        ipc.resolveFileConfiguration(path);
-                        const fileConfigurationResolvedHandler = (e: any) => {
-                            const payload = e['detail']['payload'];
-                            if (payload.path === path) {
-                                const computedConfig = window.computeFinalConfig(payload.config, type);
-                                tabToUpdate.computedConfig = computedConfig;
-                                tabToUpdate.instance.applyConfiguration(computedConfig);
-                                window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler); // 移除监听器，防止多次触发
-                            }
-                        };
-                        window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
                     }
 
                     activeConfigModal = null;
                 },
-                onClose: () => {
+                () => {
                     activeConfigModal = null;
                 }
-            });
+            );
         }
     }
 
@@ -432,7 +408,7 @@ window['initializeMainComponent'] = () => {
         try {
             const rootNode = JSON.parse(workspaceDataStr);
             const results: { name: string, path: string }[] = [];
-            collectFilesByType(rootNode, FileType.page, results);
+            collectFilesByType(rootNode, FileType.Page, results);
             return results;
         } catch (e) {
             console.error("Failed to parse workspace tree for page search:", e);
@@ -451,7 +427,7 @@ window['initializeMainComponent'] = () => {
         try {
             const rootNode = JSON.parse(workspaceDataStr);
             const results: { name: string, path: string }[] = [];
-            collectFilesByType(rootNode, FileType.database, results);
+            collectFilesByType(rootNode, FileType.Database, results);
             return results;
         } catch (e) {
             console.error("Failed to parse workspace tree for database search:", e);
@@ -489,7 +465,7 @@ window['initializeMainComponent'] = () => {
         // 统一的 Settings 按钮模板 (基于 ui-lib 类)
         const renderSettingsBtn = (type: FileType) => `<button class="btn bl sq item-settings-btn" bg="none" tc="3" hv-tc="1" hv-bg="2" data-type="${type}" title="${type} Settings">${settingsIconSvg}</button>`;
 
-        if (node.type === FileType.folder) {
+        if (node.type === FileType.Folder) {
             const isOpen = getFolderOpenState(node.path);
             const chevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>`;
             const folderSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>`;
@@ -498,7 +474,7 @@ window['initializeMainComponent'] = () => {
                 <div class="icon chevron">${chevronSvg}</div>
                 <div class="type-icon">${folderSvg}</div>
                 <span class="name">${node.name}</span>
-                ${renderSettingsBtn(FileType.folder)}
+                ${renderSettingsBtn(FileType.Folder)}
              </div>`;
 
             if (node.children && node.children.length > 0) {
@@ -507,26 +483,26 @@ window['initializeMainComponent'] = () => {
                 node.children.forEach(child => { html += renderWorkspaceTree(child); });
                 html += '</div>';
             }
-        } else if (node.type === FileType.page) {
+        } else if (node.type === FileType.Page) {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>`;
             html += `<div class="tree-item page" data-path="${node.path}" data-type="${node.type}">
                 ${iconSvg}
                 <span class="name">${node.name.replace('.veritnote', '')}</span>
-                ${renderSettingsBtn(FileType.page)}
+                ${renderSettingsBtn(FileType.Page)}
              </div>`;
-        } else if (node.type === FileType.graph) {
+        } else if (node.type === FileType.Graph) {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L7 10h10l-5-8z"/><circle cx="7" cy="17" r="4"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>`;
             html += `<div class="tree-item graph" data-path="${node.path}" data-type="${node.type}">
                 ${iconSvg}
                 <span class="name">${node.name.replace('.veritnotegraph', '')}</span>
-                ${renderSettingsBtn(FileType.graph)}
+                ${renderSettingsBtn(FileType.Graph)}
             </div>`;
-        } else if (node.type === FileType.database) {
+        } else if (node.type === FileType.Database) {
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg>`;
             html += `<div class="tree-item database" data-path="${node.path}" data-type="${node.type}">
                 ${iconSvg}
                 <span class="name">${node.name.replace('.veritnotedb', '')}</span> 
-                ${renderSettingsBtn(FileType.database)}
+                ${renderSettingsBtn(FileType.Database)}
              </div>`;
         }
         return html;
@@ -730,7 +706,7 @@ window['initializeMainComponent'] = () => {
         const workspaceData = JSON.parse(sidebar.dataset['workspaceData'] || '{}');
         const allFilesToExport: string[] = [];
         const getAllFiles = (node: WorkspaceTreeNode, list: string[]) => {
-            if (node.type === 'folder' && node.children) {
+            if (node.type === FileType.Folder && node.children) {
                 node.children.forEach(child => getAllFiles(child, list));
             } else {
                 list.push(node.path);

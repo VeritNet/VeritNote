@@ -3,7 +3,7 @@
 import { Editor } from '../editor.js';
 import { ipc } from '../main/ipc.js';
 
-import { FileType } from '../main/main.js';
+import { FileType } from '../main/file-types.js';
 import { TabManager } from '../main/tab-manager.js';
 export class DatabaseEditor extends Editor {
     dbData;
@@ -12,10 +12,10 @@ export class DatabaseEditor extends Editor {
     elements;
     previewBlockInstance; // 持有实时预览的 DataBlock 实例
 
-    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, computedConfig: Record<string, any>, context = {}) {
-        super(container, filePath, tabManager, computedConfig, context);
+    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, context = {}) {
+        super(container, filePath, tabManager, context);
 
-        this.type = FileType.database; // 基类变量赋值
+        this.type = FileType.Database; // 基类变量赋值
 
         this.dbData = {
             'config': {},
@@ -28,13 +28,15 @@ export class DatabaseEditor extends Editor {
         this.previewBlockInstance = null;
     }
 
-    async load() {
+    async onLoad() {
         const response = await fetch('components/database-editor/database-editor.html');
         this.container.innerHTML = await response.text();
         this._acquireElements();
         this._initListeners();
+    }
 
-        super.load(); // 调基类发起 Load
+    override applyConfiguration(): void {
+        
     }
 
     _acquireElements() {
@@ -330,7 +332,7 @@ export class DatabaseEditor extends Editor {
             const fakeEditor = {
                 'BAPI_PE': {
                     ['createBlockInstance']: (blockData) => {
-                        const BlockClass = window['blockRegistry'].get(blockData.type);
+                        const BlockClass = window.blockRegistry.get(blockData.type);
                         if (BlockClass) {
                             return new BlockClass(blockData, deepFakeEditor as DatabaseEditor);
                         }
@@ -341,7 +343,7 @@ export class DatabaseEditor extends Editor {
             };
 
             // 首次预览：实例化最外层的 DataBlock
-            const DataBlockClass = window['blockRegistry'].get('data');
+            const DataBlockClass = window.blockRegistry.get('data');
             if (DataBlockClass) {
                 const blockData = { id: 'preview-1', type: 'data', properties: { 'dbPath': this.filePath, presetId: preset.id } };
                 this.previewBlockInstance = new DataBlockClass(blockData, fakeEditor as unknown as DatabaseEditor);

@@ -74,10 +74,13 @@ protected:
     void CancelExport();
     void ReadConfigFile(const json& payload); // Config File！不是 File Config！
     void WriteConfigFile(const json& payload); // Config File！不是 File Config！
-    void ResolveFileConfiguration(const json& payload);
+	void ResolveFileConfiguration(const json& payload); // 读取同时循环解析推断 File Config
     // File IO
+    // 仅读取单个文件内容
     void LoadFile(const json& payload);
     void SaveFile(const json& payload);
+    void ReadFileConfig(const json& payload);
+    void WriteFileConfig(const json& payload);
     // Page
     void FetchQuoteContent(const json& payload);
     void FetchDataContent(const json& payload);

@@ -54,6 +54,12 @@ export const ipc = {
     saveFile: (path: string, config: Record<string, any>, content: any) => {
         ipc.send("saveFile", { path, config, content });
     },
+    readFileConfig: (path: string) => {
+        ipc.send('readFileConfig', { 'path': path })
+    },
+    writeFileConfig: (path: string, config: Record<string, any>) => {
+        ipc.send('writeFileConfig', { 'path': path, 'config': config })
+    },
     
 
     startExport: () => {
@@ -109,10 +115,14 @@ export const ipc = {
             ipc.send('openWorkspaceDialog');
         });
     },
-    openWorkspace: (path: any) => ipc.send('openWorkspace', { 'path': path }),
+    openWorkspace: (path: any) => {
+        ipc.send('openWorkspace', { 'path': path })
+    },
     goToDashboard: () => ipc.send('goToDashboard'),
     toggleFullscreen: () => ipc.send('toggleFullscreen'),
-    setWorkspace: (path: any) => ipc.send('setWorkspace', { 'path': path }),
+    setWorkspace: (path: any) => {
+        ipc.send('setWorkspace', { 'path': path })
+    },
 
     minimizeWindow: () => ipc.send('minimizeWindow'),
     maximizeWindow: () => ipc.send('maximizeWindow'),
@@ -121,9 +131,18 @@ export const ipc = {
     checkWindowState: () => ipc.send('checkWindowState'),
 
     ensureWorkspaceConfigs: () => ipc.send('ensureWorkspaceConfigs'),
-    readConfigFile: (path: any) => ipc.send('readConfigFile', { 'path': path }),
-    writeConfigFile: (path: any, data: any) => ipc.send('writeConfigFile', { 'path': path, 'data': data }),
-    resolveFileConfiguration: (path: any) => ipc.send('resolveFileConfiguration', { 'path': path }),
+    readConfigFile: (path: any) => {
+        ipc.send('readConfigFile', { 'path': path })
+    },
+    writeConfigFile: (path: any, data: any) => {
+        ipc.send('writeConfigFile', { 'path': path, 'data': data })
+    },
+    /**
+     * 读取同时循环解析推断 File Config
+     */
+    resolveFileConfiguration: (path: any) => {
+        ipc.send('resolveFileConfiguration', { 'path': path })
+    },
 };
 
 // 立即初始化监听器

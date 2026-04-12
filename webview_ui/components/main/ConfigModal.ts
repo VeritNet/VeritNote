@@ -1,6 +1,9 @@
 // --- Converts any valid color string to #rrggbb format ---
 import { INHERIT_VALUE } from './default-config.js';
 
+
+import { FileType } from './file-types.js';
+
 function toHexColor(colorStr: string) {
     if (!colorStr || typeof colorStr !== 'string') return '#000000';
     if (colorStr.startsWith('#')) {
@@ -17,15 +20,15 @@ function toHexColor(colorStr: string) {
 
 
 export class ConfigModal {
-    title;
-    configData;
-    defaults;
-    onSave;
-    onClose;
-    element;
-    activeDropdown;
+    title: string;
+    configData: Record<string, any>;
+    defaults: Partial<Record<FileType, Record<string, any>>>;
+    onSave: (newConfig: Record<string, any>) => void;
+    onClose: () => void;
+    element: HTMLElement | null;
+    activeDropdown: HTMLElement | null;
 
-    constructor({ title, configData, defaults, onSave, onClose }) {
+    constructor(title: string, configData: Record<string, any>, defaults: Partial<Record<FileType, Record<string, any>>>, onSave: (newConfig: Record<string, any>) => void, onClose: () => void) {
         this.title = title;
         this.configData = JSON.parse(JSON.stringify(configData)); // Deep copy
         this.defaults = defaults;
@@ -44,12 +47,13 @@ export class ConfigModal {
         this.element.style.userSelect = 'none';
 
         let categoriesHtml = '';
-        for (const category in this.defaults) {
+        Object.keys(this.defaults).forEach(category => { // category 是 enum FileType 的 key，如 "Page", "Database"
             categoriesHtml += `<div class="config-category-title">${category}</div>`;
-            for (const key in this.defaults[category]) {
+            const categoryDefaults = this.defaults[category];
+            Object.keys(categoryDefaults).forEach(key => {
                 categoriesHtml += this._renderConfigItem(category, key);
-            }
-        }
+            });
+        });
         
         // Use the new footer class
         this.element.innerHTML = `
@@ -149,22 +153,22 @@ export class ConfigModal {
         // Listener for Inherit/Custom toggles
         this.element.querySelectorAll('.config-item-control > .btn-group').forEach(group => {
             group.addEventListener('click', (e) => {
-                const button = e.target.closest('button');
+                const button = (e.target as HTMLElement).closest('button');
                 if (!button) return;
                 
                 group.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
                 
-                const customControl = group.parentElement.querySelector('.config-custom-control');
+                const customControl = group.parentElement.querySelector('.config-custom-control') as HTMLElement;
                 customControl.style.display = button.dataset['mode'] === 'custom' ? 'flex' : 'none';
             });
         });
 
         // Listener for searchable ComboBox
         this.element.querySelectorAll('.input-combobox').forEach(combo => {
-            const input = combo.querySelector('input');
-            const arrow = combo.querySelector('.input-combobox-arrow');
-            const dropdown = combo.querySelector('.input-combobox-dropdown');
+            const input = combo.querySelector('input') as HTMLInputElement;
+            const arrow = combo.querySelector('.input-combobox-arrow') as HTMLElement;
+            const dropdown = combo.querySelector('.input-combobox-dropdown') as HTMLElement;
 
             const toggleDropdown = (show?) => {
                 const shouldShow = typeof show === 'boolean' ? show : dropdown.style.display !== 'block';
@@ -196,7 +200,7 @@ export class ConfigModal {
             
             dropdown.addEventListener('mousedown', e => {
                 e.preventDefault(); 
-                const item = e.target.closest('.combobox-item:not(.separator)');
+                const item = (e.target as HTMLElement).closest('.combobox-item:not(.separator)') as HTMLElement;
                 if (item) {
                     const value = item.dataset['value'];
                     input.value = value === INHERIT_VALUE ? 'Inherit' : value;
@@ -209,7 +213,7 @@ export class ConfigModal {
         // Listener for Background Type (Color/Image) toggle
         this.element.querySelectorAll('.background-type-toggle').forEach(group => {
             group.addEventListener('click', e => {
-                const button = e.target.closest('button');
+                const button = (e.target as HTMLElement).closest('button');
                 if (!button) return;
 
                 // 1. Update active class on buttons
@@ -217,7 +221,7 @@ export class ConfigModal {
                 button.classList.add('active');
                 
                 // 2. Get the input element
-                const input = group.parentElement.querySelector('.config-custom-input');
+                const input = group.parentElement.querySelector('.config-custom-input') as HTMLInputElement;
                 const selectedType = button.dataset['type'];
 
                 // 3. Update all relevant attributes based on the selected type
@@ -263,7 +267,7 @@ export class ConfigModal {
 
     _save() {
         const finalConfig = {};
-        this.element.querySelectorAll('.config-item').forEach(item => {
+        this.element.querySelectorAll('.config-item').forEach((item: HTMLElement) => {
             const category = item.dataset['category'];
             const key = item.dataset['key'];
             if (!finalConfig[category]) finalConfig[category] = {};
@@ -272,22 +276,22 @@ export class ConfigModal {
             
             if (isColorControl) {
                 // Logic for color/background controls
-                const mode = item.querySelector('.config-item-control > .btn-group button.active').dataset['mode'];
+                const mode = (item.querySelector('.config-item-control > .btn-group button.active') as HTMLElement).dataset['mode'];
                 if (mode === 'inherit') {
                     finalConfig[category][key] = INHERIT_VALUE;
                 } else { // Custom
                     if (key === 'background') {
-                        const typeBtn = item.querySelector('.background-type-toggle button.active');
-                        const input = item.querySelector('.config-custom-control input');
+                        const typeBtn = item.querySelector('.background-type-toggle button.active') as HTMLButtonElement;
+                        const input = item.querySelector('.config-custom-control input') as HTMLInputElement;
                         finalConfig[category][key] = { type: typeBtn.dataset['type'], value: input.value };
                     } else {
-                        const input = item.querySelector('.config-custom-control input, .config-custom-control .input-combobox input');
+                        const input = item.querySelector('.config-custom-control input, .config-custom-control .input-combobox input') as HTMLInputElement;
                         finalConfig[category][key] = input.value;
                     }
                 }
             } else {
                 // Logic for InputComboBox
-                const input = item.querySelector('.input-combobox input');
+                const input = item.querySelector('.input-combobox input') as HTMLInputElement;
                 finalConfig[category][key] = input.value === 'Inherit' ? INHERIT_VALUE : input.value;
             }
         });

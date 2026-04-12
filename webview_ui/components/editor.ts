@@ -3,33 +3,48 @@
 
 import { ipc } from './main/ipc.js';
 import { TabManager } from './main/tab-manager.js';
-import { FileType } from './main/main.js';
+import { FileType } from './main/file-types.js';
 
 
 export abstract class Editor {
     container: HTMLElement;
-    filePath; // To store the file's own config header
+    filePath: string; // To store the file's own config header
     type: FileType | null;
-    tabManager;
-    computedConfig: Record<string, any>;
+    tabManager: TabManager;
+    computedConfig: Record<string, any> | null; // 计算后的最终配置
     context; // 透传参数，如 blockIdToFocus
-    fileConfig: Record<string, any> = {};
+    fileConfig: Record<string, any> | null; // 文件中 Config 部分原始内容
     isReady = false;
+    private loadPromise: Promise<void> | null = null;
 
-    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, computedConfig: Record<string, any>, context = {}) {
+    /*
+    * 顺序：
+    * 1. 子 Editor 类实例被创建，调用 Editor 构造函数，初始化基本属性,
+    * 2. Editor.load() 被调用，并行进行 文件加载 和 子编辑器 UI 加载
+    * 3. IPC 收到 fileLoaded 消息后 onFileLoaded 被调用 ，该函数解析内容，
+    *    确保子类 onLoad 编辑器初始化已完成后，通知应用配置 并调用子类 onContentParsed
+    */
+
+    constructor(container: HTMLElement, filePath: string, tabManager: TabManager, context = {}) {
         this.type = null; // 由子类在调用 super() 后设置
         this.container = container;
         this.filePath = filePath;
         this.tabManager = tabManager;
-        this.computedConfig = computedConfig || {};
+        this.computedConfig = null;
         this.context = context;
-        this.fileConfig = {};
+        this.fileConfig = null;
         this.isReady = false;
     }
 
     // --- 生命周期与文件操作 ---
-    load() {
-        // 子类需在 load 中先加载 HTML 模板，完成后再调用 super.load() 或直接调 ipc.loadFile
+    /**
+     * 文件内容和编辑器并行加载的入口方法，通常在 Editor 实例创建后立即调用
+     */
+    public load() {
+        // 通知子类开始异步加载 UI
+        this.loadPromise = this.onLoad();
+
+        // 加载文件内容
         ipc.loadFile(this.filePath, this.context);
     }
 
@@ -38,6 +53,8 @@ export abstract class Editor {
      * @returns
      */
     save(savableContent: any) {
+        if(!this.fileConfig)
+            return;
         if (!this.isReady)
             return;
         // 调用子类可选的保存前UI处理
@@ -47,20 +64,29 @@ export abstract class Editor {
     }
 
     // 被 main.js 监听到 fileLoaded 后调用
-    onFileLoaded(payload: any) {
+    public async onFileLoaded(payload: any) {
         if (payload.path !== this.filePath)
             return;
-        this.fileConfig = payload.config || {};
+
+        this.fileConfig = payload.config;
         const content = payload.content;
         const context = payload.context || {}; // 包含 blockIdToFocus 等
         this.isReady = true;
         this.tabManager.setUnsavedStatus(this.filePath, false);
-        // 交给子类解析内容并渲染
+
+        // 确保子类 onLoad 编辑器的异步初始化逻辑已完成
+        if (this.loadPromise) {
+            await this.loadPromise;
+        }
+
+        // 应用配置
+        this.onConfigurationChanged();
+        // 交给子类解析内容（并渲染）
         this.onContentParsed(content, context);
     }
 
     // 被 main.js 监听到 fileSaved 后调用
-    onFileSaved(payload: any) {
+    public onFileSaved(payload: any) {
         if (payload.path !== this.filePath)
             return;
         if (payload.success) {
@@ -79,7 +105,7 @@ export abstract class Editor {
     }
 
     // --- 配置管理 ---
-    async onConfigurationChanged() {
+    public async onConfigurationChanged() {
         console.log(`Configuration change detected for: ${this.filePath}. Re-evaluating styles.`);
         ipc.resolveFileConfiguration(this.filePath);
         const fileConfigurationResolvedHandler = (e: any) => {
@@ -87,7 +113,8 @@ export abstract class Editor {
             if (payload.path === this.filePath) {
                 if (payload.config) {
                     const newComputedConfig = window.computeFinalConfig(payload.config, this.type);
-                    this.applyConfiguration(newComputedConfig);
+                    this.computedConfig = newComputedConfig;
+                    this.applyConfiguration();
                 }
                 window.removeEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
             }
@@ -95,41 +122,14 @@ export abstract class Editor {
         window.addEventListener('fileConfigurationResolved', fileConfigurationResolvedHandler);
     }
 
-    setFileConfig(newConfig: Record<string, any>) {
-        this.fileConfig = newConfig;
-        this.save({}); ////////////////////////////////////////////////////！！！临时修复！！！
-    }
-
-    applyConfiguration(config: Record<string, any>) {
-        this.computedConfig = config;
-        const themeContainers = this.getThemeContainers();
-        for (const key in config) {
-            const value = config[key];
-            if (key === 'background' && typeof value === 'object') {
-                const bgColor = (value.type === 'color') ? value.value : 'transparent';
-                const bgImage = (value.type === 'image' && value.value) ? `url('${value.value.replace(/\\/g, '/')}')` : 'none';
-                themeContainers.backgrounds.forEach(c => {
-                    if (c) {
-                        c.style.backgroundColor = bgColor;
-                        c.style.backgroundImage = bgImage;
-                    }
-                });
-                continue;
-            }
-            const cssVarName = `--page-${key}`;
-            themeContainers.views.forEach(c => {
-                if (c)
-                    c.style.setProperty(cssVarName, value);
-            });
-        }
-    }
+    // 由子类实现，具体应用新的配置
+    protected abstract applyConfiguration(): void;
 
     // --- 需要子类覆盖的抽象/虚拟方法 ---
-    // 接收后端传来的 content 和 context 进行解析与渲染
-    abstract onContentParsed(content, context): void;
+    protected abstract onLoad(): Promise<void>;
 
-    // 获取需要应用 CSS Variables 和 Background 的 DOM 容器
-    getThemeContainers() { return { backgrounds: [this.container], views: [this.container] }; }
+    // 接收后端传来的 content 和 context 进行解析与渲染
+    protected abstract onContentParsed(content, context): void;
 
     abstract onFocus(): void;
 
