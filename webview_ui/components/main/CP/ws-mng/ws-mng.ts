@@ -21,7 +21,64 @@ function getFolderOpenState(path: string) {
     } catch (e) { return false; }
 }
 
-function renderWorkspaceTree(node: WorkspaceTreeNode) {
+
+function filterWorkspaceTree(node: WorkspaceTreeNode, query: string, useCase: boolean, useWord: boolean, useRegex: boolean): WorkspaceTreeNode | null {
+    if (!node) return null;
+
+    let isMatch = false;
+    if (query) {
+        try {
+            let regexStr = query;
+            if (!useRegex) regexStr = regexStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // 转义
+            if (useWord) regexStr = `\\b${regexStr}\\b`;
+            const flags = useCase ? '' : 'i';
+            const regex = new RegExp(regexStr, flags);
+            isMatch = regex.test(node.name);
+        } catch (e) {
+            const targetName = useCase ? node.name : node.name.toLowerCase();
+            const targetQuery = useCase ? query : query.toLowerCase();
+            isMatch = targetName.includes(targetQuery);
+        }
+    } else {
+        isMatch = true;
+    }
+
+    if (node.type !== FileType.Folder) return isMatch ? { ...node } : null;
+
+    let filteredChildren: any[] = [];
+    if (node.children) {
+        for (const child of node.children) {
+            const filteredChild = filterWorkspaceTree(child, query, useCase, useWord, useRegex);
+            if (filteredChild) filteredChildren.push(filteredChild);
+        }
+    }
+
+    if (isMatch || filteredChildren.length > 0) return { ...node, children: filteredChildren };
+    return null;
+}
+
+function findNodeByPath(node: WorkspaceTreeNode, path: string): WorkspaceTreeNode | null {
+    if (!node) return null;
+    if (node.path === path) return node;
+    if (node.children) {
+        for (const child of node.children) {
+            const res = findNodeByPath(child, path);
+            if (res) return res;
+        }
+    }
+    return null;
+}
+
+function setFolderStateRecursive(node: WorkspaceTreeNode, isOpen: boolean) {
+    if (!node) return;
+    if (node.type === FileType.Folder) {
+        window.toggleFolderStateInStorage(node.path, isOpen);
+        if (node.children) node.children.forEach((child: WorkspaceTreeNode) => setFolderStateRecursive(child, isOpen));
+    }
+}
+
+
+function renderWorkspaceTree(node: WorkspaceTreeNode, forceOpenAll: boolean = false) {
     if (!node) return '';
     let html = '';
 
@@ -32,7 +89,7 @@ function renderWorkspaceTree(node: WorkspaceTreeNode) {
     const renderSettingsBtn = (type: FileType) => `<button class="btn bl sq item-settings-btn" bg="none" tc="3" hv-tc="1" hv-bg="2" data-type="${type}" title="${type} Settings">${settingsIconSvg}</button>`;
 
     if (node.type === FileType.Folder) {
-        const isOpen = getFolderOpenState(node.path);
+        const isOpen = forceOpenAll ? true : getFolderOpenState(node.path); // 强制展开模式下返回 true，但不影响原本 localStorage 中的值
         const chevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>`;
         const folderSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>`;
 
@@ -46,7 +103,9 @@ function renderWorkspaceTree(node: WorkspaceTreeNode) {
         if (node.children && node.children.length > 0) {
             // 嵌套容器，缩进匹配 ui-lib
             html += `<div class="tree-node-children" style="display: ${isOpen ? 'block' : 'none'}; padding-left: 20px;">`;
-            node.children.forEach(child => { html += renderWorkspaceTree(child); });
+            node.children.forEach((child: WorkspaceTreeNode) => {
+                html += renderWorkspaceTree(child, forceOpenAll);
+            });
             html += '</div>';
         }
     } else if (node.type === FileType.Page) {
@@ -85,7 +144,7 @@ function hideContextMenu(contextMenu: HTMLElement) {
     }
 }
 
-function onContextMenuAction(action: string, targetPath: string, parentPath: string) {
+function onContextMenuAction(action: string, targetPath: string, parentPath: string, currentData?: WorkspaceTreeNode) {
     switch (action) {
         case 'newPage': {
             const name = prompt("Page Name", "MyPage");
@@ -111,6 +170,16 @@ function onContextMenuAction(action: string, targetPath: string, parentPath: str
                 ipc.createItem(parentPath, name, 'folder');
             } break;
         }
+        case 'expandAll':
+        case 'collapseAll': {
+            if (currentData) {
+                const targetNode = findNodeByPath(currentData, targetPath);
+                if (targetNode && targetNode.type === FileType.Folder) {
+                    setFolderStateRecursive(targetNode, action === 'expandAll');
+                    updateWorkspaceUI(); // 刷新树结构以反映改动
+                }
+            } break;
+        }
         case 'delete': {
             if (confirm(`Delete "${targetPath}"?`)) {
                 ipc.deleteItem(targetPath);
@@ -134,20 +203,28 @@ export function updateWorkspaceUI() {
 
     // 2. 渲染树结构
     if (treeContainer) {
-        if (data && data.children && data.children.length > 0) {
-            let html = '';
-            data.children.forEach((child: any) => { html += renderWorkspaceTree(child); });
-            treeContainer.innerHTML = html;
-        } else {
-            treeContainer.innerHTML = `<div tc="2" pd="s" style="font-style: italic; font-size: 13px;">Workspace is empty.</div>`;
+        const searchInput = document.getElementById('ws-search-input') as HTMLInputElement;
+        const searchPanel = document.getElementById('ws-search-panel');
+        const isSearchVisible = searchPanel && searchPanel.classList.contains('search-panel-expanded');
+        const query = searchInput?.value || '';
+
+        let renderData = data;
+        let forceOpenAll = false;
+
+        if (isSearchVisible && query.trim() !== '') {
+            const useCase = (document.getElementById('ws-search-opt-case') as HTMLInputElement)?.checked || false;
+            const useWord = (document.getElementById('ws-search-opt-word') as HTMLInputElement)?.checked || false;
+            const useRegex = (document.getElementById('ws-search-opt-regex') as HTMLInputElement)?.checked || false;
+            renderData = filterWorkspaceTree(data, query.trim(), useCase, useWord, useRegex);
+            forceOpenAll = true;
         }
 
-        // 3. 同步高亮状态
-        treeContainer.querySelectorAll('.tree-item[act="true"]').forEach(n => n.removeAttribute('act'));
-        if (TabManager_ptr?.activeTabPath) {
-            const pathForQuery = TabManager_ptr.activeTabPath.replace(/\\/g, '\\\\');
-            const targetNode = treeContainer.querySelector(`.tree-item.page[data-path="${pathForQuery}"]`);
-            if (targetNode) targetNode.setAttribute('act', 'true');
+        if (renderData && renderData.children && renderData.children.length > 0) {
+            let html = '';
+            renderData.children.forEach((child: any) => { html += renderWorkspaceTree(child, forceOpenAll); });
+            treeContainer.innerHTML = html;
+        } else {
+            treeContainer.innerHTML = `<div tc="2" pd="s" style="font-style: italic; font-size: 13px;">${(isSearchVisible && query) ? 'No matches found.' : 'Workspace is empty.'}</div>`;
         }
     }
 }
@@ -200,21 +277,43 @@ function initToolsModule() {
     const searchBtn = document.getElementById('ws-search-btn') as HTMLButtonElement;
     const searchPanel = document.getElementById('ws-search-panel') as HTMLDivElement;
     const searchInput = document.getElementById('ws-search-input') as HTMLInputElement;
+    const searchClearBtn = document.getElementById('ws-search-clear-btn') as HTMLButtonElement;
+
+    const optCase = document.getElementById('ws-search-opt-case') as HTMLInputElement;
+    const optWord = document.getElementById('ws-search-opt-word') as HTMLInputElement;
+    const optRegex = document.getElementById('ws-search-opt-regex') as HTMLInputElement;
+
+    const triggerSearch = () => {
+        searchClearBtn.style.display = searchInput.value.trim() !== '' ? 'flex' : 'none';
+        updateWorkspaceUI();
+    };
+
+    searchInput?.addEventListener('input', triggerSearch);
+    [optCase, optWord, optRegex].forEach(opt => opt?.addEventListener('change', triggerSearch));
+
+    searchClearBtn?.addEventListener('click', () => {
+        searchInput.value = '';
+        triggerSearch();
+        searchInput.focus();
+    });
 
     searchBtn?.addEventListener('click', () => {
-        const isCollapsed = searchPanel.classList.contains('search-panel-collapsed');
-        if (isCollapsed) {
+        if (searchPanel.classList.contains('search-panel-collapsed')) {
             searchPanel.classList.remove('search-panel-collapsed');
             searchPanel.classList.add('search-panel-expanded');
-            setTimeout(() => searchInput.focus(), 100);
+            setTimeout(() => {
+                searchInput.focus();
+                if (searchInput.value.trim() !== '') updateWorkspaceUI();
+            }, 100);
         } else {
             closeSearchPanel();
         }
     });
 
-    searchInput?.addEventListener('blur', () => {
+    // 焦点离开整个搜索面板时才自动关闭 (兼容点击其他过滤选项)
+    searchPanel?.addEventListener('focusout', () => {
         setTimeout(() => {
-            if (searchInput.value.trim() === '' && document.activeElement !== searchInput) {
+            if (searchInput.value.trim() === '' && !searchPanel.contains(document.activeElement)) {
                 closeSearchPanel();
             }
         }, 150);
@@ -223,6 +322,7 @@ function initToolsModule() {
     function closeSearchPanel() {
         searchPanel.classList.remove('search-panel-expanded');
         searchPanel.classList.add('search-panel-collapsed');
+        updateWorkspaceUI(); // 恢复完整树
     }
 }
 
@@ -265,6 +365,12 @@ function initTreeModule(tabManager: TabManager, getWorkspaceData: () => Workspac
         e.preventDefault();
         contextMenuTarget = e.target.closest('.tree-item, #workspace-tree');
         if (!contextMenuTarget) return;
+
+        // 判断显隐一键展开和一键折叠选项
+        const isFolder = contextMenuTarget.classList.contains('folder');
+        (contextMenu.querySelector('[data-action="expandAll"]') as HTMLElement).style.display = isFolder ? 'block' : 'none';
+        (contextMenu.querySelector('[data-action="collapseAll"]') as HTMLElement).style.display = isFolder ? 'block' : 'none';
+
         showContextMenu(contextMenu, e.clientX, e.clientY);
     });
 
@@ -287,7 +393,7 @@ function initTreeModule(tabManager: TabManager, getWorkspaceData: () => Workspac
         }
         if (!parentPath && currentData) parentPath = currentData.path;
 
-        onContextMenuAction(e.target.dataset['action'], targetPath, parentPath);
+        onContextMenuAction(e.target.dataset['action'], targetPath, parentPath, currentData);
         hideContextMenu(contextMenu);
     });
 }

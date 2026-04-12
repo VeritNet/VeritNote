@@ -44,25 +44,30 @@
     </div>
 
     <!-- 动态搜索栏 -->
+    <!-- 动态搜索栏 -->
     <div id="ws-search-panel" class="search-panel-collapsed" fx="col" gap="xs">
         <div fx="row" pd="xs" bd="1" rd="s" bg="1" foc="bd-act">
             <input type="text" class="inp bl" id="ws-search-input" placeholder="Search files..." style="flex: 1; padding: 2px 4px; font-size: 12px;">
             <div fx="row">
-
+                <button class="btn bl sq ws-search-panel-btn" bg="none" hv-bg="3" tc="3" hv-tc="err" id="ws-search-clear-btn" title="Clear Search">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                    </svg>
+                </button>
                 <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Match Case">
-                    <input type="checkbox">
+                    <input type="checkbox" id="ws-search-opt-case">
                     <span>Aa</span>
                 </label>
                 <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Whole Word">
-                    <input type="checkbox">
+                    <input type="checkbox" id="ws-search-opt-word">
                     <span>W</span>
                 </label>
                 <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Use Regular Expression">
-                    <input type="checkbox">
+                    <input type="checkbox" id="ws-search-opt-regex">
                     <span>.*</span>
                 </label>
                 <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Search in File Content">
-                    <input type="checkbox">
+                    <input type="checkbox" id="ws-search-opt-content">
                     <span>C</span>
                 </label>
             </div>
@@ -81,7 +86,8 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-plus" aria-hidden="true" style="width:16px;height:16px;" class="lucide lucide-file-plus">
             <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path>
             <path d="M14 2v5a1 1 0 0 0 1 1h5"></path>
-            <path d="M9 15h6"></path><path d="M12 18v-6"></path>
+            <path d="M9 15h6"></path>
+            <path d="M12 18v-6"></path>
         </svg>
         New Page
     </div>
@@ -104,11 +110,15 @@
         New Folder
     </div>
     <div class="menu-sep"></div>
+    <div class="menu-item" data-action="expandAll">Expand All</div>
+    <div class="menu-item" data-action="collapseAll">Collapse All</div>
     <div class="menu-item danger" data-action="delete">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="trash-2" aria-hidden="true" style="width:16px;height:16px;" class="lucide lucide-trash-2">
             <path d="M10 11v6"></path>
-            <path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-            <path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <path d="M14 11v6"></path>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+            <path d="M3 6h18"></path>
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
         </svg>
         Delete
     </div>

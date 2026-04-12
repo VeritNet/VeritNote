@@ -95,3 +95,7 @@
     width: 22px;
     font-size: 12px;
 }
+
+#ws-search-clear-btn {
+    display: none;
+}
