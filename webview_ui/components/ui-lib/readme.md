@@ -109,6 +109,13 @@
   - `hv-op`: 悬浮时透明度降低至 0.8
   - `hv-scale`: 悬浮时放大至 1.05 倍
 
+### Active 属性 (`ac-*`)
+用法类似 Hover 属性，仅在：
+- 按钮/链接：被点击按下时 (:active)；
+- 复选框 (.chk)：处于勾选状态时 (:checked)
+
+触发。
+
 ### Focus 属性 (`foc=*`)
 - `foc="bd-act"`: 当元素本身或其子元素获得焦点时（`:focus-within`），边框变为激活色（主色调）。
 
@@ -238,10 +245,36 @@ ComboBox.addEventListener('input', (e) => {
 ```
 
 ### ☑️ 复选框 (`.chk`)
-深度美化的原生 checkbox，无需额外的包裹元素。
-```html
-<input type="checkbox" class="chk" checked>
-```
+复选框现在采用容器模式，支持**标准对勾**和**自定义 HTML** 两种展现形式。
+
+*   **用法 A：标准对勾（简约版）**
+    只需包裹一个 `input`，选中时自动显示内置的对勾。
+    ```html
+    <label class="chk">
+        <input type="checkbox">
+    </label>
+    ```
+
+*   **用法 B：自定义内容（增强版）**
+    在内部添加 `.chk-inner` 容器，可放入 SVG 图标或文字，并且它只在勾选时显示。
+    ```html
+    <label class="chk">
+        <input type="checkbox">
+        <span class="chk-inner">
+            <!-- 示例：放置一个更细的 SVG 对勾 -->
+            <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" fill="none">
+                <path d="M20 6L9 17l-5-5" stroke-width="3"></path>
+            </svg>
+        </span>
+    </label>
+    ```
+    如果希望一直占位，移除 `.chk-inner` 类属性即可，该 span 将持续显示。
+    ```html
+    <label class="chk">
+        <input type="checkbox">
+        <span class="chk-inner">ON</span>
+    </label>
+    ```
 
 ### 📇 卡片 (`.card`)
 具备基础层级、边框和圆角的容器。

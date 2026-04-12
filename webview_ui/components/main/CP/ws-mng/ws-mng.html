@@ -48,10 +48,23 @@
         <div fx="row" pd="xs" bd="1" rd="s" bg="1" foc="bd-act">
             <input type="text" class="inp bl" id="ws-search-input" placeholder="Search files..." style="flex: 1; padding: 2px 4px; font-size: 12px;">
             <div fx="row">
-                <button class="btn bl sq ws-search-panel-btn" bg="none" hv-bg="3" title="Match Case">Aa</button>
-                <button class="btn bl sq ws-search-panel-btn" bg="none" hv-bg="3" title="Whole Word">W</button>
-                <button class="btn bl sq ws-search-panel-btn" bg="none" hv-bg="3" title="Use Regular Expression">.*</button>
-                <button class="btn bl sq ws-search-panel-btn" bg="none" hv-bg="3" title="Search in Content">C</button>
+
+                <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Match Case">
+                    <input type="checkbox">
+                    <span>Aa</span>
+                </label>
+                <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Whole Word">
+                    <input type="checkbox">
+                    <span>W</span>
+                </label>
+                <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Use Regular Expression">
+                    <input type="checkbox">
+                    <span>.*</span>
+                </label>
+                <label class="chk bl sq ws-search-panel-btn" bg="none" hv-bg="3" ac-bg="act" title="Search in File Content">
+                    <input type="checkbox">
+                    <span>C</span>
+                </label>
             </div>
         </div>
     </div>
