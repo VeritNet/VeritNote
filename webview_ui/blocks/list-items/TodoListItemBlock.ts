@@ -22,11 +22,8 @@ class TodoListItemBlock extends TextBlock {
         this.properties.checked = data.properties?.checked || false;
     }
 
-    // --- 3. 自定义渲染 ---
-    render() {
-        this.element = this._createWrapperElement();
-        this.contentElement = this._createContentElement();
-
+    // --- 3. 渲染 ---
+    _renderContent() {
         // 创建独特的内部布局: [Checkbox] [Text Area]
         this.contentElement.innerHTML = `
             <div class="todo-checkbox-wrapper">
@@ -58,13 +55,7 @@ class TodoListItemBlock extends TextBlock {
         this.textElement.innerHTML = this.content || '';
         this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
-        this._renderContent();
-
-        this.element.appendChild(this.contentElement);
-
-        this._renderChildren();
-
-        this._applyCustomCSS();
+        this._applyListItemStyles();
         
         // --- 事件监听 ---
         // 监听 checkbox 的状态变化
@@ -73,12 +64,6 @@ class TodoListItemBlock extends TextBlock {
             this.updateCheckedStateStyle();
             this.BAPI_PE.emitChange(true, 'toggle-todo', this); // 通知编辑器内容已更改
         });
-
-        return this.element;
-    }
-
-    _renderContent() {
-        this._applyListItemStyles();
     }
 
     _applyListItemStyles() {

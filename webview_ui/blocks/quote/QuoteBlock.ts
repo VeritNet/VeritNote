@@ -30,7 +30,7 @@ class QuoteBlock extends Block {
     get data() {
         return {
             id: this.id,
-            type: this.type,
+            type: (this.constructor as typeof QuoteBlock).type,
             content: '', // Always empty
             properties: this.properties,
             children: [], // Always empty

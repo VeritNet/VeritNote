@@ -23,11 +23,8 @@ class ToggleListItemBlock extends TextBlock {
         this.properties.isCollapsed = data.properties?.isCollapsed || false;
     }
 
-    // --- 3. Custom Rendering ---
-    render() {
-        this.element = this._createWrapperElement();
-        this.contentElement = this._createContentElement();
-
+    // --- 3. Rendering ---
+    _renderContent() {
         // Create the unique layout: [Toggle Triangle] [Text Area]
         this.contentElement.innerHTML = `
             <div class="toggle-triangle-wrapper">
@@ -53,13 +50,7 @@ class ToggleListItemBlock extends TextBlock {
         this.textElement.innerHTML = this.content || '';
         this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
-        this._renderContent();
-
-        this.element.appendChild(this.contentElement);
-
-        this._renderChildren();
-
-        this._applyCustomCSS();
+        this._applyListItemStyles();
         
         // --- Event Listeners ---
         // Listen for clicks on the triangle to toggle the state
@@ -68,12 +59,6 @@ class ToggleListItemBlock extends TextBlock {
             this.updateCollapsedStateStyle();
             this.BAPI_PE.emitChange(true, 'toggle-collapse', this); // Notify the editor of the change
         });
-
-        return this.element;
-    }
-
-    _renderContent() {
-        this._applyListItemStyles();
     }
 
     _applyListItemStyles() {

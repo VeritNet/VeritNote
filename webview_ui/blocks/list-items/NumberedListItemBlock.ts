@@ -24,12 +24,9 @@ class NumberedListItemBlock extends TextBlock {
         this.properties.number = data.properties?.number || 1;
     }
 
-    // --- 3. Custom Rendering ---
-    render() {
-        this.element = this._createWrapperElement();
-        this.contentElement = this._createContentElement();
-
-        // New layout with an editable number point
+    // --- 3. Rendering ---
+    _renderContent() {
+        // Layout with an editable number point
         this.contentElement.innerHTML = `
             <div class="number-point-wrapper">
                 <div class="number-point" contenteditable="true"></div>
@@ -56,18 +53,6 @@ class NumberedListItemBlock extends TextBlock {
         this.textElement.innerHTML = this.content || '';
         this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
-        this._renderContent();
-
-        this.element.appendChild(this.contentElement);
-
-        this._renderChildren();
-
-        this._applyCustomCSS();
-
-        return this.element;
-    }
-
-    _renderContent() {
         this._applyListItemStyles();
     }
 

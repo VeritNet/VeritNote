@@ -53,37 +53,26 @@ class CodeBlock extends Block {
         ];
     }
 
-    render() {
-        // The main wrapper is still a .block-container
-        this.element = this._createWrapperElement();
-        
-        // The .block-content is the main visual container with background
-        this.contentElement = this._createContentElement();
+    _renderContent() {
+        if (!this.contentElement.innerHTML) {
+            this.contentElement.innerHTML = `
+                <pre><code class="language-${this.properties.language}"></code></pre>
+                <textarea class="code-block-input" spellcheck="false"></textarea>
+            `;
 
-        // Inside .block-content, we have our structure
-        this.contentElement.innerHTML = `
-            <pre><code class="language-${this.properties.language}"></code></pre>
-            <textarea class="code-block-input" spellcheck="false"></textarea>
-        `;
+            this.highlightedElement = this.contentElement.querySelector('code');
+            this.inputElement = this.contentElement.querySelector('textarea');
 
-        this.element.appendChild(this.contentElement);
+            // Set initial content and highlight
+            this.inputElement.value = this.content;
+            this.updateHighlight();
 
-        // Get references to our internal elements
-        this.highlightedElement = this.contentElement.querySelector('code');
-        this.inputElement = this.contentElement.querySelector('textarea');
-
-        // Set initial content and highlight
-        this.inputElement.value = this.content;
-        this.updateHighlight();
-
-        // Add event listeners
-        this.inputElement.addEventListener('input', () => this.onInput());
-        this.inputElement.addEventListener('scroll', () => this.syncScroll());
-
-        return this.element;
+            // Add event listeners
+            this.inputElement.addEventListener('input', () => this.onInput());
+            this.inputElement.addEventListener('scroll', () => this.syncScroll());
+        }
 
         this._applyCodeStyles();
-        return this.element;
     }
 
     _applyCodeStyles() {

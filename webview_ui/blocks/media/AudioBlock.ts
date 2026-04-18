@@ -22,16 +22,6 @@ class AudioBlock extends Block {
         this.content = '';
     }
 
-    get data() {
-        return {
-            id: this.id,
-            type: this.type,
-            content: '',
-            properties: this.properties,
-            children: [],
-        };
-    }
-
     static getPropertiesSchema() {
         return [
             { name: 'src', display: 'Audio Source', type: 'text' },

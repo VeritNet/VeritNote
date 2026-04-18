@@ -16,43 +16,28 @@ class BulletedListItemBlock extends TextBlock {
         super(data, editor);
     }
 
-    // --- 3. 自定义渲染 ---
-    render() {
-        this.element = this._createWrapperElement();
-        this.contentElement = this._createContentElement();
-
-        this.contentElement.innerHTML = `
-            <div class="bullet-point">•</div>
-            <div class="list-item-content-wrapper">
-                <div class="list-item-text-area"></div>
-                <div class="list-item-children-container block-children-container"></div>
-            </div>
-        `;
-    
-        // 获取对关键元素的引用
-        const textArea = this.contentElement.querySelector('.list-item-text-area');
-        this.childrenContainer = this.contentElement.querySelector('.list-item-children-container');
-
-        // 关键：将 this.textElement 指向真正的可编辑区域
-        // 我们不再需要手动创建它，只需将 contentEditable 属性添加到现有元素上
-        this.textElement = textArea;
-        this.textElement.contentEditable = 'true';
-        this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
-
-        this._renderContent();
-
-        this.element.appendChild(this.contentElement);
-
-        // 调用基类的 _renderChildren 方法，它会自动将子块渲染到 this.childrenContainer 中
-        this._renderChildren();
-
-        this._applyCustomCSS();
-
-        return this.element;
-    }
+    // --- 3. 渲染 ---
 
     _renderContent() {
+        if (!this.contentElement.innerHTML) {
+            this.contentElement.innerHTML = `
+                <div class="bullet-point">•</div>
+                <div class="list-item-content-wrapper">
+                    <div class="list-item-text-area"></div>
+                    <div class="list-item-children-container block-children-container"></div>
+                </div>
+            `;
+        
+            // 获取对关键元素的引用
+            const textArea = this.contentElement.querySelector('.list-item-text-area');
+            this.childrenContainer = this.contentElement.querySelector('.list-item-children-container');
+
+            this.textElement = textArea;
+            this.textElement.contentEditable = 'true';
+            this.textElement.innerHTML = this.content || '';
+            this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
+        }
+
         this._applyListItemStyles();
     }
 

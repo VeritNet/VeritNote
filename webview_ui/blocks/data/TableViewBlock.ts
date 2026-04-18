@@ -3,6 +3,7 @@ class TableViewBlock extends DataChildBlock {
     static type = 'tableView';
     static canBeToggled = false;
     static label = 'Table View';
+    static createWrapper = false;
 
     static previewExclusionSelectors = [
         '.table-view-col-resizer'
@@ -23,16 +24,13 @@ class TableViewBlock extends DataChildBlock {
         this._lastConfig = null;
     }
 
-    render() {
-        this.element = document.createElement('div');
-        this.element.className = 'tableview-content';
-        this.element.dataset['id'] = this.id;
-        return this.element;
-    }
-
     _renderContent() {
+        // 应用类名以便 CSS 渲染
+        this.contentElement.classList.add('tableview-content');
+
+        // 如果已经有缓存的数据（通常是重绘触发），则执行渲染逻辑
         if (this._lastRawData && this._lastConfig) {
-            this._renderDataContent(this._lastRawData, this._lastConfig, this.element, this.properties);
+            this._renderDataContent(this._lastRawData, this._lastConfig, this.contentElement, this.properties);
         }
     }
 

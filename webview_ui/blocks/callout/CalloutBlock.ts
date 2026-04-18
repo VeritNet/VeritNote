@@ -7,7 +7,6 @@ class CalloutBlock extends Block {
     static keywords = ['callout', 'info', 'tip', 'warning', 'note'];
     static canBeToggled = true;
 
-
     iconElement;
 
     constructor(data, editor) {
@@ -36,36 +35,16 @@ class CalloutBlock extends Block {
         ];
     }
 
-    render() {
-        this.element = this._createWrapperElement();
-        this.contentElement = this._createContentElement();
-
-        // 1. 建立永久性的 HTML 结构 (不再在 update 中销毁)
-        // 注意：这里手动加上了 block-children-container 类
-        this.contentElement.innerHTML = `
-            <div class="callout-icon"></div>
-            <div class="callout-content-wrapper block-children-container"></div>
-        `;
-
-        // 2. 获取关键元素的引用，供后续使用
-        this.iconElement = this.contentElement.querySelector('.callout-icon');
-        this.childrenContainer = this.contentElement.querySelector('.callout-content-wrapper');
-
-        // 3. 应用动态属性 (图标、布局、颜色)
-        this._renderContent();
-
-        this.element.appendChild(this.contentElement);
-
-        // 4. 渲染子元素
-        // 由于上面已经正确设置了 this.childrenContainer，这里直接调用即可
-        this._renderChildren();
-
-        this._applyCustomCSS();
-
-        return this.element;
-    }
-
     _renderContent() {
+        if (!this.contentElement.innerHTML) {
+            this.contentElement.innerHTML = `
+                <div class="callout-icon"></div>
+                <div class="callout-content-wrapper block-children-container"></div>
+            `;
+            this.iconElement = this.contentElement.querySelector('.callout-icon');
+            this.childrenContainer = this.contentElement.querySelector('.callout-content-wrapper');
+        }
+
         const p = this.properties;
 
         // 1. 更新图标

@@ -2,6 +2,7 @@
 class ColumnBlock extends Block {
     static type = 'column';
     static canBeToggled = false;
+    static createWrapper = false;
     
     constructor(data, editor) {
         super(data, editor);
@@ -10,19 +11,8 @@ class ColumnBlock extends Block {
         }
     }
 
-    render() {
-        // 原始的、无包装器的渲染方法
-        this.element = this._createContentElement();
-        this.contentElement = this.element;
-        this.childrenContainer = this.element;
-
-        this._renderContent();
-        this._renderChildren();
-
-        return this.element;
-    }
-
     _renderContent() {
+        this.childrenContainer = this.element;
         this.contentElement.style.width = `${this.properties.width * 100}%`;
     }
 

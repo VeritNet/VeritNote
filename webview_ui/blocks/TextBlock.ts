@@ -2,7 +2,7 @@
 declare var hljs: {
     highlightElement
 };
-class TextBlock extends Block {
+abstract class TextBlock extends Block {
     textElement;
 
     constructor(data, editor) {
@@ -27,7 +27,6 @@ class TextBlock extends Block {
     }
 
     _renderContent() {
-        super._renderContent();
         this.contentElement.contentEditable = 'true';
         this.contentElement.innerHTML = this.content || '';
 

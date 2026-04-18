@@ -2,13 +2,14 @@
 abstract class Block {
     // --- Static properties for registration and slash command ---
     id: string;
-    type: string = 'block'; // Should be overridden by subclasses
-    static icon: string = '📦'; // Default icon (can be overridden)
-    static label: string = 'Block'; // Default label for UI
-    static description: string = 'A generic block.'; // Default description for UI
-    static keywords: string[] = []; // Keywords for search
-    static canBeToggled: boolean = false; // Whether it appears in the slash command menu
+    static type: string; // Should be overridden by subclasses
+    static icon: string; // Default icon (can be overridden)
+    static label: string; // Default label for UI
+    static description: string; // Default description for UI
+    static keywords: string[]; // Keywords for search
+    static canBeToggled: boolean; // Whether it appears in the slash command menu
     static placeholder: string;
+    protected static createWrapper: boolean = true; // Whether to create a wrapper element
     // 定义预览/导出需要排除的 DOM 元素选择器
     static previewExclusionSelectors: string[] = [
         '.block-controls',
@@ -34,6 +35,11 @@ abstract class Block {
         [key: string]: any;
     };
     public contentElement: HTMLElement | null;
+
+    /**
+     * 当 childrenContainer 为 null 切 children 数组不为空时，说明该子块是父级不可分割的结构块（如 Row 是 Table 的结构块）。
+     * page编辑器的 _canAcceptSideDrop 等方法会拒绝尝试破坏其父块内容结构的行为。
+     */
     public childrenContainer: HTMLElement | null;
     public children: Block[];
 
@@ -55,7 +61,6 @@ abstract class Block {
      */
     constructor(data, editor) {
         this.id = data.id || this._generateUUID();
-        this.type = data.type;
         this.content = data.content || '';
         this.properties = data.properties || {};
 
@@ -95,9 +100,6 @@ abstract class Block {
     // ========== ------ ========== //
     // ========== Public ========== //
     // ========== ------ ========== //
-
-
-
     
     /**
      * Returns the block's data for saving.
@@ -108,7 +110,7 @@ abstract class Block {
 
         return {
             id: this.id,
-            type: this.type,
+            type: (this.constructor as typeof Block).type,
             content: this.content,
             properties: this.properties,
             // *** FIX: Always generate children data from the live this.children instance array. ***
@@ -140,19 +142,26 @@ abstract class Block {
      * This is the main rendering entry point.
      * @returns {HTMLElement} The fully rendered block element.
      */
-    render() {
-        if (!this.element) {
-            this.element = this._createWrapperElement();
-        }
-        if (!this.contentElement) {
-            this.contentElement = this._createContentElement();
-            this.element.appendChild(this.contentElement);
+    public render() {
+        const staticThis = this.constructor as typeof Block;
+
+        if (staticThis.createWrapper) {
+            if (!this.element) {
+                this.element = this._createWrapperElement();
+            }
+            if (!this.contentElement) {
+                this.contentElement = this._createContentElement();
+                this.element.appendChild(this.contentElement);
+            }
+        } else {
+            if (!this.contentElement) {
+                this.contentElement = this._createContentElement();
+            }
+            this.element = this.contentElement;
         }
 
         this._renderContent();
-
         this._renderChildren();
-
         this._applyCustomCSS();
 
         return this.element;
@@ -249,11 +258,11 @@ abstract class Block {
                     class="details-hierarchy-row" 
                     data-block-id="${item.block.id}" 
                     style="--depth: ${item.depth};"  /* Depth is always a positive integer */
-                    title="Click to select ${item.block.type}"
+                    title="Click to select ${(item.block.constructor as typeof Block).type}"
                 >
                     <div class="details-hierarchy-indent"></div>
                     <div class="details-hierarchy-item ${isCurrent ? 'is-current' : ''}">
-                        ${item.block.type}
+                        ${(item.block.constructor as typeof Block).type}
                     </div>
                 </div>
             `;
@@ -270,7 +279,7 @@ abstract class Block {
                 
                 <div fx="sb" gap="l" style="margin-bottom: 8px;">
                     <span tc="2" style="font-size: 13px;">Type</span>
-                    <span class="badge scroll-x" tc="2" title="${this.type}" style="user-select: text; white-space:nowrap;">${this.type}</span>
+                    <span class="badge scroll-x" tc="2" title="${(this.constructor as typeof Block).type}" style="user-select: text; white-space:nowrap;">${(this.constructor as typeof Block).type}</span>
                 </div>
                 <div fx="sb" gap="l" style="margin-bottom: 8px;">
                     <span tc="2" style="font-size: 13px;">ID</span>
@@ -623,7 +632,7 @@ abstract class Block {
         const content = document.createElement('div');
         content.className = 'block-content';
         content.dataset['id'] = this.id;
-        content.dataset['type'] = this.type;
+        content.dataset['type'] = (this.constructor as typeof Block).type;
         return content;
     }
 
@@ -632,10 +641,7 @@ abstract class Block {
      * Subclasses MUST override this method.
      * @private
      */
-    _renderContent() {
-        // Example: this.contentElement.innerHTML = this.content;
-        // To be implemented by subclasses.
-    }
+    abstract _renderContent(): void;
 
     /**
      * Renders child blocks and appends them to the correct container.

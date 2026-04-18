@@ -1,6 +1,6 @@
 ﻿// blocks/data/DataBlock.js
 abstract class DataChildBlock extends Block {
-    public label: string;
+    static label: string;
     abstract renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock);
     abstract _renderDataContent(rawData, config, element, properties, isForExport?);
     
@@ -146,7 +146,7 @@ class DataBlock extends Block {
         let childBlock = this.children[0];
 
         // 检查是否需要重新创建子块（类型改变或首次加载）
-        if (!childBlock || childBlock.type !== preset.type) {
+        if (!childBlock || (childBlock.constructor as typeof DataChildBlock).type !== preset.type) {
             const RendererClass = this.BAPI_WD.blockRegistry.get(preset.type);
             if (!RendererClass) throw new Error(`Unknown preset type: ${preset.type}`);
 
@@ -236,7 +236,7 @@ class DataBlock extends Block {
             </div>
             <button class="btn" tc="2" id="db-refresh-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">↻ Reload DataBase</button>
             ${this.children[0] ? `
-                <button class="btn" tc="2" id="db-sub-focus-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">⚙ Settings: ${this.children[0].label || this.children[0].type}</button><br>
+                <button class="btn" tc="2" id="db-sub-focus-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">⚙ Settings: ${(this.children[0].constructor as typeof DataChildBlock).label || (this.children[0].constructor as typeof DataChildBlock).type}</button><br>
             ` : ''}
         `;
     }
@@ -321,7 +321,7 @@ class DataBlock extends Block {
         let childType = 'unknown';
         if (this.children && this.children.length > 0) {
             childProps = this.children[0].properties || {};
-            childType = this.children[0].type;
+            childType = (this.children[0].constructor as typeof DataChildBlock).type;
         }
 
         // 修复: 将 _renderDataContent(...) { 转换为 function( ... ) {

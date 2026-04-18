@@ -20,17 +20,6 @@ class ImageBlock extends Block {
         this.content = '';
     }
 
-    get data() {
-        // --- REFACTORED: Save properties, content is always empty ---
-        return {
-            id: this.id,
-            type: this.type,
-            content: '',
-            properties: this.properties,
-            children: [],
-        };
-    }
-
     static getPropertiesSchema() {
         return [
             // 核心属性
