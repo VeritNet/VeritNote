@@ -1,4 +1,16 @@
 ﻿// blocks/data/DataBlock.js
+abstract class DataChildBlock extends Block {
+    public label: string;
+    abstract renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock);
+    abstract _renderDataContent(rawData, config, element, properties, isForExport?);
+    
+    _lastRawData = null;
+    _lastConfig = null;
+    _cfgCtx;
+    configContainer: HTMLDivElement;
+}
+
+
 class DataBlock extends Block {
     static type = 'data';
     static icon = '🗃️';
@@ -14,6 +26,11 @@ class DataBlock extends Block {
     static exportExclusionSelectors = [
         '.data-child-container'
     ];
+
+    children: DataChildBlock[];
+
+
+    _rawData;
 
     constructor(data, editor) {
         super(data, editor);
@@ -55,7 +72,7 @@ class DataBlock extends Block {
     get toolbarButtons() {
         const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
         const buttons = [{ html: iconSvg, title: 'Config Source', action: 'selectDb' }];
-        buttons.push(...super.toolbarButtons);
+        buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
 
@@ -130,7 +147,7 @@ class DataBlock extends Block {
 
         // 检查是否需要重新创建子块（类型改变或首次加载）
         if (!childBlock || childBlock.type !== preset.type) {
-            const RendererClass = BAPI_WD.blockRegistry.get(preset.type);
+            const RendererClass = this.BAPI_WD.blockRegistry.get(preset.type);
             if (!RendererClass) throw new Error(`Unknown preset type: ${preset.type}`);
 
             const blockData = { type: preset.type };
@@ -167,7 +184,7 @@ class DataBlock extends Block {
                 }
             };
             window.addEventListener('dataContentFetched', listener);
-            window.BAPI_IPC.fetchDataContent(reqId, path);
+            this.BAPI_IPC.fetchDataContent(reqId, path);
         });
     }
 
@@ -219,7 +236,7 @@ class DataBlock extends Block {
             </div>
             <button class="btn" tc="2" id="db-refresh-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">↻ Reload DataBase</button>
             ${this.children[0] ? `
-                <button class="btn" tc="2" id="db-sub-focus-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">⚙ Settings: ${this.children[0].constructor.label || this.children[0].type}</button><br>
+                <button class="btn" tc="2" id="db-sub-focus-btn" pd="s" bg="none" bd="none" hv-bg="3" style="width:auto;">⚙ Settings: ${this.children[0].label || this.children[0].type}</button><br>
             ` : ''}
         `;
     }
@@ -286,7 +303,7 @@ class DataBlock extends Block {
 
 
     // 为导出页面生成数据初始化脚本
-    getExportScripts(exportContext = {}) {
+    getExportScripts(exportContext: any = {}): string | null {
         const dbPath = this.properties.dbPath;
         const presetId = this.properties.presetId;
 
@@ -309,7 +326,7 @@ class DataBlock extends Block {
 
         // 修复: 将 _renderDataContent(...) { 转换为 function( ... ) {
         let renderersSetup = '';
-        BAPI_WD.blockRegistry.forEach((BlockClass, type) => {
+        this.BAPI_WD.blockRegistry.forEach((BlockClass, type) => {
             if (BlockClass.prototype._renderDataContent) {
                 let funcStr = BlockClass.prototype._renderDataContent.toString();
                 // 匹配方法名并替换为 function 关键字

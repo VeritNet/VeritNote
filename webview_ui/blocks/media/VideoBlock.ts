@@ -109,7 +109,7 @@ class VideoBlock extends Block {
             { icon: '🎬', title: 'Set Video Source', action: 'editVideo' },
             { icon: '🔗', title: 'Set External Link', action: 'linkVideo' }
         ];
-        buttons.push(...super.toolbarButtons);
+        buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
 

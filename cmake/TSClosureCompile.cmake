@@ -35,7 +35,7 @@ if(NOT jsdoc_result EQUAL 0)
 endif()
 
 
-# 3. 编译前端 components 的 TS 代码 (就地输出 JS 到处理目录)
+# 3.1 编译前端 components 的 TS 代码 (就地输出 JS 到处理目录)
 message(STATUS "[TS Pipeline] Compiling components TypeScript...")
 message(STATUS "[TS Pipeline][Execute] \"${TSGO_CMD}.cmd\" -p \"${PROCESSED_DIR}/components/tsconfig.json\"")
 execute_process(
@@ -46,6 +46,24 @@ execute_process(
 )
 if(NOT ts_result EQUAL 0)
     message(FATAL_ERROR "[TS Pipeline] Project TS compile failed:\n${ts_err}")
+endif()
+
+
+# 3.2 编译前端 blocks 的 TS 代码
+message(STATUS "[TS Pipeline] Compiling blocks TypeScript...")
+if(EXISTS "${PROCESSED_DIR}/blocks/tsconfig.json")
+    message(STATUS "[TS Pipeline][Execute] \"${TSGO_CMD}.cmd\" -p \"${PROCESSED_DIR}/blocks/tsconfig.json\"")
+    execute_process(
+        COMMAND "${TSGO_CMD}.cmd" -p "${PROCESSED_DIR}/blocks/tsconfig.json"
+        WORKING_DIRECTORY "${PROCESSED_DIR}/blocks"
+        RESULT_VARIABLE ts_blocks_result
+        ERROR_VARIABLE ts_blocks_err
+    )
+    if(NOT ts_blocks_result EQUAL 0)
+        message(FATAL_ERROR "[TS Pipeline] Blocks TS compile failed:\n${ts_blocks_err}")
+    endif()
+else()
+    message(WARNING "[TS Pipeline] blocks/tsconfig.json not found, skipping.")
 endif()
 
 

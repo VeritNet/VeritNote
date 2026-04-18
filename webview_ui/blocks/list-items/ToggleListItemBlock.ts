@@ -10,6 +10,9 @@ class ToggleListItemBlock extends TextBlock {
     static canBeToggled = true;
     static placeholder = 'Toggle';
 
+
+    toggleElement;
+
     // --- 2. Constructor ---
     constructor(data, editor) {
         super(data, editor);
@@ -48,7 +51,7 @@ class ToggleListItemBlock extends TextBlock {
         // Initialize the text area
         this.textElement.contentEditable = 'true';
         this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset['placeholder'] = this.constructor.placeholder;
+        this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
         this._renderContent();
 

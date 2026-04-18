@@ -221,6 +221,7 @@ set(WINDOWS_SOURCES
     src/platform/windows/Win_Main.cpp
     src/platform/windows/Win_Backend.cpp
     ${RESOURCE_RC}
+    ${RESOURCE_H}
     ${VERSION_RC_FILE}
 )
 

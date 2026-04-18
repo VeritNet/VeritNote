@@ -7,6 +7,9 @@ class CalloutBlock extends Block {
     static keywords = ['callout', 'info', 'tip', 'warning', 'note'];
     static canBeToggled = true;
 
+
+    iconElement;
+
     constructor(data, editor) {
         super(data, editor);
         

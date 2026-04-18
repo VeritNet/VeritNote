@@ -10,6 +10,9 @@ class NumberedListItemBlock extends TextBlock {
     static canBeToggled = true;
     static placeholder = 'List item';
 
+
+    numberElement;
+
     // --- 2. Constructor ---
     constructor(data, editor) {
         super(data, editor);
@@ -51,7 +54,7 @@ class NumberedListItemBlock extends TextBlock {
         this.textElement = textArea;
         this.textElement.contentEditable = 'true';
         this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset['placeholder'] = this.constructor.placeholder;
+        this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
         this._renderContent();
 

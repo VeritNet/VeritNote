@@ -88,7 +88,7 @@ class ImageBlock extends Block {
             { icon: '🖼️', title: 'Set Image Source', action: 'editImage' },
             { icon: '🔗', title: 'Set Image Link', action: 'linkImage' }
         ];
-        buttons.push(...super.toolbarButtons);
+        buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
     

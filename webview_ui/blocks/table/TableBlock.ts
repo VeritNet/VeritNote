@@ -69,6 +69,11 @@ class TableBlock extends Block {
         '.table-add-row-btn'
     ];
 
+
+    gridWrapper;
+    topControls;
+    leftControls;
+
     constructor(data, editor) {
         super(data, editor);
         // 初始化属性
@@ -214,20 +219,19 @@ class TableBlock extends Block {
         if (!this.gridWrapper || !this.leftControls) return;
 
         // rowElements 是 .table-row-content 元素
-        const rowElements = Array.from(this.gridWrapper.children); 
-        const deleteBtnWrappers = Array.from(this.leftControls.children);
+        const rowElements: HTMLElement[] = Array.from(this.gridWrapper.children); 
+            const deleteBtnWrappers: HTMLElement[] = Array.from(this.leftControls.children);
 
         rowElements.forEach((rowEl, index) => {
             const wrapper = deleteBtnWrappers[index];
             if (wrapper) {
-                // 【修复核心】
                 // 因为 rowEl ( .table-row-content ) 的 display 是 contents，所以 offsetHeight 是 0。
                 // 我们必须通过计算其子元素（单元格）的最大高度来确定行的实际高度。
                 let maxHeight = 0;
                 
                 // 遍历当前行的所有单元格 (cell)
-                for (const cellEl of rowEl.children) {
-                    maxHeight = Math.max(maxHeight, cellEl.offsetHeight);
+                for (const cellEl of Array.from(rowEl.children)) {
+                    maxHeight = Math.max(maxHeight, (cellEl as HTMLElement).offsetHeight);
                 }
                 
                 // 将按钮包装器的高度设置为该行最高的单元格的高度

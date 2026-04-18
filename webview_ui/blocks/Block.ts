@@ -1,5 +1,54 @@
 ﻿// blocks/Block.js
-class Block {
+abstract class Block {
+    // --- Static properties for registration and slash command ---
+    id: string;
+    type: string = 'block'; // Should be overridden by subclasses
+    static icon: string = '📦'; // Default icon (can be overridden)
+    static label: string = 'Block'; // Default label for UI
+    static description: string = 'A generic block.'; // Default description for UI
+    static keywords: string[] = []; // Keywords for search
+    static canBeToggled: boolean = false; // Whether it appears in the slash command menu
+    static placeholder: string;
+    // 定义预览/导出需要排除的 DOM 元素选择器
+    static previewExclusionSelectors: string[] = [
+        '.block-controls',
+        '.drag-handle',
+        '.drop-indicator',
+        '.drop-indicator-vertical',
+        '.quadrant-overlay'
+    ];
+    static exportExclusionSelectors: string[] = [
+        '.block-controls',
+        '.drag-handle',
+        '.drop-indicator',
+        '.drop-indicator-vertical',
+        '.quadrant-overlay'
+    ];
+    public element: HTMLElement | null;
+    public content: string | null;
+    public properties: {
+        referenceLink?: any;
+        width?: any;
+        presetId?: string; // 来源于 DataBlock.properties.presetId
+        customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
+        [key: string]: any;
+    };
+    public contentElement: HTMLElement | null;
+    public childrenContainer: HTMLElement | null;
+    public children: Block[];
+
+    public parent?: Block;
+
+
+    private editor;
+    protected BAPI_PE;
+    protected BAPI_WD;
+    protected BAPI_IPC;
+
+    protected exportReadyResolve;
+    public exportReadyPromise: Promise<any>;
+
+
     /**
      * @param {object} data - The block's data object (id, type, content, etc.).
      * @param {Editor} editor - The main editor instance.
@@ -27,8 +76,8 @@ class Block {
         this.childrenContainer = null; //如果为null，则不是容器块，一个容器块只能有一个容器区
 
         this.BAPI_PE = this.editor.BAPI_PE;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 PageEditor 定义和维护
-        this.BAPI_WD = window.BAPI_WD;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 Window 定义和维护
-        this.BAPI_IPC = window.BAPI_IPC;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 IPC 定义和维护
+        this.BAPI_WD = (window as any).BAPI_WD;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 Window 定义和维护
+        this.BAPI_IPC = (window as any).BAPI_IPC;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 IPC 定义和维护
 
         // Children
         const childrenData = data.children || [];
@@ -49,34 +98,6 @@ class Block {
 
 
 
-    // --- Static properties for registration and slash command ---
-    static type = 'block'; // Should be overridden by subclasses
-    static icon = '📦'; // Default icon (can be overridden)
-    static label = 'Block'; // Default label for UI
-    static description = 'A generic block.'; // Default description for UI
-    static keywords = []; // Keywords for search
-    static canBeToggled = false; // Whether it appears in the slash command menu
-    // 定义预览/导出需要排除的 DOM 元素选择器
-    static previewExclusionSelectors = [
-        '.block-controls',
-        '.drag-handle',
-        '.drop-indicator',
-        '.drop-indicator-vertical',
-        '.quadrant-overlay'
-    ];
-    static exportExclusionSelectors = [
-        '.block-controls',
-        '.drag-handle',
-        '.drop-indicator',
-        '.drop-indicator-vertical',
-        '.quadrant-overlay'
-    ];
-    element = null;
-    content = null;
-    properties = {};
-    contentElement = null;
-    childrenContainer = null;
-    children = [];
     
     /**
      * Returns the block's data for saving.
@@ -100,7 +121,7 @@ class Block {
      * Subclasses should override this.
      * @returns {Array} An array of button definition objects.
      */
-    get toolbarButtons() {
+    protected get toolbarButtons(): { html?: string; title?: string; action?: string; icon?: string; arg?: string }[] {
         // We define this in the base class so all blocks get it.
         // It's an array so subclasses can push their own buttons to it.
         return [
@@ -303,7 +324,7 @@ class Block {
 
                 // 安全重置：只删除在 Schema 中定义的属性键值
                 // 这样不会误删 Table 的 colWidths 或其他内部状态
-                const schema = this.constructor.getPropertiesSchema();
+                const schema = (this.constructor as typeof Block).getPropertiesSchema();
                 schema.forEach(field => {
                     delete this.properties[field.name];
                 });
@@ -361,7 +382,7 @@ class Block {
                 });
             };
 
-            const schema = populateSchema(this.constructor.getPropertiesSchema(), this.properties);
+            const schema = populateSchema((this.constructor as typeof Block).getPropertiesSchema(), this.properties);
 
             // 调用 BAPI_WD 提供的工具库方法
             const myForm = this.BAPI_WD.UiTools.createKvForm(schema, () => {
@@ -490,9 +511,9 @@ class Block {
                     const listContainer = row.parentElement;
                     row.remove();
 
-                    Array.from(listContainer.querySelectorAll('.css-rule-row')).forEach((r, idx) => {
-                        r.dataset.rule = idx; // 刷新行的标识
-                        r.querySelectorAll('[data-rule]').forEach(el => el.dataset.rule = idx); // 刷新子元素(input/btn)的标识
+                    Array.from(listContainer.querySelectorAll('.css-rule-row') as HTMLElement[]).forEach((r, idx) => {
+                        r.dataset.rule = idx.toString(); // 刷新行的标识
+                        r.querySelectorAll('[data-rule]').forEach(el => (el as HTMLElement).dataset.rule = idx.toString()); // 刷新子元素(input/btn)的标识
                     });
 
                     // 3. 数量回落到 1 时，剥夺最后那个独苗的删除按钮
@@ -515,9 +536,9 @@ class Block {
                     const rulesContainer = block.parentElement;
                     block.remove();
 
-                    Array.from(rulesContainer.querySelectorAll('.css-rule-block')).forEach((b, idx) => {
-                        b.dataset.group = idx;
-                        b.querySelectorAll('[data-group]').forEach(el => el.dataset.group = idx);
+                    Array.from(rulesContainer.querySelectorAll('.css-rule-block') as HTMLElement[]).forEach((b, idx) => {
+                        b.dataset.group = idx.toString();
+                        b.querySelectorAll('[data-group]').forEach(el => (el as HTMLElement).dataset.group = idx.toString());
                     });
 
                     // 3. 数量回落到 1 时，剥夺最后那个独苗组的删除按钮
@@ -579,9 +600,9 @@ class Block {
 
     /**
      * Creates the main wrapper element (.block-container).
-     * @private
+     * @protected
      */
-    _createWrapperElement() {
+    protected _createWrapperElement() {
         const element = document.createElement('div');
         element.className = 'block-container';
         element.dataset['id'] = this.id;
@@ -596,9 +617,9 @@ class Block {
 
     /**
      * Creates the content element (.block-content).
-     * @private
+     * @protected
      */
-    _createContentElement() {
+    protected _createContentElement() {
         const content = document.createElement('div');
         content.className = 'block-content';
         content.dataset['id'] = this.id;
@@ -619,9 +640,9 @@ class Block {
     /**
      * Renders child blocks and appends them to the correct container.
      * @param {HTMLElement} [targetContainer] - 指定渲染的目标容器区。如果不传，则默认尝试渲染到交互容器(childrenContainer)。
-     * @private
+     * @protected
      */
-    _renderChildren(targetContainer = null) {
+    protected _renderChildren(targetContainer = null) {
         // 渲染目标：优先使用传入的 target，否则使用交互容器 childrenContainer
         const destination = targetContainer || this.childrenContainer;
 
@@ -659,14 +680,15 @@ class Block {
      * Returns an array defining the editable properties for this block.
      * Subclasses should override this.
      * @returns {Array<{key: string, label: string, type: 'text'|'number'|'color'|'select'|'checkbox', options?: Array}>}
-     * @private
      */
-    static getPropertiesSchema() {
+    protected static getPropertiesSchema(): any {
         const borderStyles = ['solid', 'dashed', 'dotted', 'double'];
-        const borderChildren = borderStyles.flatMap(style => [
-            { condition: style, name: 'borderWidth', display: 'Border Width', type: 'text', placeholder: 'e.g. 1px' },
-            { condition: style, name: 'borderColor', display: 'Border Color', type: 'color' }
-        ]);
+        const borderChildren = borderStyles.reduce((acc, style) => {
+            return acc.concat([
+                { condition: style, name: 'borderWidth', display: 'Border Width', type: 'text', placeholder: 'e.g. 1px' },
+                { condition: style, name: 'borderColor', display: 'Border Color', type: 'color' }
+            ]);
+        }, [] as any[]);
 
         return [
             // 布局与间距
@@ -881,8 +903,6 @@ class Block {
 
 
     _generateUUID() {
-        return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
-            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-        );
+        return crypto.randomUUID();
     }
 }

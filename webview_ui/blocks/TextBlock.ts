@@ -1,5 +1,10 @@
 ﻿// blocks/TextBlock.js
+declare var hljs: {
+    highlightElement
+};
 class TextBlock extends Block {
+    textElement;
+
     constructor(data, editor) {
         super(data, editor);
     }
@@ -26,8 +31,8 @@ class TextBlock extends Block {
         this.contentElement.contentEditable = 'true';
         this.contentElement.innerHTML = this.content || '';
 
-        if (this.constructor.placeholder) {
-            this.contentElement.dataset['placeholder'] = this.constructor.placeholder;
+        if ((this.constructor as typeof TextBlock).placeholder) {
+            this.contentElement.dataset['placeholder'] = (this.constructor as typeof TextBlock).placeholder;
         }
 
         // --- 应用文本样式 ---
@@ -53,7 +58,7 @@ class TextBlock extends Block {
             { icon: '🎨', title: 'Color', action: 'colorPicker' },
             { icon: '🔗', title: 'Link', action: 'link' },
         ];
-        buttons.push(...super.toolbarButtons);
+        buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
 

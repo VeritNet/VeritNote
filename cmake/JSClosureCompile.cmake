@@ -2,7 +2,7 @@
 
 message(STATUS "[JS Pipeline] Running Google Closure Compiler in ${PROCESSED_DIR}")
 
-# 1. 使用 CMake 安全地获取所有要压缩的 JS 文件列表，排除 components/blocks 文件夹
+# 1. 使用 CMake 安全地获取所有要压缩的 JS 文件列表
 file(GLOB_RECURSE JS_FILES RELATIVE "${PROCESSED_DIR}" "${PROCESSED_DIR}/components/*.js")
 
 # 3. 动态构建传递给 Closure Compiler 的 --js 参数

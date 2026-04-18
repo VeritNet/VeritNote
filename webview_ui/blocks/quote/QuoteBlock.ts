@@ -8,6 +8,10 @@ class QuoteBlock extends Block {
     static keywords = ['quote', 'reference', 'embed', 'transclusion'];
     static canBeToggled = true;
 
+
+    previewContainer;
+    _cachedContent;
+
     // --- 2. Constructor ---
     constructor(data, editor) {
         super(data, editor);
@@ -185,7 +189,7 @@ class QuoteBlock extends Block {
             { icon: '|', title: 'Toggle Style', action: 'toggleStyle' },
             { icon: '🔗', title: 'Set Click Link', action: 'setClickLink' }
         ];
-        buttons.push(...super.toolbarButtons);
+        buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
     

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": [ "ES2017", "DOM" ],
+
+    "strict": false,
+    "esModuleInterop": true, // 允许使用 import 导入 commonjs 模块
+
+    "rootDir": "./" // 源代码目录
+  },
+  "include": [
+    "**/*"
+  ]
+}

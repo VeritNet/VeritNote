@@ -92,7 +92,7 @@ class AudioBlock extends Block {
             { icon: '🎵', title: 'Set Audio Source', action: 'editAudio' },
             { icon: '🔗', title: 'Set External Link', action: 'linkAudio' }
         ];
-        buttons.push(...super.toolbarButtons);
+        buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
 

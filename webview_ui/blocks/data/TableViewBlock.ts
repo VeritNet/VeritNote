@@ -1,5 +1,5 @@
 ﻿// blocks/data/TableViewBlock.js
-class TableViewBlock extends Block {
+class TableViewBlock extends DataChildBlock {
     static type = 'tableView';
     static canBeToggled = false;
     static label = 'Table View';
@@ -64,7 +64,7 @@ class TableViewBlock extends Block {
                 // 每次点击时，动态解构出当前真正激活的预设上下文
                 const { preset, dbJsonCache, markDirtyCallback, parentDataBlock } = this._cfgCtx;
                 const config = preset.config;
-                const target = e.target;
+                const target = e.target as HTMLElement;
                 if (target.classList.contains('add-col-btn')) {
                     const rawData = await parentDataBlock._getRawData();
                     let defaultHeader = '';
@@ -110,9 +110,9 @@ class TableViewBlock extends Block {
                 // 每次更改时，动态解构出当前真正激活的预设上下文
                 const { preset, dbJsonCache, markDirtyCallback, parentDataBlock } = this._cfgCtx;
                 const config = preset.config;
-                const target = e.target;
+                const target = e.target as HTMLElement;
                 if (target.classList.contains('first-row-mode-select')) {
-                    const newMode = target.value;
+                    const newMode = (target as HTMLSelectElement).value;
                     if (newMode !== config.firstRowMode) {
                         const rawData = await parentDataBlock._getRawData();
                         if (rawData && rawData.length > 0) {
@@ -130,22 +130,22 @@ class TableViewBlock extends Block {
                     this.renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('col-source-select')) {
                     const idx = parseInt(target.dataset['index']);
-                    config.columns[idx].sourceHeader = target.value;
-                    if (config.firstRowMode === 'header') config.columns[idx].label = target.value;
+                    config.columns[idx].sourceHeader = (target as HTMLSelectElement).value;
+                    if (config.firstRowMode === 'header') config.columns[idx].label = (target as HTMLSelectElement).value;
                     markDirtyCallback();
                     this.renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('col-label-input')) {
-                    config.columns[parseInt(target.dataset['index'])].label = target.value;
+                    config.columns[parseInt(target.dataset['index'])].label = (target as HTMLInputElement).value;
                     markDirtyCallback();
                 } else if (target.classList.contains('col-type-select')) {
-                    config.columns[parseInt(target.dataset['index'])].type = target.value;
+                    config.columns[parseInt(target.dataset['index'])].type = (target as HTMLSelectElement).value;
                     markDirtyCallback();
                     this.renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock);
                 } else if (target.classList.contains('map-condition')) {
-                    config.columns[parseInt(target.dataset['colIndex'])].statusMappings[parseInt(target.dataset['mapIndex'])].condition = target.value;
+                    config.columns[parseInt(target.dataset['colIndex'])].statusMappings[parseInt(target.dataset['mapIndex'])].condition = (target as HTMLInputElement).value;
                     markDirtyCallback();
                 } else if (target.classList.contains('map-html')) {
-                    config.columns[parseInt(target.dataset['colIndex'])].statusMappings[parseInt(target.dataset['mapIndex'])].html = target.value;
+                    config.columns[parseInt(target.dataset['colIndex'])].statusMappings[parseInt(target.dataset['mapIndex'])].html = (target as HTMLInputElement).value;
                     markDirtyCallback();
                 }
             });
@@ -416,7 +416,7 @@ class TableViewBlock extends Block {
     initResize(e, colIndex) {
         e.preventDefault();
         const startX = e.clientX;
-        const tableEl = this.element.querySelector('.vn-table');
+        const tableEl = this.element.querySelector('.vn-table') as HTMLElement;
         const tableWidth = tableEl.offsetWidth;
 
         const leftColInitialWidth = this.properties.colWidths[colIndex];
@@ -438,7 +438,7 @@ class TableViewBlock extends Block {
             this.properties.colWidths[colIndex + 1] = newRightWidth;
 
             // 实时更新 DOM 样式以获得平滑反馈
-            const ths = tableEl.querySelectorAll('thead th');
+            const ths = tableEl.querySelectorAll('thead th') as NodeListOf<HTMLElement>;
             ths[colIndex].style.width = `${newLeftWidth * 100}%`;
             ths[colIndex + 1].style.width = `${newRightWidth * 100}%`;
         };

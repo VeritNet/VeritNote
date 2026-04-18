@@ -38,7 +38,7 @@ class BulletedListItemBlock extends TextBlock {
         this.textElement = textArea;
         this.textElement.contentEditable = 'true';
         this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset['placeholder'] = this.constructor.placeholder;
+        this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
         this._renderContent();
 

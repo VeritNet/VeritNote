@@ -13,6 +13,11 @@ class CodeBlock extends Block {
         '.code-block-input',
     ];
 
+
+    availableLanguages;
+    highlightedElement: HTMLElement;
+    inputElement: HTMLTextAreaElement;
+
     constructor(data, editor) {
         super(data, editor);
         
@@ -169,7 +174,7 @@ class CodeBlock extends Block {
                 action: 'changeLanguage'
             }
         ];
-        buttons.push(...super.toolbarButtons);
+        buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
     
