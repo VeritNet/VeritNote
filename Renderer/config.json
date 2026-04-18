@@ -1,0 +1,13 @@
+{
+  "allowedBaseClasses": [ "Block", "TextBlock", "DataBlock" ],
+  "requiredStaticOverrides": [ "type", "canBeToggled", "label" ],
+  "optionalStaticOverrides": [
+    "icon",
+    "description",
+    "keywords",
+    "placeholder",
+    "createWrapper",
+    "previewExclusionSelectors",
+    "exportExclusionSelectors"
+  ]
+}

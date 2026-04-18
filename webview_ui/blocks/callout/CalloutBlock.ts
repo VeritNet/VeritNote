@@ -1,11 +1,11 @@
 ﻿// blocks/CalloutBlock.js
 class CalloutBlock extends Block {
-    static type = 'callout';
-    static icon = '💡';
-    static label = 'Callout';
-    static description = 'A container with an icon and background color.';
-    static keywords = ['callout', 'info', 'tip', 'warning', 'note'];
-    static canBeToggled = true;
+    static override type = 'callout';
+    static override icon = '💡';
+    static override label = 'Callout';
+    static override description = 'A container with an icon and background color.';
+    static override keywords = ['callout', 'info', 'tip', 'warning', 'note'];
+    static override canBeToggled = true;
 
     iconElement;
 
@@ -22,7 +22,7 @@ class CalloutBlock extends Block {
         }
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             { name: 'icon', display: 'Icon Emoji', type: 'text', placeholder: '💡' },
 
@@ -65,19 +65,15 @@ class CalloutBlock extends Block {
     }
 
     // Callout content itself is not editable, its children are.
-    onInput(e) { /* no-op */ }
-    onKeyDown(e) { /* no-op */ }
+    override onInput(e) { /* no-op */ }
+    override onKeyDown(e) { /* no-op */ }
 
     // Callouts don't have their own toolbar, but their children do.
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [];
         buttons.push(...super.toolbarButtons);
         return buttons;
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](CalloutBlock);

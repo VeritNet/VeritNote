@@ -1,4 +1,13 @@
 ﻿// blocks/Block.js
+
+/**
+ * 函数规范：
+ * 覆写基类函数必须显示 override 关键词
+ * 强制由子类实现的函数使用 abstract
+ * 禁止子类覆写的函数使用 readonly 和 箭头函数
+ * 实例属性不得与基类静态属性重名，因为这往往令人困惑。此行为将在编译时被阻止。
+ */
+
 abstract class Block {
     // --- Static properties for registration and slash command ---
     id: string;
@@ -142,7 +151,7 @@ abstract class Block {
      * This is the main rendering entry point.
      * @returns {HTMLElement} The fully rendered block element.
      */
-    public render() {
+    public readonly render = (): HTMLElement => {
         const staticThis = this.constructor as typeof Block;
 
         if (staticThis.createWrapper) {
@@ -586,7 +595,7 @@ abstract class Block {
      * to make this block interactive.
      * @returns {string|null} A string containing the script (without <script> tags), or null.
      */
-    getExportScripts(exportContext) {
+    getExportScripts(exportContext): string | null {
         // Default is no scripts.
         return null;
     }
@@ -674,7 +683,7 @@ abstract class Block {
      * Returned HTML will be placed between Hierarchy and Properties sections.
      * @returns {string} HTML string or empty string.
      */
-    abstract renderDetailsPanel_custom(): string;
+    renderDetailsPanel_custom(): string { return '' };
 
 
     // Methods for Details Panel & CSS
@@ -790,7 +799,7 @@ abstract class Block {
      * Subclasses can override this to attach event listeners to their custom HTML.
      * @param {HTMLElement} container - The details panel container.
      */
-    abstract onDetailsPanelOpen_custom(container: HTMLElement);
+    onDetailsPanelOpen_custom(container: HTMLElement) { };
 
     protected _refreshDetailsPanel() {
         this._applyCustomCSS();

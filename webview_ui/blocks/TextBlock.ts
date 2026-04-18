@@ -7,7 +7,7 @@ abstract class TextBlock extends Block {
         super(data, editor);
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             // 文本专属属性
             { name: 'color', display: 'Text Color', type: 'color', value: '#e0e0e0' },
@@ -50,7 +50,7 @@ abstract class TextBlock extends Block {
         if (p.fontFamily && p.fontFamily !== 'inherit') s.fontFamily = p.fontFamily;
     }
 
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [
             { icon: '𝐁', title: 'Bold', action: 'format', arg: 'bold' },
             { icon: '𝘐', title: 'Italic', action: 'format', arg: 'italic' },

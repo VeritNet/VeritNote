@@ -1,6 +1,6 @@
 ﻿// blocks/data/DataBlock.js
 abstract class DataChildBlock extends Block {
-    static label: string;
+    static override label: string;
     abstract renderPresetConfigPanel(preset, dbJsonCache, markDirtyCallback, parentDataBlock);
     abstract _renderDataContent(rawData, config, element, properties, isForExport?);
     
@@ -12,7 +12,7 @@ abstract class DataChildBlock extends Block {
 
 
 class DataBlock extends Block {
-    static type = 'data';
+    static override type = 'data';
     static icon = '🗃️';
     static label = 'Database View';
     static description = 'Embed a view from a Database (.veritnotedb).';
@@ -203,7 +203,7 @@ class DataBlock extends Block {
     }
 
     // --- Details Panel Logic ---
-    renderDetailsPanel_custom() {
+    override renderDetailsPanel_custom() {
         const dbPath = this.properties.dbPath || '';
         let presetOptions = '';
         let currentPreset = null;
@@ -241,7 +241,7 @@ class DataBlock extends Block {
         `;
     }
 
-    onDetailsPanelOpen_custom(container) {
+    override onDetailsPanelOpen_custom(container) {
         const pathInput = container.querySelector('#db-path-input');
         const presetSelect = container.querySelector('#db-preset-select');
         const refreshBtn = container.querySelector('#db-refresh-btn');
@@ -303,7 +303,7 @@ class DataBlock extends Block {
 
 
     // 为导出页面生成数据初始化脚本
-    getExportScripts(exportContext: any = {}): string | null {
+    override getExportScripts(exportContext: any = {}): string | null {
         const dbPath = this.properties.dbPath;
         const presetId = this.properties.presetId;
 
