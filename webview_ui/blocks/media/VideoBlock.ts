@@ -126,6 +126,10 @@ class VideoBlock extends Block {
             );
         }
     }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](VideoBlock);

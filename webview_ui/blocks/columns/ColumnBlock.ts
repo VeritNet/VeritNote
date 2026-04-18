@@ -18,6 +18,10 @@ class ColumnBlock extends Block {
 
     onInput(e) { /* no-op */ }
     onKeyDown(e) { /* no-op */ }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](ColumnBlock);

@@ -611,7 +611,7 @@ abstract class Block {
      * Creates the main wrapper element (.block-container).
      * @protected
      */
-    protected _createWrapperElement() {
+    protected _createWrapperElement(): HTMLElement {
         const element = document.createElement('div');
         element.className = 'block-container';
         element.dataset['id'] = this.id;
@@ -628,7 +628,7 @@ abstract class Block {
      * Creates the content element (.block-content).
      * @protected
      */
-    protected _createContentElement() {
+    protected _createContentElement(): HTMLElement {
         const content = document.createElement('div');
         content.className = 'block-content';
         content.dataset['id'] = this.id;
@@ -663,7 +663,7 @@ abstract class Block {
     /**
      * Updates the block's DOM element from its `content` property.
      */
-    syncContentToDOM() {
+    protected syncContentToDOM() {
         if (this.contentElement) {
             this.contentElement.innerHTML = this.content;
         }
@@ -673,11 +673,8 @@ abstract class Block {
      * Subclasses can override this to inject custom HTML into the details panel.
      * Returned HTML will be placed between Hierarchy and Properties sections.
      * @returns {string} HTML string or empty string.
-     * @private
      */
-    renderDetailsPanel_custom() {
-        return '';
-    }
+    abstract renderDetailsPanel_custom(): string;
 
 
     // Methods for Details Panel & CSS
@@ -734,7 +731,7 @@ abstract class Block {
     }
 
 
-    _cleanUpCustomCSSData() {
+    private _cleanUpCustomCSSData() {
         if (!this.properties.customCSS) this.properties.customCSS = [];
 
         // 1. 清理空规则，并在每个块末尾补齐一个空白规则
@@ -751,11 +748,8 @@ abstract class Block {
         this.properties.customCSS.push({ selector: '', rules: [{ prop: '', val: '' }] });
     }
 
-    /**
-     * @returns
-     * @private
-     */
-    _renderCustomCSSSectionHTML() {
+
+    private _renderCustomCSSSectionHTML() {
         this._cleanUpCustomCSSData(); // 渲染前强制整理数据结构
 
         let html = '<div class="custom-css-container" fx="col" gap="s" id="css-rules-container">';
@@ -795,20 +789,17 @@ abstract class Block {
     /**
      * Subclasses can override this to attach event listeners to their custom HTML.
      * @param {HTMLElement} container - The details panel container.
-     * @private
      */
-    onDetailsPanelOpen_custom(container) {
-        // Default: do nothing
-    }
+    abstract onDetailsPanelOpen_custom(container: HTMLElement);
 
-    _refreshDetailsPanel() {
+    protected _refreshDetailsPanel() {
         this._applyCustomCSS();
         this.BAPI_PE.emitChange(false, 'css-ui-update', this); // Don't record history for every UI click
         this.BAPI_PE.updateDetailsPanel(); // Force re-render of panel
     }
 
     // 直接设置DOM属性以应用通用样式（如背景、边距、边框等），无需重写渲染整个块
-    _applyGenericStyles() {
+    private _applyGenericStyles() {
         if (!this.element) return;
         const s = this.element.style;
         const p = this.properties;
@@ -858,7 +849,7 @@ abstract class Block {
         s.boxShadow = p.boxShadow || '';
     }
 
-    _applyCustomCSS() {
+    private _applyCustomCSS() {
         if (!this.element) return;
 
         // 1. 在当前 Block 的 DOM 树内寻找或创建 style 标签
@@ -895,7 +886,7 @@ abstract class Block {
         styleTag.textContent = cssString;
     }
 
-    _reRenderSelf() {
+    protected _reRenderSelf() {
         // 1. 保存旧的 DOM 元素引用
         const oldElement = this.element;
         // 2. 调用自身的 render 方法生成全新的 DOM 结构
@@ -908,7 +899,7 @@ abstract class Block {
     }
 
 
-    _generateUUID() {
+    private _generateUUID() {
         return crypto.randomUUID();
     }
 }

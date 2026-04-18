@@ -12,29 +12,37 @@ import { TabManager } from '../main/tab-manager.js';
 import { FileType } from '../types.js';
 import * as file from '../main/file-helper.js';
 
+
+export enum EditorMode {
+    edit,
+    preview
+}
+
 export class PageEditor extends Editor {
-    elements; // To store references to DOM elements
-    mode; // 'edit' or 'preview'
+    elements: Record<string, HTMLElement>; // To store references to DOM elements
+    mode: EditorMode; // 'edit' or 'preview'
 
     // --- Core Editor State ---
-    blocks;
-    history;
-    activeCommandBlock;
-    draggedBlock;
+    blocks: Block[];
+    history: PageHistoryManager;
+    activeCommandBlock: Block | null;
+    draggedBlock: HTMLElement | null;
     currentDropInfo;
-    activeToolbarBlock;
+    activeToolbarBlock: Block | null;
     toolbarHideTimeout;
     currentSelection;
-    richTextEditingState;
+    richTextEditingState: { isActive: boolean; blockId: string | null; savedRange };
+
+    commandMenuSelectedIndex: number;
 
     // --- Property to track the currently hovered container's children-container element ---
-    hoveredChildrenContainer;
+    hoveredChildrenContainer: HTMLElement | null;
 
     // --- Sub-managers for organization ---
-    PageSelectionManager;
+    PageSelectionManager: PageSelectionManager;
     // The following will be initialized after HTML is loaded
-    PageReferenceManager;
-    popoverManager;
+    PageReferenceManager: PageReferenceManager | null;
+    popoverManager: PopoverManager | null;
 
     constructor(container: HTMLElement, filePath: string, tabManager: TabManager, context = {}) {
         super(container, filePath, tabManager, context);
@@ -42,7 +50,7 @@ export class PageEditor extends Editor {
         this.type = FileType.Page; // 基类变量赋值
         
         this.elements = {};
-        this.mode = 'edit';
+        this.mode = EditorMode.edit;
         
         this.blocks = [];
         this.history = new PageHistoryManager(this);
@@ -53,13 +61,11 @@ export class PageEditor extends Editor {
         this.toolbarHideTimeout = null;
         this.currentSelection = null;
         this.richTextEditingState = { isActive: false, blockId: null, savedRange: null };
-        this.elements.commandMenuSelectedIndex = 0;
+        this.commandMenuSelectedIndex = 0;
 
         this.hoveredChildrenContainer = null;
 
         this.PageSelectionManager = new PageSelectionManager(this);
-        this.PageReferenceManager = null; 
-        this.popoverManager = null;
     }
 
     // --- ========================================================== ---
@@ -268,8 +274,8 @@ export class PageEditor extends Editor {
         this.elements.editorAreaContainer.addEventListener('mouseover', this._onBlockMouseOver.bind(this));
         this.elements.editorAreaContainer.addEventListener('mouseout', this._onBlockMouseOut.bind(this));
         if (window.currentOS !== 'android') {//安卓上防止长按触发打开细节面板
-            this.elements.editorAreaContainer.addEventListener('contextmenu', (e) => {
-                const blockEl = e.target.closest('.block-container');
+            this.elements.editorAreaContainer.addEventListener('contextmenu', (e: MouseEvent) => {
+                const blockEl = (e.target as HTMLElement).closest('.block-container') as HTMLElement;
                 if (blockEl) {
                     e.preventDefault(); // Prevent the default browser context menu
                     const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset['id'])?.block;
@@ -286,9 +292,15 @@ export class PageEditor extends Editor {
         this.elements.blockToolbar.addEventListener('mouseout', this._onBlockMouseOut.bind(this));
         this.elements.blockToolbarGraceArea.addEventListener('mouseover', () => clearTimeout(this.toolbarHideTimeout));
         this.elements.blockToolbarGraceArea.addEventListener('mouseout', this._onBlockMouseOut.bind(this));
-        this.elements.modeToggle.addEventListener('click', (e) => {
-            const option = e.target.closest('.mode-toggle-option');
-            if (option) { this.switchMode(option.dataset['mode']); }
+        this.elements.modeToggle.addEventListener('click', (e: MouseEvent) => {
+            const option = (e.target as HTMLElement).closest('.mode-toggle-option') as HTMLElement;
+            if (option) {
+                if (option.dataset['mode'] === 'edit') {
+                    this.switchMode(EditorMode.edit);
+                } else if (option.dataset['mode'] === 'preview') {
+                    this.switchMode(EditorMode.preview);
+                }
+            }
         });
         this.elements.saveBtn.addEventListener('click', () => this.savePage());
 
@@ -305,9 +317,9 @@ export class PageEditor extends Editor {
         this.elements.previewView.addEventListener('click', this._onPreviewClick.bind(this));
 
         // Click listener for hierarchy view in details panel
-        this.elements.detailsView.addEventListener('click', (e) => {
+        this.elements.detailsView.addEventListener('click', (e: MouseEvent) => {
             // Target the entire row for a larger click area
-            const targetRow = e.target.closest('.details-hierarchy-row');
+            const targetRow = (e.target as HTMLElement).closest('.details-hierarchy-row') as HTMLElement;
             if (targetRow && targetRow.dataset['blockId']) {
                 const blockId = targetRow.dataset['blockId'];
                 // 1. Update the selection using the selection manager
@@ -326,10 +338,10 @@ export class PageEditor extends Editor {
         const deleteZone = this.elements.deleteDropZone;
         if (deleteZone) {
             // Listener 1: When a draggable element is dragged OVER the delete zone.
-            deleteZone.addEventListener('dragover', (e) => {
+            deleteZone.addEventListener('dragover', (e: DragEvent) => {
                 // *** CRITICAL FIX PART 1 ***
                 e.preventDefault(); // This is absolutely necessary to allow a drop.
-                e.dataTransfer.dropEffect = 'move'; // Show a "move" cursor, not "disabled".
+                (e.dataTransfer as DataTransfer).dropEffect = 'move'; // Show a "move" cursor, not "disabled".
                 
                 // Add visual feedback and set the drop info, just like in the main _onDragOver.
                 deleteZone.classList.add('is-active');
@@ -347,7 +359,7 @@ export class PageEditor extends Editor {
             });
     
             // Listener 3: When a draggable element is DROPPED ONTO the delete zone.
-            deleteZone.addEventListener('drop', (e) => {
+            deleteZone.addEventListener('drop', (e: DragEvent) => {
                 // *** CRITICAL FIX PART 2 ***
                 e.preventDefault(); // Prevent any default browser action.
                 
@@ -355,12 +367,16 @@ export class PageEditor extends Editor {
                 // We can reuse the same logic from the _onDrop method.
                 this.elements.deleteDropZone.classList.remove('is-active');
                 
-                const multiDragData = e.dataTransfer.getData('application/veritnote-block-ids');
-                const singleDragId = e.dataTransfer.getData('text/plain');
+                const multiDragData = (e.dataTransfer as DataTransfer).getData('application/veritnote-block-ids');
+                const singleDragId = (e.dataTransfer as DataTransfer).getData('text/plain');
                 
                 let idsToDelete = [];
-                if (multiDragData) { idsToDelete = JSON.parse(multiDragData); }
-                else if (singleDragId) { idsToDelete = [singleDragId]; }
+                if (multiDragData) {
+                    idsToDelete = JSON.parse(multiDragData);
+                }
+                else if (singleDragId) {
+                    idsToDelete = [singleDragId];
+                }
     
                 if (idsToDelete.length > 0) {
                     idsToDelete.forEach(id => {
@@ -420,10 +436,10 @@ export class PageEditor extends Editor {
             if (!savedPath) return;
 
             // 遍历当前编辑器中的所有块
-            const notifyBlocksRecursive = (blocks) => {
+            const notifyBlocksRecursive = (blocks: Block[]) => {
                 blocks.forEach(block => {
-                    if (block.type === 'quote' && typeof block.onPageSaved === 'function') {
-                        block.onPageSaved(savedPath);
+                    if ((block.constructor as typeof Block).type === 'quote') { // 不可以使用 instanceof 来判断！
+                        (block as QuoteBlock).onPageSaved(savedPath);
                     }
                     if (block.children && block.children.length > 0) {
                         notifyBlocksRecursive(block.children);
@@ -496,7 +512,7 @@ export class PageEditor extends Editor {
         });
     }
 
-    deleteBlock(blockInstance, recordHistory = true) {
+    deleteBlock(blockInstance: Block, recordHistory = true) {
         const info = this._findBlockInstanceAndParent(blockInstance.id);
         if (info) {
             window.dispatchEvent(new CustomEvent('block:deleted', {
@@ -543,7 +559,7 @@ export class PageEditor extends Editor {
         }
     }
 
-    deleteMultipleBlocks(blockIds) {
+    deleteMultipleBlocks(blockIds: string[]) {
         if (!blockIds || blockIds.length === 0) return;
 
         blockIds.forEach(id => {
@@ -613,7 +629,7 @@ export class PageEditor extends Editor {
         }
     }
 
-    override onAfterSave(success) {
+    override onAfterSave() {
         if (this.elements.saveBtn) {
             this.elements.saveBtn.classList.remove('unsaved');
         }
@@ -649,7 +665,7 @@ export class PageEditor extends Editor {
      * @param {string} [actionType='unknown'] - A descriptor for the change (e.g., 'typing', 'delete-block') for history coalescing.
      * @param {Block|null} [blockInstance=null] - The specific block instance that was changed, used for detailed event dispatching.
      */
-    emitChange(recordHistory = true, actionType = 'unknown', blockInstance = null) {
+    emitChange(recordHistory = true, actionType = 'unknown', blockInstance: Block | null = null) {
         // Prevent recording history during an undo/redo operation to avoid infinite loops.
         if (this.history.isUndoingOrRedoing) {
             return;
@@ -695,8 +711,8 @@ export class PageEditor extends Editor {
     }
 
     // --- Event Handlers ---
-    _onInput(e) {
-        const blockEl = e.target.closest('[data-id]');
+    _onInput(e: InputEvent) {
+        const blockEl = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
         if (!blockEl) return;
 
         const blockInstance = this._findBlockInstanceById(this.blocks, blockEl.dataset['id'])?.block;
@@ -732,7 +748,7 @@ export class PageEditor extends Editor {
             // 或者当容器为空时点击容器体
             if (blockInstance && blockInstance.childrenContainer) {
                 // 如果是 Column，保留特殊逻辑
-                if (blockInstance.type === 'column') {
+                if ((blockInstance.constructor as typeof Block).type === 'column') {
                     this._appendNewBlockToContainer(blockInstance);
                     return;
                 }
@@ -771,9 +787,9 @@ export class PageEditor extends Editor {
      * Handles clicks within the preview view, specifically for internal links.
      * @param {MouseEvent} e The click event.
      */
-    async _onPreviewClick(e) {
+    async _onPreviewClick(e: MouseEvent) {
         // 使用 .closest() 寻找被点击的元素或其祖先元素中符合条件的链接
-        const link = e.target.closest('a.internal-link');
+        const link = (e.target as HTMLElement).closest('a.internal-link') as HTMLElement;
 
         if (link) {
             e.preventDefault(); // 阻止 a[href="#"] 的默认跳转行为
@@ -782,8 +798,8 @@ export class PageEditor extends Editor {
             if (!internalLink) return;
 
             // 1. 将链接分割为文件路径和可能的块ID（哈希部分）
-            let [filePath, blockId] = internalLink.split('#');
-            blockId = blockId || null; // 如果没有哈希，确保 blockId 为 null
+            let [filePath, blockIdRaw] = internalLink.split('#');
+            let blockId: string | null = blockIdRaw || null; // 如果没有哈希，确保 blockId 为 null
 
             // 2. 使用全局辅助函数将相对工作区路径解析为绝对路径
             const absolutePath = file.resolveWorkspacePath(filePath);
@@ -798,12 +814,12 @@ export class PageEditor extends Editor {
     _onBackgroundClick() {
         // 如果编辑器中已经有块，并且最后一个块是空的段落，则直接聚焦它，而不是创建新块
         const lastBlock = this.blocks[this.blocks.length - 1];
-        if (lastBlock && lastBlock.type === 'paragraph' && (!lastBlock.content || lastBlock.content === '<br>')) {
+        if (lastBlock && (lastBlock.constructor as typeof Block).type === 'paragraph' && (!lastBlock.content || lastBlock.content === '<br>')) {
             this.PageSelectionManager.setSelect(lastBlock.id);
             return;
         }
 
-        const newBlock = this.createBlockInstance({ type: 'paragraph' });
+        const newBlock = this.createBlockInstance({ type: 'paragraph' }) as Block;
         this.blocks.push(newBlock);
         
         const newBlockEl = newBlock.render(); // 使用 .render()
@@ -814,8 +830,8 @@ export class PageEditor extends Editor {
         this.emitChange(true, 'create-block');
     }
 
-    _appendNewBlockToContainer(containerBlock) {
-        const newBlockInstance = this.createBlockInstance({ type: 'paragraph' });
+    _appendNewBlockToContainer(containerBlock: Block) {
+        const newBlockInstance = this.createBlockInstance({ type: 'paragraph' }) as Block;
         
         // 1. 将新块实例添加到数据模型中
         containerBlock.children.push(newBlockInstance);
@@ -833,9 +849,9 @@ export class PageEditor extends Editor {
         if (targetDomContainer) {
             targetDomContainer.appendChild(newBlockEl);
         } else {
-            // 如果由于某种原因 childrenContainer 不存在，提供一个健壮的回退
-            console.warn(`Block type "${containerBlock.type}" is a container but lacks a .childrenContainer reference. Appending to .element as a fallback.`);
-            containerBlock.element.appendChild(newBlockEl);
+            // 如果由于某种原因 childrenContainer 不存在，提供一个回退
+            console.warn(`Block type "${(containerBlock.constructor as typeof Block).type}" is a container but lacks a .childrenContainer reference. Appending to .element as a fallback.`);
+            (containerBlock.element as HTMLElement).appendChild(newBlockEl);
         }
         
         this.PageSelectionManager.setSelect(newBlockInstance.id);
@@ -843,7 +859,7 @@ export class PageEditor extends Editor {
     }
 
     _onSelectionChange() {
-        const selection = document.getSelection();
+        const selection = document.getSelection() as Selection;
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             if (this.container.contains(range.startContainer)) {
@@ -853,7 +869,7 @@ export class PageEditor extends Editor {
     }
 
     // --- Global Keydown Handler ---
-    override onKeyDown(e) {
+    override onKeyDown(e: KeyboardEvent) {
         const activeTab = this.tabManager.getActiveTab();
         if (!activeTab) return;
     
@@ -901,29 +917,29 @@ export class PageEditor extends Editor {
      *
      * @param {KeyboardEvent} e The keyboard event object.
      */
-    _onEditorKeyDown(e) {
+    _onEditorKeyDown(e: KeyboardEvent) {
         // --- Priority 1: Slash Command Menu Navigation ---
         // If the command menu is visible, it intercepts arrow keys and Enter to navigate the menu.
         if (this.elements.commandMenu.style.display === 'block') {
-            const items = this.elements.commandMenu.querySelectorAll('.command-item');
+            const items = this.elements.commandMenu.querySelectorAll('.command-item') as NodeListOf<HTMLElement>;
             if (items.length > 0) {
                 switch (e.key) {
                     case 'ArrowUp':
                         e.preventDefault();
-                        this.elements.commandMenuSelectedIndex = (this.elements.commandMenuSelectedIndex - 1 + items.length) % items.length;
+                        this.commandMenuSelectedIndex = (this.commandMenuSelectedIndex - 1 + items.length) % items.length;
                         this._updateCommandMenuSelection();
                         return; // Stop further processing
 
                     case 'ArrowDown':
                         e.preventDefault();
-                        this.elements.commandMenuSelectedIndex = (this.elements.commandMenuSelectedIndex + 1) % items.length;
+                        this.commandMenuSelectedIndex = (this.commandMenuSelectedIndex + 1) % items.length;
                         this._updateCommandMenuSelection();
                         return; // Stop further processing
 
                     case 'Enter':
                     case 'Tab': // Treat Tab as confirmation as well
                         e.preventDefault();
-                        items[this.elements.commandMenuSelectedIndex].click(); // Simulate a click
+                        items[this.commandMenuSelectedIndex].click(); // Simulate a click
                         return; // Stop further processing
                 }
             }
@@ -956,10 +972,10 @@ export class PageEditor extends Editor {
         // --- Priority 3: Forwarding to the Block Instance ---
         // This is the original logic from the old editor.js _onKeyDown.
         // It finds the block where the key was pressed and calls its onKeyDown method.
-        const contentEl = e.target.closest('.block-content, .list-item-text-area');
+        const contentEl = (e.target as HTMLElement).closest('.block-content, .list-item-text-area') as HTMLElement;
         if (!contentEl) return;
         
-        const blockId = contentEl.dataset['id'] || contentEl.closest('[data-id]')?.dataset['id'];
+        const blockId = contentEl.dataset['id'] || (contentEl.closest('[data-id]') as HTMLElement)?.dataset['id'];
         if (!blockId) return;
 
         const blockInstance = this._findBlockInstanceAndParent(blockId)?.block;
@@ -980,7 +996,7 @@ export class PageEditor extends Editor {
      * This prevents conflicting show/hide calls on every input.
      * @param {Block} blockInstance The block that triggered the command.
      */
-    showCommandMenuForBlock(blockInstance) {
+    showCommandMenuForBlock(blockInstance: Block) {
         const blockEl = blockInstance.contentElement;
         if (!blockEl || this.elements.commandMenu.classList.contains('is-visible')) {
             return; // Don't show if no element or already visible
@@ -1029,7 +1045,7 @@ export class PageEditor extends Editor {
                 }
             }, 150); // Match the CSS transition duration
             
-            this.elements.commandMenuSelectedIndex = 0;
+            this.commandMenuSelectedIndex = 0;
         }
     }
 
@@ -1039,9 +1055,9 @@ export class PageEditor extends Editor {
      * @returns {Array<object>} An array of matching command objects.
      * @private
      */
-    _getFilteredCommands(searchTerm) {
+    _getFilteredCommands(searchTerm: string) {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        const filteredCommands = [];
+        const filteredCommands: Array<{ type: string; title: string; description: string; icon: string }> = [];
         window.blockRegistry.forEach(BlockClass => {
             if (BlockClass.canBeToggled) {
                 const match = BlockClass.label.toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -1064,7 +1080,7 @@ export class PageEditor extends Editor {
      * @param {Array<object>} commands - The command objects to render.
      * @private
      */
-    _renderCommandMenu(commands) {
+    _renderCommandMenu(commands: Array<{ type: string; title: string; description: string; icon: string }>) {
         this.elements.commandMenu.innerHTML = `
             <div class="command-menu-title">Basic Blocks</div>
             <div class="command-menu-list">
@@ -1079,7 +1095,7 @@ export class PageEditor extends Editor {
                 `).join('')}
             </div>
         `;
-        this.elements.commandMenuSelectedIndex = 0;
+        this.commandMenuSelectedIndex = 0;
         this._updateCommandMenuSelection();
     }
 
@@ -1089,8 +1105,13 @@ export class PageEditor extends Editor {
      * @param {Block} blockInstance The block instance that may trigger the menu.
      * @private
      */
-    _handleCommandMenuLifecycle(blockInstance) {
-        const content = blockInstance.contentElement.textContent || '';
+    _handleCommandMenuLifecycle(blockInstance: Block) {
+        let content: string;
+        if (!blockInstance.contentElement) {
+            content = '';
+        } else {
+            content = blockInstance.contentElement.textContent || '';
+        }
 
         // --- DECISION 1: Should the menu exist at all? ---
         // If content doesn't start with '/', hide and exit immediately.
@@ -1125,7 +1146,7 @@ export class PageEditor extends Editor {
     _updateCommandMenuSelection() {
         const items = this.elements.commandMenu.querySelectorAll('.command-item');
         items.forEach((item, index) => {
-            if (index === this.elements.commandMenuSelectedIndex) {
+            if (index === this.commandMenuSelectedIndex) {
                 item.classList.add('selected');
                 // Ensure the selected item is visible in the scrollable area
                 item.scrollIntoView({ block: 'nearest' });
@@ -1135,16 +1156,16 @@ export class PageEditor extends Editor {
         });
     }
 
-    _onCommandMenuClick(e) {
+    _onCommandMenuClick(e: MouseEvent) {
         e.preventDefault();
-        const item = e.target.closest('.command-item');
+        const item = (e.target as HTMLElement).closest('.command-item') as HTMLElement;
         if (!item || !this.activeCommandBlock) return;
 
         const newType = item.dataset['type'];
         const targetBlock = this.activeCommandBlock;
         targetBlock.syncContentFromDOM();
 
-        if (targetBlock.content.trim() === '/' || targetBlock.content.trim() === '') {
+        if ((targetBlock.content as string).trim() === '/' || (targetBlock.content as string).trim() === '') {
             // Transform the block in place
             const { parentArray, index } = this._findBlockInstanceAndParent(targetBlock.id);
             const newBlockData = { id: targetBlock.id, type: newType };
@@ -1152,9 +1173,9 @@ export class PageEditor extends Editor {
             if (newBlockInstance) {
                 parentArray.splice(index, 1, newBlockInstance);
                 
-                const oldEl = targetBlock.element;
+                const oldEl = targetBlock.element as HTMLElement;
                 const newEl = newBlockInstance.render();
-                oldEl.parentElement.replaceChild(newEl, oldEl);
+                (oldEl.parentElement as HTMLElement).replaceChild(newEl, oldEl);
                 
                 this.PageSelectionManager.setSelect(newBlockInstance.id);
             }
@@ -1168,10 +1189,10 @@ export class PageEditor extends Editor {
     }
 
     // --- Drag & Drop Handlers ---
-    _onDragStart(e) {
-        const blockContainer = e.target.closest('.block-container');
+    _onDragStart(e: DragEvent) {
+        const blockContainer = (e.target as HTMLElement).closest('.block-container') as HTMLElement;
         if (blockContainer) {
-            const blockId = blockContainer.dataset['id'];
+            const blockId = blockContainer.dataset['id'] as string;
             const isMultiDrag = this.PageSelectionManager && this.PageSelectionManager.getSelectionSize() > 1 && this.PageSelectionManager.hasSelected(blockId);
 
             this.draggedBlock = blockContainer; // Keep this for visual feedback (opacity)
@@ -1183,7 +1204,7 @@ export class PageEditor extends Editor {
                 const selectedIds = this.PageSelectionManager.getSelected();
                 const orderedIds = [blockId, ...selectedIds.filter(id => id !== blockId)];
                 
-                e.dataTransfer.setData('application/veritnote-block-ids', JSON.stringify(orderedIds));
+                (e.dataTransfer as DataTransfer).setData('application/veritnote-block-ids', JSON.stringify(orderedIds));
                 
                 // Add a class to all selected blocks for visual feedback
                 orderedIds.forEach(id => {
@@ -1194,7 +1215,7 @@ export class PageEditor extends Editor {
             } else {
                 // --- SINGLE-DRAG LOGIC (unchanged) ---
                 this.PageSelectionManager.clearSelect(); // Clear selection if starting a single drag
-                e.dataTransfer.setData('text/plain', blockId);
+                (e.dataTransfer as DataTransfer).setData('text/plain', blockId);
                 setTimeout(() => blockContainer.style.opacity = '0.5', 0);
             }
 
@@ -1207,7 +1228,7 @@ export class PageEditor extends Editor {
      * This is the single source of truth for showing the container's drop/click target.
      * @param {Block | null} containerBlockInstance The container block instance to activate.
      */
-    _setActiveContainerAddArea(containerBlockInstance) {
+    _setActiveContainerAddArea(containerBlockInstance: Block) {
         // Deactivate the previously active one, if any.
         if (this.hoveredChildrenContainer) {
             this.hoveredChildrenContainer.classList.remove('show-add-area');
@@ -1233,14 +1254,14 @@ export class PageEditor extends Editor {
     // 判断一个块是否允许在其左右两侧创建分栏
     // 逻辑：如果一个块的父级没有交互容器(childrenContainer为null)，说明该块是父级不可分割的结构（如Row是Table的结构），
     // 此时不允许破坏结构创建分栏。
-    _canAcceptSideDrop(blockInstance) {
+    _canAcceptSideDrop(blockInstance: Block) {
         // 1. 如果没有父块，说明是根级别块，允许。
         if (!blockInstance.parent) return true;
 
         // 2. 特例：如果父块是 'columns'。
         // 虽然 ColumnsBlock 的 childrenContainer 也是 null (我们在上一步修改中设定的)，
         // 但我们允许在 Column 旁边拖放以添加新列。
-        if (blockInstance.parent.type === 'columns') return true;
+        if ((blockInstance.parent.constructor as typeof Block).type === 'columns') return true;
 
         // 3. 核心判断：如果父块拥有有效的 childrenContainer，说明当前块只是容器里的一个普通内容块。
         // 此时允许在它旁边创建分栏。
@@ -1252,14 +1273,14 @@ export class PageEditor extends Editor {
         return false;
     }
 
-    _onDragOver(e) {
+    _onDragOver(e: MouseEvent) {
         e.preventDefault();
 
         this._cleanupDragIndicators(false); 
 
         // 1. 基础变量准备
         // 我们需要找到当前鼠标下的“最深层”的块 (可能是子块，也可能是父块本身)
-        let directTargetEl = e.target.closest('[data-id]');
+        let directTargetEl = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
 
         if (!directTargetEl) {
             this.currentDropInfo = null;
@@ -1293,7 +1314,7 @@ export class PageEditor extends Editor {
                     ancestorInst.childrenContainer.classList.add('is-drag-active');
                 }
             }
-            ancestorEl = ancestorEl.parentElement;
+            ancestorEl = ancestorEl.parentElement as HTMLElement;
         }
 
         // ============================================================
@@ -1309,12 +1330,12 @@ export class PageEditor extends Editor {
 
         // 检查 1: 鼠标是否直接悬停在某个 childrenContainer 上？
         // (这种情况通常发生在容器有 padding，或者鼠标在子块之间的缝隙)
-        if (e.target.classList.contains('block-children-container') ||
-            e.target.classList.contains('callout-content-wrapper')) {
+        if ((e.target as HTMLElement).classList.contains('block-children-container') ||
+            (e.target as HTMLElement).classList.contains('callout-content-wrapper')) {
 
             // 找到了对应的容器块实例
             // 注意：e.target 是 childrenContainer，它的 parentElement 通常是 contentElement 或 blockElement
-            const containerBlockEl = e.target.closest('[data-id]');
+            const containerBlockEl = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
             const containerInst = this._findBlockInstanceById(this.blocks, containerBlockEl.dataset['id'])?.block;
 
             if (containerInst) {
@@ -1323,8 +1344,8 @@ export class PageEditor extends Editor {
                 finalTargetId = containerInst.id;
 
                 // 视觉更新：虚线变实线
-                e.target.classList.remove('is-drag-active');
-                e.target.classList.add('is-drop-target-solid');
+                (e.target as HTMLElement).classList.remove('is-drag-active');
+                (e.target as HTMLElement).classList.add('is-drop-target-solid');
 
                 this.currentDropInfo = { targetId: finalTargetId, position: position };
                 return; // 判定结束
@@ -1367,11 +1388,11 @@ export class PageEditor extends Editor {
         this.currentDropInfo = { targetId: finalTargetId, position: position };
     }
 
-    _onDragLeave(e) {  }
+    _onDragLeave(e: MouseEvent) {  }
 
-    _onDrop(e) {
+    _onDrop(e: DragEvent) {
         // --- Check for reference item drop at the very beginning ---
-        const refItemDataStr = e.dataTransfer.getData('application/veritnote-reference-item');
+        const refItemDataStr = (e.dataTransfer as DataTransfer).getData('application/veritnote-reference-item');
         if (refItemDataStr) {
             e.preventDefault();
             this._cleanupDragIndicators();
@@ -1395,8 +1416,8 @@ export class PageEditor extends Editor {
             this.draggedBlock.style.opacity = '1';
         }
     
-        const multiDragData = e.dataTransfer.getData('application/veritnote-block-ids');
-        const singleDragId = e.dataTransfer.getData('text/plain');
+        const multiDragData = (e.dataTransfer as DataTransfer).getData('application/veritnote-block-ids');
+        const singleDragId = (e.dataTransfer as DataTransfer).getData('text/plain');
     
         if ((!multiDragData && !singleDragId) || !this.currentDropInfo) {
             this.draggedBlock = null;
@@ -1410,7 +1431,7 @@ export class PageEditor extends Editor {
              return;
         }
         
-        const draggedIds = multiDragData ? JSON.parse(multiDragData) : [singleDragId];
+        const draggedIds: string[] = multiDragData ? JSON.parse(multiDragData) : [singleDragId];
         if (draggedIds.includes(targetId)) return;
 
         // --- 防止将父块拖入其自身或其子孙块中（结构死循环会导致块消失） ---
@@ -1478,8 +1499,6 @@ export class PageEditor extends Editor {
         const { block: targetBlockInstance, parentArray: toParentArray, index: toIndex, parentInstance: toParentInstance } = finalTargetInfo;
     
         // --- Perform insertion based on position ---
-        let parentToRender = toParentInstance || { element: this.container, children: this.blocks };
-        let containerElement = parentToRender.childrenContainer || parentToRender.element;
         let needsFullRender = false;
     
         switch (position) {
@@ -1535,7 +1554,7 @@ export class PageEditor extends Editor {
         }
         
         // 2. 收集所有受影响的父容器
-        const affectedParents = new Set();
+        const affectedParents = new Set<Block>();
         // (a) 添加被拖拽块的原始父容器
         allBlockInfos.forEach(info => {
             if (info.parentInstance) {
@@ -1591,13 +1610,15 @@ export class PageEditor extends Editor {
         }
     }
 
-    _handleColumnDrop(draggedBlocks, targetBlockInstance, position) {
-        const { parentArray, index: targetIndex, parentInstance } = this._findBlockInstanceAndParent(targetBlockInstance.id);
+    _handleColumnDrop(draggedBlocks: Block[], targetBlockInstance: Block, position: 'left' | 'right') {
+        let targetInfo = this._findBlockInstanceAndParent(targetBlockInstance.id);
+        if (!targetInfo) return;
+        const { block, parentInstance, parentArray, index: targetIndex } = targetInfo;
 
         // Scene A: Target is already a column inside a Columns block.
-        if (parentInstance && parentInstance.type === 'columns') {
+        if (parentInstance && (parentInstance.constructor as typeof Block).type === 'columns') {
             // Create a new column to hold the dropped blocks
-            const newColumn = this.createBlockInstance({ type: 'column' });
+            const newColumn = this.createBlockInstance({ type: 'column' }) as Block;
             newColumn.children.push(...draggedBlocks);
             
             // Insert the new column next to the target column
@@ -1611,15 +1632,15 @@ export class PageEditor extends Editor {
             // Scene B: Two or more blocks merge into a brand new Columns block.
             
             // First, create a column for the target block
-            const targetColumn = this.createBlockInstance({ type: 'column' });
+            const targetColumn = this.createBlockInstance({ type: 'column' }) as Block;
             targetColumn.children.push(targetBlockInstance);
             
             // Second, create a column for ALL the dragged blocks
-            const draggedColumn = this.createBlockInstance({ type: 'column' });
+            const draggedColumn = this.createBlockInstance({ type: 'column' }) as Block;
             draggedColumn.children.push(...draggedBlocks);
             
             // Third, create the main Columns container
-            const newColumnsContainer = this.createBlockInstance({ type: 'columns' });
+            const newColumnsContainer = this.createBlockInstance({ type: 'columns' }) as Block;
             
             // Arrange the new columns based on the drop position
             if (position === 'left') {
@@ -1633,12 +1654,12 @@ export class PageEditor extends Editor {
         }
     }
 
-    _cleanupData() {
+    _cleanupData(): { structuralChange: boolean; modifiedContainerIds: Set<string> } {
         // structuralChange is now only used for the return value for render() decision
         let structuralChange = false; 
-        const modifiedContainerIds = new Set(); // <--- 新增：用于记录被修改的容器
+        const modifiedContainerIds = new Set<string>(); // <--- 新增：用于记录被修改的容器
     
-        const traverseAndClean = (blocks, parent) => {
+        const traverseAndClean = (blocks: Block[], parent: Block | null) => {
             for (let i = blocks.length - 1; i >= 0; i--) {
                 const block = blocks[i];
     
@@ -1646,7 +1667,7 @@ export class PageEditor extends Editor {
                     traverseAndClean(block.children, block);
                 }
     
-                if (block.type === 'columns') {
+                if ((block.constructor as typeof Block).type === 'columns') {
                     const columnsToRemoveFromDOM = [];
                     const originalColumnCount = block.children.length;
                 
@@ -1978,7 +1999,7 @@ export class PageEditor extends Editor {
     }
 
     // --- A helper function to insert a block instance based on drop info ---
-    _insertBlockAtPosition(blockToInsert, targetInfo, position) {
+    _insertBlockAtPosition(blockToInsert: Block, targetInfo, position) {
         const { block: targetBlockInstance, parentArray: toParentArray, index: toIndex, parentInstance: toParentInstance } = targetInfo;
         
         const parentDomElement = targetBlockInstance.element.parentElement;
@@ -2043,7 +2064,7 @@ export class PageEditor extends Editor {
         // 为了实现“套娃显示”，需要向上遍历所有父容器并激活它们。
 
         // 1. 收集当前鼠标下的所有祖先容器 ID
-        const activeContainerIds = new Set();
+        const activeContainerIds = new Set<string>();
         let curr = e.target;
         while (curr && curr !== this.elements.editorAreaContainer) {
             if (curr.classList.contains('block-children-container') ||
@@ -2090,13 +2111,13 @@ export class PageEditor extends Editor {
         }, 300);
     }
 
-    _showBlockToolbar(blockInstance) {
+    _showBlockToolbar(blockInstance: Block) {
         if (this.activeToolbarBlock) {
-            this.activeToolbarBlock.element.classList.remove('toolbar-active');
+            (this.activeToolbarBlock.element as HTMLElement).classList.remove('toolbar-active');
         }
 
         this.activeToolbarBlock = blockInstance;
-        const blockEl = blockInstance.element;
+        const blockEl = blockInstance.element as HTMLElement;
         blockEl.classList.add('toolbar-active');
 
         this._populateToolbar(blockInstance);
@@ -2150,7 +2171,7 @@ export class PageEditor extends Editor {
         this.activeToolbarBlock = null;
     }
 
-    _populateToolbar(blockInstance) {
+    _populateToolbar(blockInstance: Block) {
         this.elements.blockToolbar.innerHTML = '';
         const buttons = blockInstance.toolbarButtons;
 
@@ -2184,7 +2205,7 @@ export class PageEditor extends Editor {
         });
     }
 
-    _handleToolbarClick(e, blockInstance) {
+    _handleToolbarClick(e, blockInstance: Block) {
         const button = e.currentTarget;
         const action = button.dataset['action'];
         const arg = button.dataset['arg'];
@@ -2261,7 +2282,7 @@ export class PageEditor extends Editor {
      * Selects a block, ensures the right sidebar is open, and switches to the details view.
      * @param {Block} blockInstance The block instance to show details for.
      */
-    _showBlockDetails(blockInstance) {
+    _showBlockDetails(blockInstance: Block) {
         if (!blockInstance) return;
         
         // 1. Select the current block
@@ -2290,16 +2311,16 @@ export class PageEditor extends Editor {
      * @param {string} mode - The target mode, either 'edit' or 'preview'.
      * @param {boolean} [forceRefresh=false] - If true, it will re-render the view even if the mode is already active.
      */
-    async switchMode(mode, forceRefresh = false) {
+    async switchMode(mode: EditorMode, forceRefresh = false) {
         if (!this.isReady) return;
-        const wasInPreviewMode = this.mode === 'preview';
+        const wasInPreviewMode = this.mode === EditorMode.preview;
         if (this.mode === mode && !forceRefresh) return;
     
         let topBlockId = null;
         const editScrollContainer = this.elements.editBackgroundContainer;
         const previewScrollContainer = this.elements.previewBackgroundContainer;
     
-        if (this.mode === 'edit') {
+        if (this.mode === EditorMode.edit) {
             topBlockId = this._getTopVisibleBlockId(editScrollContainer);
         } else {
             topBlockId = this._getTopVisibleBlockId(previewScrollContainer);
@@ -2307,7 +2328,7 @@ export class PageEditor extends Editor {
         
         this.mode = mode;
     
-        if (mode === 'edit') {
+        if (mode === EditorMode.edit) {
             editScrollContainer.style.display = 'flex';
             previewScrollContainer.style.display = 'none';
             requestAnimationFrame(() => { this._scrollToBlock(editScrollContainer, topBlockId); });
@@ -2356,7 +2377,7 @@ export class PageEditor extends Editor {
      * @param {string} blockId The ID of the block to scroll to.
      * @private
      */
-    _scrollToBlock(container, blockId) {
+    _scrollToBlock(container, blockId: string) {
         // This logic is copied directly from the old main.js. No changes needed.
         if (!blockId) return;
         const targetElement = container.querySelector(`.block-container[data-id="${blockId}"]`);
@@ -2382,8 +2403,8 @@ export class PageEditor extends Editor {
 
             // --- Mode Toggle State ---
             // The `mode` state is managed by this PageEditor instance.
-            this.elements.modeToggle.classList.toggle('edit-active', this.mode === 'edit');
-            this.elements.modeToggle.classList.toggle('preview-active', this.mode === 'preview');
+            this.elements.modeToggle.classList.toggle('edit-active', this.mode === EditorMode.edit);
+            this.elements.modeToggle.classList.toggle('preview-active', this.mode === EditorMode.preview);
         } else {
             // Fallback for when there is no active tab (should rarely happen when an editor is active).
             // This logic is inherited from the old main.js for robustness.
@@ -2420,7 +2441,7 @@ export class PageEditor extends Editor {
     _initRightSidebarLogic() {
         // --- 1. View (Tab) Switching ---
         this.elements.rightSidebarViewToggle.addEventListener('click', (e) => {
-            const option = e.target.closest('.rs-view-option');
+            const option = (e.target as HTMLElement).closest('.rs-view-option') as HTMLElement;
             if (option) {
                 this.switchRightSidebarView(option.dataset['view']);
             }
@@ -2550,8 +2571,8 @@ export class PageEditor extends Editor {
             'references': this.elements.referencesView,
             'details': this.elements.detailsView
         };
-        const slider = this.elements.rightSidebarViewToggle.querySelector('.rs-view-slider');
-        const optionToActivate = this.elements.rightSidebarViewToggle.querySelector(`.rs-view-option[data-view="${viewName}"]`);
+        const slider = this.elements.rightSidebarViewToggle.querySelector('.rs-view-slider') as HTMLElement;
+        const optionToActivate = this.elements.rightSidebarViewToggle.querySelector(`.rs-view-option[data-view="${viewName}"]`) as HTMLElement;
     
         if (!optionToActivate) return;
     
@@ -2559,7 +2580,7 @@ export class PageEditor extends Editor {
             slider.style.left = `${optionToActivate.offsetLeft}px`;
         }
     
-        this.elements.rightSidebarViewToggle.querySelectorAll('.rs-view-option').forEach(opt => {
+        (this.elements.rightSidebarViewToggle.querySelectorAll('.rs-view-option') as NodeListOf<HTMLElement>).forEach(opt => {
             opt.classList.toggle('active', opt.dataset['view'] === viewName);
         });
     
@@ -2604,7 +2625,7 @@ export class PageEditor extends Editor {
             const blockInfo = editor._findBlockInstanceById(editor.blocks, id);
             if (blockInfo && blockInfo.block) {
                 // Find the specific section for this block within the panel
-                const blockSection = this.elements.detailsView.querySelector(`.details-panel-section[data-block-id="${id}"]`);
+                const blockSection = this.elements.detailsView.querySelector(`.details-panel-section[data-block-id="${id}"]`) as HTMLElement;
                 if (blockSection && typeof blockInfo.block.onDetailsPanelOpen === 'function') {
                     blockInfo.block.onDetailsPanelOpen(blockSection);
                 }
@@ -2649,7 +2670,7 @@ export class PageEditor extends Editor {
      * and updates the button's appearance.
      * @param {boolean} collapsed - True to collapse the toolbar, false to expand it.
      */
-    setToolbarCollapsed(collapsed) {
+    setToolbarCollapsed(collapsed: boolean) {
         // Like the sidebar, this needs to modify a class on a parent element.
         const mainContentEl = this.container.closest('#main-content');
         if (!mainContentEl) return;
@@ -2672,7 +2693,7 @@ export class PageEditor extends Editor {
     // --- ========================================================== ---
     // --- 6. Helper & Utility Methods
     // --- ========================================================== ---
-    _findBlockInstanceById(blocks, id, parentBlock = null) {
+    _findBlockInstanceById(blocks: Block[], id: string, parentBlock: Block | null = null): { block: Block, parent: Block[], index: number, parentBlock: Block | null } | null {
         for (let i = 0; i < blocks.length; i++) {
             const block = blocks[i];
             if (block.id === id) {
@@ -2686,7 +2707,7 @@ export class PageEditor extends Editor {
         return null;
     }
 
-    _findBlockToFocusAfterTextBlockDeleted(id) {
+    _findBlockToFocusAfterTextBlockDeleted(id: string) {
         const info = this._findBlockInstanceAndParent(id);
         let blockToFocus = null;
         if (info) {
@@ -2696,7 +2717,7 @@ export class PageEditor extends Editor {
         return blockToFocus;
     };
 
-    _findBlockInstanceAndParent(id, rootBlocks = this.blocks, parent = null) {
+    _findBlockInstanceAndParent(id: string, rootBlocks = this.blocks, parent: Block | null = null): { block: Block, parentInstance: Block | null, parentArray: Block[], index: number } | null {
         for (let i = 0; i < rootBlocks.length; i++) {
             const block = rootBlocks[i];
             if (block.id === id) {
@@ -2743,8 +2764,8 @@ export class PageEditor extends Editor {
         } = exportContext;
 
         // --- Step 1: 等待所有 Block 异步渲染完成 ---
-        const gatherPromises = (blocks) => {
-            let promises = [];
+        const gatherPromises = (blocks: Block[]): Promise<any>[] => {
+            let promises: Promise<any>[] = [];
             blocks.forEach(b => {
                 promises.push(b.exportReadyPromise);
                 if (b.children && b.children.length > 0) {
@@ -2756,25 +2777,25 @@ export class PageEditor extends Editor {
         await Promise.all(gatherPromises(this.blocks));
 
         // --- Step 2: 浅拷贝容器 ---
-        const renderedContainer = this.elements.editorAreaContainer.cloneNode(true);
+        const renderedContainer = this.elements.editorAreaContainer.cloneNode(true) as HTMLElement;
 
         // --- Step 3: 收集排除选择器并执行 Universal Cleanup ---
         let allExclusions = new Set();
         if (isForExport) {
-            const collectExclusions = (blocks) => {
+            const collectExclusions = (blocks: Block[]) => {
                 blocks.forEach(b => {
-                    if (b.constructor.exportExclusionSelectors) {
-                        b.constructor.exportExclusionSelectors.forEach(sel => allExclusions.add(sel));
+                    if ((b.constructor as typeof Block).exportExclusionSelectors) {
+                        (b.constructor as typeof Block).exportExclusionSelectors.forEach(sel => allExclusions.add(sel));
                     }
                     if (b.children) collectExclusions(b.children);
                 });
             };
             collectExclusions(this.blocks);
         } else {
-            const collectExclusions = (blocks) => {
+            const collectExclusions = (blocks: Block[]) => {
                 blocks.forEach(b => {
-                    if (b.constructor.previewExclusionSelectors) {
-                        b.constructor.previewExclusionSelectors.forEach(sel => allExclusions.add(sel));
+                    if ((b.constructor as typeof Block).previewExclusionSelectors) {
+                        (b.constructor as typeof Block).previewExclusionSelectors.forEach(sel => allExclusions.add(sel));
                     }
                     if (b.children) collectExclusions(b.children);
                 });
@@ -2839,7 +2860,7 @@ export class PageEditor extends Editor {
         // --- Step 5 (Export Only): 收集 Block Specific Scripts ---
         if (isForExport) {
             const scriptModules = new Set();
-            const collectScriptsRecursive = (blocks) => {
+            const collectScriptsRecursive = (blocks: Block[]) => {
                 if (!blocks) return;
                 blocks.forEach(block => {
                     if (typeof block.getExportScripts === 'function') {

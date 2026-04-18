@@ -106,6 +106,10 @@ class ImageBlock extends Block {
             );
         }
     }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](ImageBlock);

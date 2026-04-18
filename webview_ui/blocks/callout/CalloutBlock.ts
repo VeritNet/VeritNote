@@ -74,6 +74,10 @@ class CalloutBlock extends Block {
         buttons.push(...super.toolbarButtons);
         return buttons;
     }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](CalloutBlock);

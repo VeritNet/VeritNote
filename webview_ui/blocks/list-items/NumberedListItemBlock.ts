@@ -10,7 +10,8 @@ class NumberedListItemBlock extends TextBlock {
     static canBeToggled = true;
     static placeholder = 'List item';
 
-
+    
+    textElement;
     numberElement;
 
     // --- 2. Constructor ---
@@ -57,21 +58,9 @@ class NumberedListItemBlock extends TextBlock {
     }
 
     _applyListItemStyles() {
-        const s = this.contentElement.style;
         const p = this.properties;
-
-        // 应用 TextBlock 定义的所有通用文本样式
-        // 这些样式会从 contentElement 继承到 text-area 和 bullet point
-        if (p.color) s.color = p.color;
-        if (p.fontSize) s.fontSize = p.fontSize;
-        if (p.fontWeight) s.fontWeight = p.fontWeight;
-        if (p.lineHeight) s.lineHeight = p.lineHeight;
-        if (p.letterSpacing) s.letterSpacing = p.letterSpacing;
-        if (p.fontFamily && p.fontFamily !== 'inherit') s.fontFamily = p.fontFamily;
-
-        // 对齐方式特殊处理：通常列表项还是左对齐好看，但如果用户非要改...
-        // 这里的 textAlign 会影响 wrapper，导致 bullet 和 text 一起居中/右对齐
-        if (p.textAlign) s.textAlign = p.textAlign;
+         
+        this.applyTextStyles();
 
         // Text Decoration 通常只应用于文字，不应用于图标
         if (p.textDecoration) {
@@ -129,34 +118,6 @@ class NumberedListItemBlock extends TextBlock {
                     this.BAPI_PE.emitChange(true, 'set-list-number', this);
                 }
             }
-        }
-    }
-
-    // --- 6. Override keyboard events for list behavior ---
-    onKeyDown(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            if (e.shiftKey) return;
-            this.syncContentFromDOM(); // Save current state before creating new block
-            const newNumberedListItem = this.BAPI_PE.insertNewBlockAfter(this, 'numberedListItem');
-            const newNumber = (this.properties.number || 0) + 1;
-            newNumberedListItem.properties.number = newNumber;
-            newNumberedListItem.numberElement.textContent = newNumberedListItem.properties.number;
-            newNumberedListItem.BAPI_PE.emitChange(true, 'set-list-number', newNumberedListItem);
-        }
-
-        if ((e.key === 'Backspace' || e.key === 'Delete') &&
-            (this.textElement.innerHTML === '' || this.textElement.innerHTML === '<br>')) {
-            e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
-            // 找到前一个块，以便删除后聚焦
-            let blockToFocus = this.BAPI_PE._findBlockToFocusAfterTextBlockDeleted(this.id);
-            // 调用编辑器的核心删除方法
-            this.BAPI_PE.deleteBlock(this);
-            // 如果找到了前一个块，就将光标聚焦到它上面
-            if (blockToFocus) {
-                this.BAPI_PE.selectBlock(blockToFocus.id);
-            }
-            return;
         }
     }
 }

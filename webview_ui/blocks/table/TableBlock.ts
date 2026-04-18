@@ -22,6 +22,10 @@ class TableCellBlock extends Block {
     // 单元格本身不可编辑，所以禁用默认事件
     onInput(e) { /* no-op */ }
     onKeyDown(e) { /* no-op */ }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 
@@ -39,6 +43,10 @@ class TableRowBlock extends Block {
         // 行块本身作为容器，用于直接承载 TableCellBlock 子块
         this.childrenContainer = this.contentElement;
     }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 
@@ -320,6 +328,10 @@ class TableBlock extends Block {
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
     }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](TableCellBlock);

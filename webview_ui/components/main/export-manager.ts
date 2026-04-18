@@ -339,13 +339,13 @@ window.PageExporter = class PageExporter {
             if (!blocks)
                 return;
             blocks.forEach(b => {
-                const BlockClass = window.blockRegistry.get(b.type);
+                const BlockClass = window.blockRegistry.get((b.constructor as typeof Block).type);
                 if (BlockClass && BlockClass.requiredExportLibs) {
                     BlockClass.requiredExportLibs.forEach(l => libs.add(l));
                 }
 
                 // 图片收集逻辑
-                if (b.type === 'image' && b.properties?.src) {
+                if ((b.constructor as typeof Block).type === 'image' && b.properties?.src) {
                     const src = b.properties.src;
                     const isLocalHttp = src.includes('http://veritnote.localhost');
                     const isOnline = (src.startsWith('http://') || src.startsWith('https://')) && !isLocalHttp;
@@ -379,7 +379,7 @@ window.PageExporter = class PageExporter {
                 return;
             blocks.forEach(b => {
                 // 定位图片块及其 src 属性
-                if (b.type === 'image' && b.properties?.src) {
+                if ((b.constructor as typeof Block).type === 'image' && b.properties?.src) {
                     const originalSrc = b.properties.src;
                     if (imageSrcMap[originalSrc]) {
                         const newSrc = this.pathPrefix + imageSrcMap[originalSrc];
@@ -467,7 +467,7 @@ window.PageExporter = class PageExporter {
             if (!blocks)
                 return;
             blocks.forEach(b => {
-                const BC = window.blockRegistry.get(b.type);
+                const BC = window.blockRegistry.get((b.constructor as typeof Block).type);
                 if (BC && BC.requiredExportLibs)
                     BC.requiredExportLibs.forEach(l => requiredLibsForThisPage.add(l));
                 if (b.children)

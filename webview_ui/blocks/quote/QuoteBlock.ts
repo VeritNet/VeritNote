@@ -51,23 +51,6 @@ class QuoteBlock extends Block {
         ];
     }
 
-    _applyGenericStyles() {
-        super._applyGenericStyles(); // 应用基础样式
-
-        // 叠加 Quote 特有的样式
-        const s = this.contentElement.style; // 注意 Quote 的样式是加在 contentElement 上的
-        const p = this.properties;
-
-        if (p.borderLeftWidth) s.borderLeftWidth = p.borderLeftWidth;
-        if (p.borderLeftColor) s.borderLeftColor = p.borderLeftColor;
-
-        // 如果是 plain 样式，可能要强制去掉 border
-        if (p.style === 'plain') {
-            s.borderLeft = 'none';
-            s.paddingLeft = '0';
-        }
-    }
-
     // --- 4. Rendering Logic ---
     _renderContent() {
         this.contentElement.dataset['style'] = this.properties.style;
@@ -89,6 +72,19 @@ class QuoteBlock extends Block {
             }
         } else {
             this.previewContainer.innerHTML = `<div class="quote-empty-placeholder">Click “ to set a reference</div>`;
+        }
+
+        // 叠加 Quote 特有的样式
+        const s = this.contentElement.style; // 注意 Quote 的样式是加在 contentElement 上的
+        const p = this.properties;
+
+        if (p.borderLeftWidth) s.borderLeftWidth = p.borderLeftWidth;
+        if (p.borderLeftColor) s.borderLeftColor = p.borderLeftColor;
+
+        // 如果是 plain 样式，可能要强制去掉 border
+        if (p.style === 'plain') {
+            s.borderLeft = 'none';
+            s.paddingLeft = '0';
         }
     }
 
@@ -169,7 +165,7 @@ class QuoteBlock extends Block {
     /**
      * 响应页面保存事件，检查是否需要刷新
      */
-    onPageSaved(savedPath) {
+    onPageSaved(savedPath: string) {
         if (!this.properties.referenceLink) return;
 
         const [pathPart] = this.properties.referenceLink.split('#');
@@ -246,6 +242,8 @@ class QuoteBlock extends Block {
     onKeyDown(e) { /* no-op */ }
 
 
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](QuoteBlock);

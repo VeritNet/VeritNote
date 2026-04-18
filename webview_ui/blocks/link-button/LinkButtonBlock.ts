@@ -99,6 +99,10 @@
     onInput(e) {
         this.BAPI_PE.emitChange(true, 'typing', this);
     }
+
+
+    renderDetailsPanel_custom() { return ''; }
+    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](LinkButtonBlock);

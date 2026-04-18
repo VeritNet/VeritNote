@@ -46,13 +46,13 @@ declare global {
 
         get data(): object;
 
-        toolbarButtons(): Array<{
+        get toolbarButtons(): {
             icon?: string;
             title: string;
             action: string;
             arg?: string;
             html: string;
-        }>;
+        }[];
 
         handleToolbarAction(action: string, buttonElement?: HTMLElement): void;
         syncContentFromDOM(): void;
@@ -80,10 +80,6 @@ declare global {
         exportReadyPromise: Promise<any>;
 
         id: string;
-        type: string;
-        label?: string;
-        description?: string;
-        keywords?: string[];
 
         element: HTMLElement | null;
         content: string | null;
@@ -109,6 +105,10 @@ declare global {
      * 文本块
      */
     class TextBlock extends Block { }
+
+    class QuoteBlock extends Block {
+        onPageSaved(savedPath: string): void;
+    }
 
     /**
      * 数据视图块

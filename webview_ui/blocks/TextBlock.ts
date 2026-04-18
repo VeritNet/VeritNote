@@ -3,8 +3,6 @@ declare var hljs: {
     highlightElement
 };
 abstract class TextBlock extends Block {
-    textElement;
-
     constructor(data, editor) {
         super(data, editor);
     }
@@ -34,6 +32,10 @@ abstract class TextBlock extends Block {
             this.contentElement.dataset['placeholder'] = (this.constructor as typeof TextBlock).placeholder;
         }
 
+        this.applyTextStyles();
+    }
+
+    protected applyTextStyles() {
         // --- 应用文本样式 ---
         const s = this.contentElement.style;
         const p = this.properties;
@@ -61,11 +63,28 @@ abstract class TextBlock extends Block {
         return buttons;
     }
 
-    onKeyDown(e) {
+    override onKeyDown(e) {
+        // 处理 Enter 键
+        if (e.key === 'Enter') {
+            // 关键：阻止 Enter 键的所有默认行为，包括在文本区内换行
+            e.preventDefault(); 
+        
+            if (e.shiftKey) {
+                return; 
+            }
+
+            // 如果只按下了 Enter，则创建新的列表项
+            this.syncContentFromDOM();
+            this.BAPI_PE.insertNewBlockAfter(this, 'bulletedListItem');
+            return;
+        }
+
         // 检查条件：按下的是 Backspace 或 Delete 键，并且内容为空
         // 浏览器在清空 contenteditable 时有时会留下 <br>，所以要同时检查
-        if ((e.key === 'Backspace' || e.key === 'Delete') &&
-            (this.contentElement.innerHTML === '' || this.contentElement.innerHTML === '<br>')) {
+        if (
+            (e.key === 'Backspace' || e.key === 'Delete') &&
+            (this.contentElement.innerHTML === '' || this.contentElement.innerHTML === '<br>')
+        ) {
 
             e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
 
@@ -84,7 +103,7 @@ abstract class TextBlock extends Block {
         }
 
         // 如果以上条件不满足，则执行父类（Block.js）中的默认 onKeyDown 逻辑
-        // 这能确保“回车创建新块”和“/”命令菜单的功能依然有效
+        // 这能确保“/”命令菜单等功能依然有效
         super.onKeyDown(e);
     }
 

@@ -1,10 +1,12 @@
 // components/page-editor/SelectionManager.js
 
-export class PageSelectionManager {
-    editor;
-    selectedBlockIds;
+import { PageEditor, EditorMode } from './page-editor.js';
 
-    constructor(editor) {
+export class PageSelectionManager {
+    editor: PageEditor;
+    selectedBlockIds: Set<string>;
+
+    constructor(editor: PageEditor) {
         this.editor = editor;
         this.selectedBlockIds = new Set();
     }
@@ -28,7 +30,7 @@ export class PageSelectionManager {
         this.editor.updateDetailsPanel();
     }
 
-    toggleSelect(blockId) {
+    toggleSelect(blockId: string) {
         if (this.selectedBlockIds.has(blockId)) {
             this.selectedBlockIds.delete(blockId);
         } else {
@@ -37,7 +39,7 @@ export class PageSelectionManager {
         this._updateVisuals();
     }
 
-    setSelect(blockId) {
+    setSelect(blockId: string) {
         // 如果该块已经是唯一选中的块，只需重新聚焦光标
         if (this.selectedBlockIds.size === 1 && this.selectedBlockIds.has(blockId)) {
             this._focusDOMElement(blockId);
@@ -62,7 +64,7 @@ export class PageSelectionManager {
         return Array.from(this.selectedBlockIds);
     }
 
-    hasSelected(blockId) {
+    hasSelected(blockId: string) {
         return this.selectedBlockIds.has(blockId);
     }
 
@@ -71,12 +73,12 @@ export class PageSelectionManager {
     }
 
     // 内部私有方法：处理实际的 DOM 光标聚焦
-    _focusDOMElement(blockId) {
+    _focusDOMElement(blockId: string) {
         const blockInstance = this.editor._findBlockInstanceById(this.editor.blocks, blockId)?.block;
         if (blockInstance && blockInstance.contentElement && blockInstance.contentElement.isContentEditable) {
             blockInstance.contentElement.focus();
             const range = document.createRange();
-            const selection = window.getSelection();
+            const selection = window.getSelection() as Selection;;
             range.selectNodeContents(blockInstance.contentElement);
             range.collapse(false); // 光标移至末尾
             selection.removeAllRanges();
@@ -88,7 +90,7 @@ export class PageSelectionManager {
     validateAndRefresh() {
         // 1. 过滤掉那些在当前 DOM 中已经不存在的 ID
         // (例如：撤销了“创建新块”的操作，该块ID就不应该继续被选中)
-        const validIds = new Set();
+        const validIds = new Set<string>();
         this.selectedBlockIds.forEach(id => {
             // 检查编辑器中是否真的还有这个块的 DOM
             if (this.editor.container.querySelector(`.block-container[data-id="${id}"]`)) {
@@ -105,10 +107,10 @@ export class PageSelectionManager {
     // 方式二：黄色高亮 (Highlight)
     // ==========================================
 
-    highlightBlock(blockId) {
+    highlightBlock(blockId: string) {
         if (!blockId || !this.editor.isReady) return;
 
-        const activeContainer = this.editor.mode === 'edit'
+        const activeContainer = this.editor.mode === EditorMode.edit
             ? this.editor.elements.editorAreaContainer
             : this.editor.elements.previewView;
 
