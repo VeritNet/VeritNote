@@ -114,7 +114,7 @@ function generateExterns(typeChecker, sourceFile, options = { allowStructuralTyp
 
         // 遍历属性和方法
         for (const member of decl.members) {
-            if (ts.isPropertySignature(member) || ts.isPropertyDeclaration(member)) {
+            if (ts.isPropertySignature(member) || ts.isPropertyDeclaration(member) || ts.isGetAccessor(member) || ts.isSetAccessor(member)) {
                 if (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)) {
                     let type = typeToClosure(member.type);
                     if (member.questionToken) type = `(${type}|undefined)`;

@@ -42,8 +42,8 @@
 
 /* Cell style */
 .table-cell-content {
-    border-right: 1px solid var(--border-primary);
-    border-bottom: 1px solid var(--border-primary);
+    border-right: 1px solid var(--border-primary) !important;
+    border-bottom: 1px solid var(--border-primary) !important;
     padding: var(--spacing-s);
     position: relative;
 }
