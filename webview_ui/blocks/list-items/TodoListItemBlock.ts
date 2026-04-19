@@ -2,13 +2,13 @@
 
 class TodoListItemBlock extends TextBlock {
     // --- 1. 静态属性定义 ---
-    static type = 'todoListItem';
-    static icon = '☑';
-    static label = 'To-do List';
-    static description = 'Track tasks with a checklist.';
-    static keywords = ['todo', 'task', 'list', 'checklist', 'item'];
-    static canBeToggled = true;
-    static placeholder = 'To-do';
+    static override type = 'todoListItem';
+    static override icon = '☑';
+    static override label = 'To-do List';
+    static override description = 'Track tasks with a checklist.';
+    static override keywords = ['todo', 'task', 'list', 'checklist', 'item'];
+    static override canBeToggled = true;
+    static override placeholder = 'To-do';
 
     
     textElement;
@@ -24,7 +24,7 @@ class TodoListItemBlock extends TextBlock {
     }
 
     // --- 3. 渲染 ---
-    _renderContent() {
+    override _renderContent() {
         // 创建独特的内部布局: [Checkbox] [Text Area]
         this.contentElement.innerHTML = `
             <div class="todo-checkbox-wrapper">
@@ -88,7 +88,7 @@ class TodoListItemBlock extends TextBlock {
     }
 
     // 覆盖关键方法以指向正确的元素
-    syncContentFromDOM() {
+    override syncContentFromDOM() {
         if (this.textElement) {
             this.content = this.textElement.innerHTML;
         }
@@ -106,7 +106,7 @@ class TodoListItemBlock extends TextBlock {
     }
 
 
-    getExportScripts(exportContext) {
+    override getExportScripts(exportContext) {
         // The entire script logic is now self-contained here.
         return `
             const TODO_STORAGE_KEY = 'veritnote_todo_state';

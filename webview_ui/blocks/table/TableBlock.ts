@@ -3,9 +3,9 @@
 // --- 内部块：TableCellBlock ---
 // 每个单元格都是一个功能齐全的容器块
 class TableCellBlock extends Block {
-    static type = 'tableCell';
-    static createWrapper = false;
-    static canBeToggled = false; // 用户不能通过'/'命令直接创建单元格
+    static override type = 'tableCell';
+    static override createWrapper = false;
+    static override canBeToggled = false; // 用户不能通过'/'命令直接创建单元格
 
     _renderContent() {
         // 防止重复添加 class 和 容器
@@ -20,21 +20,17 @@ class TableCellBlock extends Block {
     }
 
     // 单元格本身不可编辑，所以禁用默认事件
-    onInput(e) { /* no-op */ }
-    onKeyDown(e) { /* no-op */ }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
+    override onInput(e) { /* no-op */ }
+    override onKeyDown(e) { /* no-op */ }
 }
 
 
 // --- 内部块：TableRowBlock ---
 // 每一行都是一个包含多个单元格的块
 class TableRowBlock extends Block {
-    static type = 'tableRow';
-    static createWrapper = false;
-    static canBeToggled = false;
+    static override type = 'tableRow';
+    static override createWrapper = false;
+    static override canBeToggled = false;
 
     _renderContent() {
         if (!this.contentElement.classList.contains('table-row-content')) {
@@ -43,28 +39,24 @@ class TableRowBlock extends Block {
         // 行块本身作为容器，用于直接承载 TableCellBlock 子块
         this.childrenContainer = this.contentElement;
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 
 // --- 主块：TableBlock ---
 class TableBlock extends Block {
-    static type = 'table';
-    static icon = '▦';
-    static label = 'Table';
-    static description = 'Create a structured table.';
-    static keywords = ['table', 'grid', 'data'];
-    static canBeToggled = true;
-    static previewExclusionSelectors = [
+    static override type = 'table';
+    static override icon = '▦';
+    static override label = 'Table';
+    static override description = 'Create a structured table.';
+    static override keywords = ['table', 'grid', 'data'];
+    static override canBeToggled = true;
+    static override previewExclusionSelectors = [
         '.table-controls-top',
         '.table-controls-left',
         '.table-add-col-btn',
         '.table-add-row-btn'
     ];
-    static exportExclusionSelectors = [
+    static override exportExclusionSelectors = [
         '.table-controls-top',
         '.table-controls-left',
         '.table-add-col-btn',
@@ -96,7 +88,7 @@ class TableBlock extends Block {
         }
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             // 修正属性定义以对齐最新的 UiTools 解析器
             {
@@ -328,10 +320,6 @@ class TableBlock extends Block {
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](TableCellBlock);

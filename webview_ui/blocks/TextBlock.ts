@@ -107,7 +107,7 @@ abstract class TextBlock extends Block {
         super.onKeyDown(e);
     }
 
-    renderDetailsPanel_custom() {
+    override renderDetailsPanel_custom() {
         this.syncContentFromDOM();
         const currentHtml = this.content || '';
 
@@ -179,7 +179,7 @@ abstract class TextBlock extends Block {
             .replace(/'/g, "&#039;");
     }
 
-    onDetailsPanelOpen_custom(container) {
+    override onDetailsPanelOpen_custom(container) {
         const textarea = container.querySelector('.details-html-source');
         const codeElement = container.querySelector('code');
         const wrapper = container.querySelector('.details-code-editor-wrapper');

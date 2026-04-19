@@ -1,12 +1,12 @@
 ﻿// blocks/QuoteBlock.js
 class QuoteBlock extends Block {
     // --- 1. Static properties ---
-    static type = 'quote';
-    static icon = '“';
-    static label = 'Quote';
-    static description = 'Reference content from another page or block.';
-    static keywords = ['quote', 'reference', 'embed', 'transclusion'];
-    static canBeToggled = true;
+    static override type = 'quote';
+    static override icon = '“';
+    static override label = 'Quote';
+    static override description = 'Reference content from another page or block.';
+    static override keywords = ['quote', 'reference', 'embed', 'transclusion'];
+    static override canBeToggled = true;
 
 
     previewContainer;
@@ -27,7 +27,7 @@ class QuoteBlock extends Block {
 
     // --- 3. Data Getter ---
     // The key is that it *only* saves properties, not content or children.
-    get data() {
+    override get data() {
         return {
             id: this.id,
             type: (this.constructor as typeof QuoteBlock).type,
@@ -37,7 +37,7 @@ class QuoteBlock extends Block {
         };
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             { name: 'referenceLink', display: 'Ref Link', type: 'text' },
             { name: 'clickLink', display: 'Click URL', type: 'text' },
@@ -179,7 +179,7 @@ class QuoteBlock extends Block {
     }
 
     // --- 5. Toolbar ---
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [
             { icon: '“', title: 'Set Reference', action: 'setReference' },
             { icon: '|', title: 'Toggle Style', action: 'toggleStyle' },
@@ -189,7 +189,7 @@ class QuoteBlock extends Block {
         return buttons;
     }
     
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         switch(action) {
             case 'setReference':
                 this.showReferencePicker(buttonElement);
@@ -238,12 +238,8 @@ class QuoteBlock extends Block {
     }
 
     // This block is not directly editable
-    onInput(e) { /* no-op */ }
-    onKeyDown(e) { /* no-op */ }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
+    override onInput(e) { /* no-op */ }
+    override onKeyDown(e) { /* no-op */ }
 }
 
 window['registerBlock'](QuoteBlock);

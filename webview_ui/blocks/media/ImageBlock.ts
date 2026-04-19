@@ -1,11 +1,11 @@
 ﻿// blocks/media/ImageBlock.js
 class ImageBlock extends Block {
-    static type = 'image';
-    static icon = '🖼️';
-    static label = 'Image';
-    static description = 'Embed an image from a URL or upload.';
-    static keywords = ['image', 'img', 'picture', 'photo'];
-    static canBeToggled = true;
+    static override type = 'image';
+    static override icon = '🖼️';
+    static override label = 'Image';
+    static override description = 'Embed an image from a URL or upload.';
+    static override keywords = ['image', 'img', 'picture', 'photo'];
+    static override canBeToggled = true;
 
     constructor(data, editor) {
         super(data, editor);
@@ -20,7 +20,7 @@ class ImageBlock extends Block {
         this.content = '';
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             // 核心属性
             { name: 'src', display: 'Image Source', type: 'text' },
@@ -69,10 +69,10 @@ class ImageBlock extends Block {
     }
     
     // Images are not directly editable
-    onInput(e) { /* no-op */ }
-    onKeyDown(e) { /* no-op */ }
+    override onInput(e) { /* no-op */ }
+    override onKeyDown(e) { /* no-op */ }
 
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [
             { icon: '🖼️', title: 'Set Image Source', action: 'editImage' },
             { icon: '🔗', title: 'Set Image Link', action: 'linkImage' }
@@ -81,7 +81,7 @@ class ImageBlock extends Block {
         return buttons;
     }
     
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         if (action === 'editImage') {
             // --- REFACTORED: Updates properties.src ---
             this.BAPI_PE.popoverManager.showImageSource(
@@ -106,10 +106,6 @@ class ImageBlock extends Block {
             );
         }
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](ImageBlock);

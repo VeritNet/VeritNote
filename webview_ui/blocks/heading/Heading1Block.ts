@@ -1,12 +1,12 @@
 ﻿// blocks/Heading1Block.js
 class Heading1Block extends TextBlock {
-    static type = 'heading1';
-    static icon = 'H1';
-    static label = 'Heading 1';
-    static description = 'A large, top-level heading.';
-    static keywords = ['h1', 'heading', 'title', 'header'];
-    static canBeToggled = true;
-    static placeholder = 'Heading 1';
+    static override type = 'heading1';
+    static override icon = 'H1';
+    static override label = 'Heading 1';
+    static override description = 'A large, top-level heading.';
+    static override keywords = ['h1', 'heading', 'title', 'header'];
+    static override canBeToggled = true;
+    static override placeholder = 'Heading 1';
 }
 
 window['registerBlock'](Heading1Block);

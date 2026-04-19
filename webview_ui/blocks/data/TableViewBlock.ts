@@ -1,14 +1,14 @@
 ﻿// blocks/data/TableViewBlock.js
 class TableViewBlock extends DataChildBlock {
-    static type = 'tableView';
-    static canBeToggled = false;
-    static label = 'Table View';
-    static createWrapper = false;
+    static override type = 'tableView';
+    static override canBeToggled = false;
+    static override label = 'Table View';
+    static override createWrapper = false;
 
-    static previewExclusionSelectors = [
+    static override previewExclusionSelectors = [
         '.table-view-col-resizer'
     ];
-    static exportExclusionSelectors = [
+    static override exportExclusionSelectors = [
         '.table-view-col-resizer'
     ];
 
@@ -34,7 +34,7 @@ class TableViewBlock extends DataChildBlock {
         }
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             { name: 'tableWidthScale', display: 'Table View Scale', type: 'num', placeholder: '', min: 0.0001, max: 1.0, value: 1, step: 0.01 },
             { name: 'maxHeight', display: 'Max Height', type: 'text', placeholder: 'e.g. 400px' },
@@ -453,10 +453,6 @@ class TableViewBlock extends DataChildBlock {
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](TableViewBlock);

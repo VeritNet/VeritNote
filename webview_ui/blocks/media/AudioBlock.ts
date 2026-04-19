@@ -1,11 +1,11 @@
 // blocks/media/AudioBlock.js
 class AudioBlock extends Block {
-    static type = 'audio';
-    static icon = '🎵';
-    static label = 'Audio';
-    static description = 'Embed an audio track or podcast.';
-    static keywords = ['audio', 'sound', 'music', 'mp3', 'podcast'];
-    static canBeToggled = true;
+    static override type = 'audio';
+    static override icon = '🎵';
+    static override label = 'Audio';
+    static override description = 'Embed an audio track or podcast.';
+    static override keywords = ['audio', 'sound', 'music', 'mp3', 'podcast'];
+    static override canBeToggled = true;
 
     constructor(data, editor) {
         super(data, editor);
@@ -22,7 +22,7 @@ class AudioBlock extends Block {
         this.content = '';
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             { name: 'src', display: 'Audio Source', type: 'text' },
             { name: 'href', display: 'Link URL', type: 'text', placeholder: 'External link' },
@@ -74,10 +74,10 @@ class AudioBlock extends Block {
         `;
     }
 
-    onInput(e) { /* no-op */ }
-    onKeyDown(e) { /* no-op */ }
+    override onInput(e) { /* no-op */ }
+    override onKeyDown(e) { /* no-op */ }
 
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [
             { icon: '🎵', title: 'Set Audio Source', action: 'editAudio' },
             { icon: '🔗', title: 'Set External Link', action: 'linkAudio' }
@@ -86,7 +86,7 @@ class AudioBlock extends Block {
         return buttons;
     }
 
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         if (action === 'editAudio') {
             this.BAPI_PE.popoverManager.showAudioSource(
                 buttonElement,
@@ -109,10 +109,6 @@ class AudioBlock extends Block {
             );
         }
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](AudioBlock);

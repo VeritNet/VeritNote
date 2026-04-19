@@ -2,13 +2,13 @@
 
 class NumberedListItemBlock extends TextBlock {
     // --- 1. Static properties definition ---
-    static type = 'numberedListItem';
-    static icon = '1.';
-    static label = 'Numbered List';
-    static description = 'Create an ordered list item.';
-    static keywords = ['list', 'number', 'ordered', 'ol', 'item'];
-    static canBeToggled = true;
-    static placeholder = 'List item';
+    static override type = 'numberedListItem';
+    static override icon = '1.';
+    static override label = 'Numbered List';
+    static override description = 'Create an ordered list item.';
+    static override keywords = ['list', 'number', 'ordered', 'ol', 'item'];
+    static override canBeToggled = true;
+    static override placeholder = 'List item';
 
     
     textElement;
@@ -26,7 +26,7 @@ class NumberedListItemBlock extends TextBlock {
     }
 
     // --- 3. Rendering ---
-    _renderContent() {
+    override _renderContent() {
         // Layout with an editable number point
         this.contentElement.innerHTML = `
             <div class="number-point-wrapper">
@@ -79,7 +79,7 @@ class NumberedListItemBlock extends TextBlock {
     }
 
     // Syncs both the main text and the number
-    syncContentFromDOM() {
+    override syncContentFromDOM() {
         if (this.textElement) {
             this.content = this.textElement.innerHTML;
         }
@@ -98,7 +98,7 @@ class NumberedListItemBlock extends TextBlock {
     }
     
     // --- 5. Toolbar integration ---
-    get toolbarButtons() {
+    override get toolbarButtons() {
         // We add the default text formatting buttons plus our custom one
         const textButtons = super.toolbarButtons;
         return [
@@ -107,7 +107,7 @@ class NumberedListItemBlock extends TextBlock {
         ];
     }
     
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         if (action === 'setStartNumber') {
             const newStartStr = prompt('Set starting number:', this.properties.number);
             if (newStartStr !== null) {

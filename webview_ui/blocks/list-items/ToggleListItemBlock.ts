@@ -2,13 +2,13 @@
 
 class ToggleListItemBlock extends TextBlock {
     // --- 1. Static properties definition ---
-    static type = 'toggleListItem';
-    static icon = '▶';
-    static label = 'Toggle List';
-    static description = 'Create a collapsible list item.';
-    static keywords = ['toggle', 'list', 'collapsible', 'expand', 'item'];
-    static canBeToggled = true;
-    static placeholder = 'Toggle';
+    static override type = 'toggleListItem';
+    static override icon = '▶';
+    static override label = 'Toggle List';
+    static override description = 'Create a collapsible list item.';
+    static override keywords = ['toggle', 'list', 'collapsible', 'expand', 'item'];
+    static override canBeToggled = true;
+    static override placeholder = 'Toggle';
 
     
     textElement;
@@ -25,7 +25,7 @@ class ToggleListItemBlock extends TextBlock {
     }
 
     // --- 3. Rendering ---
-    _renderContent() {
+    override _renderContent() {
         // Create the unique layout: [Toggle Triangle] [Text Area]
         this.contentElement.innerHTML = `
             <div class="toggle-triangle-wrapper">
@@ -85,7 +85,7 @@ class ToggleListItemBlock extends TextBlock {
     }
 
     // Override key methods to point to the correct text element
-    syncContentFromDOM() {
+    override syncContentFromDOM() {
         if (this.textElement) {
             this.content = this.textElement.innerHTML;
         }
@@ -107,7 +107,7 @@ class ToggleListItemBlock extends TextBlock {
      * Provides the necessary JavaScript to make the toggle list interactive in the exported HTML.
      * This script handles click events, toggles a CSS class, and saves the state to localStorage.
      */
-    getExportScripts(exportContext) {
+    override getExportScripts(exportContext) {
         // The entire script logic is now self-contained in this block.
         return `
             const TOGGLE_STORAGE_KEY = 'veritnote_toggle_state';

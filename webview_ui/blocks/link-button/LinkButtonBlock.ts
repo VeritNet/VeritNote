@@ -1,10 +1,10 @@
 ﻿class LinkButtonBlock extends Block {
-    static type = 'linkButton';
-    static icon = '🔘';
-    static label = 'Button';
-    static description = 'A prominent link button.';
-    static keywords = ['button', 'link', 'btn', 'action'];
-    static canBeToggled = true;
+    static override type = 'linkButton';
+    static override icon = '🔘';
+    static override label = 'Button';
+    static override description = 'A prominent link button.';
+    static override keywords = ['button', 'link', 'btn', 'action'];
+    static override canBeToggled = true;
 
     constructor(data, editor) {
         super(data, editor);
@@ -14,7 +14,7 @@
         }
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             { name: 'url', display: 'Target URL', type: 'text' },
 
@@ -54,7 +54,7 @@
         this.contentElement.innerHTML = `<a href="${p.url || '#'}" style="${style}" contenteditable="true">${textContent}</a>`;
     }
 
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [
             { icon: '🔗', title: 'Edit Button Link', action: 'editLinkButton' }
         ];
@@ -63,7 +63,7 @@
     }
     
     // Override sync to save only the text part from the contentEditable element
-    syncContentFromDOM() {
+    override syncContentFromDOM() {
         if (this.contentElement) {
             // We get the textContent of the inner <a> tag, or the element itself if <a> is missing
             const linkElement = this.contentElement.querySelector('a');
@@ -75,7 +75,7 @@
     /**
      * This method will be called by the editor when the toolbar button is clicked.
      */
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         if (action === 'editLinkButton') {
             // We call the global showLinkPopover function
             this.BAPI_PE.popoverManager.showLink(
@@ -96,13 +96,9 @@
     }
 
     // Use default TextBlock-like onInput to trigger updates
-    onInput(e) {
+    override onInput(e) {
         this.BAPI_PE.emitChange(true, 'typing', this);
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](LinkButtonBlock);

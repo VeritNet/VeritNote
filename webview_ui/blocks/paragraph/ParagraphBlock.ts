@@ -1,12 +1,12 @@
 ﻿// blocks/ParagraphBlock.js
 class ParagraphBlock extends TextBlock {
-    static type = 'paragraph';
-    static icon = '¶';
-    static label = 'Paragraph';
-    static description = 'Just a plain text paragraph.';
-    static keywords = ['text', 'paragraph', 'p'];
-    static canBeToggled = true;
-    static placeholder = 'Type \'/\' for commands...';
+    static override type = 'paragraph';
+    static override icon = '¶';
+    static override label = 'Paragraph';
+    static override description = 'Just a plain text paragraph.';
+    static override keywords = ['text', 'paragraph', 'p'];
+    static override canBeToggled = true;
+    static override placeholder = 'Type \'/\' for commands...';
 }
 
 window['registerBlock'](ParagraphBlock);

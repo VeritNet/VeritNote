@@ -1,15 +1,15 @@
 ﻿// blocks/CodeBlock.js
 class CodeBlock extends Block {
-    static type = 'code';
-    static icon = '&lt;/&gt;';
-    static label = 'Code Block';
-    static description = 'Capture and highlight code snippets.';
-    static keywords = ['code', 'snippet', 'pre', 'highlight'];
-    static canBeToggled = true;
-    static previewExclusionSelectors = [
+    static override type = 'code';
+    static override icon = '&lt;/&gt;';
+    static override label = 'Code Block';
+    static override description = 'Capture and highlight code snippets.';
+    static override keywords = ['code', 'snippet', 'pre', 'highlight'];
+    static override canBeToggled = true;
+    static override previewExclusionSelectors = [
         '.code-block-input',
     ];
-    static exportExclusionSelectors = [
+    static override exportExclusionSelectors = [
         '.code-block-input',
     ];
 
@@ -38,7 +38,7 @@ class CodeBlock extends Block {
         ].sort();
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             { name: 'language', display: 'Language', type: 'text' }, // 只读展示或手动输入
 
@@ -97,14 +97,14 @@ class CodeBlock extends Block {
         }
     }
     
-    onInput() {
+    override onInput() {
         this.updateHighlight();
         // Use 'typing' action type to get coalescing for free
         this.BAPI_PE.emitChange(true, 'typing', this);
     }
     
     // Code blocks don't need default keydown handlers (no Enter for new blocks, etc.)
-    onKeyDown(e) {
+    override onKeyDown(e) {
         // Allow tabbing for indentation
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -121,7 +121,7 @@ class CodeBlock extends Block {
     }
 
     // This method is called by the editor to save data
-    syncContentFromDOM() {
+    override syncContentFromDOM() {
         if (this.inputElement) {
             this.content = this.inputElement.value;
         }
@@ -154,7 +154,7 @@ class CodeBlock extends Block {
         pre.scrollLeft = this.inputElement.scrollLeft;
     }
 
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [
             {
                 // We use a special property 'html' to create a custom button with text
@@ -168,7 +168,7 @@ class CodeBlock extends Block {
     }
     
     // *** NEW: Handle the toolbar action ***
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         if (action === 'changeLanguage') {
             this.showLanguagePicker(buttonElement);
         }
@@ -202,7 +202,7 @@ class CodeBlock extends Block {
      * Specifies the vendor libraries that this block depends on for export.
      * The main export process will collect these and include them in the final HTML.
      */
-    static get requiredExportLibs() {
+    static override get requiredExportLibs() {
         return [
             'vendor/highlight/highlight.min.js',
             'vendor/highlight/theme.css'
@@ -214,7 +214,7 @@ class CodeBlock extends Block {
      * This static method is used so the main export process only needs to include
      * the script once, even if there are many code blocks on the page.
      */
-    getExportScripts(exportContext) {
+    override getExportScripts(exportContext) {
         // This script will run once per exported page.
         return `
             if (typeof hljs !== 'undefined') {
@@ -222,10 +222,6 @@ class CodeBlock extends Block {
             }
         `;
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](CodeBlock);

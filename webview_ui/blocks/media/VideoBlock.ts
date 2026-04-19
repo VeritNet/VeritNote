@@ -1,11 +1,11 @@
 // blocks/media/VideoBlock.js
 class VideoBlock extends Block {
-    static type = 'video';
-    static icon = '🎬';
-    static label = 'Video';
-    static description = 'Embed a video from a URL or local file.';
-    static keywords = ['video', 'vid', 'movie', 'media', 'mp4'];
-    static canBeToggled = true;
+    static override type = 'video';
+    static override icon = '🎬';
+    static override label = 'Video';
+    static override description = 'Embed a video from a URL or local file.';
+    static override keywords = ['video', 'vid', 'movie', 'media', 'mp4'];
+    static override canBeToggled = true;
 
     constructor(data, editor) {
         super(data, editor);
@@ -24,7 +24,7 @@ class VideoBlock extends Block {
         this.content = '';
     }
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [
             { name: 'src', display: 'Video Source', type: 'text' },
             { name: 'poster', display: 'Poster Image', type: 'text', placeholder: 'Thumbnail URL' },
@@ -91,10 +91,10 @@ class VideoBlock extends Block {
         `;
     }
 
-    onInput(e) { /* no-op */ }
-    onKeyDown(e) { /* no-op */ }
+    override onInput(e) { /* no-op */ }
+    override onKeyDown(e) { /* no-op */ }
 
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const buttons = [
             { icon: '🎬', title: 'Set Video Source', action: 'editVideo' },
             { icon: '🔗', title: 'Set External Link', action: 'linkVideo' }
@@ -103,7 +103,7 @@ class VideoBlock extends Block {
         return buttons;
     }
 
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         if (action === 'editVideo') {
             this.BAPI_PE.popoverManager.showVideoSource(
                 buttonElement,
@@ -126,10 +126,6 @@ class VideoBlock extends Block {
             );
         }
     }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
 }
 
 window['registerBlock'](VideoBlock);

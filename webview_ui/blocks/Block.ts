@@ -12,6 +12,14 @@ abstract class Block {
     // --- Static properties for registration and slash command ---
     id: string;
     static type: string; // Should be overridden by subclasses
+    public content: string | null;
+    public properties: {
+        customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
+        [key: string]: any;
+    };
+    public children: Block[];
+
+
     static icon: string; // Default icon (can be overridden)
     static label: string; // Default label for UI
     static description: string; // Default description for UI
@@ -35,14 +43,6 @@ abstract class Block {
         '.quadrant-overlay'
     ];
     public element: HTMLElement | null;
-    public content: string | null;
-    public properties: {
-        referenceLink?: any;
-        width?: any;
-        presetId?: string; // 来源于 DataBlock.properties.presetId
-        customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
-        [key: string]: any;
-    };
     public contentElement: HTMLElement | null;
 
     /**
@@ -50,7 +50,6 @@ abstract class Block {
      * page编辑器的 _canAcceptSideDrop 等方法会拒绝尝试破坏其父块内容结构的行为。
      */
     public childrenContainer: HTMLElement | null;
-    public children: Block[];
 
     public parent?: Block;
 

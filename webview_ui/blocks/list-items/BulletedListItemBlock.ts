@@ -2,13 +2,13 @@
 
 class BulletedListItemBlock extends TextBlock {
     // --- 1. 静态属性定义 ---
-    static type = 'bulletedListItem';
-    static icon = '•';
-    static label = 'Bulleted List';
-    static description = 'Create a bulleted list item.';
-    static keywords = ['list', 'bullet', 'ul', 'item'];
-    static canBeToggled = true;
-    static placeholder = 'List item';
+    static override type = 'bulletedListItem';
+    static override icon = '•';
+    static override label = 'Bulleted List';
+    static override description = 'Create a bulleted list item.';
+    static override keywords = ['list', 'bullet', 'ul', 'item'];
+    static override canBeToggled = true;
+    static override placeholder = 'List item';
 
 
     textElement;
@@ -21,7 +21,7 @@ class BulletedListItemBlock extends TextBlock {
 
     // --- 3. 渲染 ---
 
-    _renderContent() {
+    override _renderContent() {
         if (!this.contentElement.innerHTML) {
             this.contentElement.innerHTML = `
                 <div class="bullet-point">•</div>
@@ -58,7 +58,7 @@ class BulletedListItemBlock extends TextBlock {
     // --- 4. 覆盖关键方法以指向正确的元素 ---
     
     // 确保数据从正确的文本元素同步
-    syncContentFromDOM() {
+    override syncContentFromDOM() {
         if (this.textElement) {
             this.content = this.textElement.innerHTML;
         }

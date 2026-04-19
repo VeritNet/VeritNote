@@ -1,8 +1,8 @@
 ﻿// blocks/ColumnBlock.js
 class ColumnBlock extends Block {
-    static type = 'column';
-    static canBeToggled = false;
-    static createWrapper = false;
+    static override type = 'column';
+    static override canBeToggled = false;
+    static override createWrapper = false;
     
     constructor(data, editor) {
         super(data, editor);
@@ -16,12 +16,8 @@ class ColumnBlock extends Block {
         this.contentElement.style.width = `${this.properties.width * 100}%`;
     }
 
-    onInput(e) { /* no-op */ }
-    onKeyDown(e) { /* no-op */ }
-
-
-    renderDetailsPanel_custom() { return ''; }
-    onDetailsPanelOpen_custom(container: HTMLElement) { }
+    override onInput(e) { /* no-op */ }
+    override onKeyDown(e) { /* no-op */ }
 }
 
 window['registerBlock'](ColumnBlock);

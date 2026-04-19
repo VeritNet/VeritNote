@@ -13,21 +13,21 @@ abstract class DataChildBlock extends Block {
 
 class DataBlock extends Block {
     static override type = 'data';
-    static icon = '🗃️';
-    static label = 'Database View';
-    static description = 'Embed a view from a Database (.veritnotedb).';
-    static keywords = ['data', 'database',
+    static override icon = '🗃️';
+    static override label = 'Database View';
+    static override description = 'Embed a view from a Database (.veritnotedb).';
+    static override keywords = ['data', 'database',
                        'table', 'tableview'];
-    static canBeToggled = true;
+    static override canBeToggled = true;
 
     // 导出时，要把整个真正渲染数据的子块容器清理掉，只留下 DataBlock 自己的壳子，导出脚本会重新动态生成子块内容
-    static previewExclusionSelectors = [
+    static override previewExclusionSelectors = [
     ];
-    static exportExclusionSelectors = [
+    static override exportExclusionSelectors = [
         '.data-child-container'
     ];
 
-    children: DataChildBlock[];
+    override children: DataChildBlock[];
 
 
     _rawData;
@@ -65,18 +65,18 @@ class DataBlock extends Block {
     }
 
 
-    static getPropertiesSchema() {
+    static override getPropertiesSchema() {
         return [...super.getPropertiesSchema()];
     }
 
-    get toolbarButtons() {
+    override get toolbarButtons() {
         const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>`;
         const buttons = [{ html: iconSvg, title: 'Config Source', action: 'selectDb' }];
         buttons.push(...super.toolbarButtons as any);
         return buttons;
     }
 
-    handleToolbarAction(action, buttonElement) {
+    override handleToolbarAction(action, buttonElement) {
         if (action === 'selectDb') {
             this.BAPI_PE.popoverManager.showDataFilePicker(
                 buttonElement,
