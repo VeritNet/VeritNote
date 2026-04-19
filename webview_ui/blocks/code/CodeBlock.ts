@@ -54,14 +54,18 @@ class CodeBlock extends Block {
     }
 
     _renderContent() {
-        if (!this.contentElement.innerHTML) {
-            this.contentElement.innerHTML = `
-                <pre><code class="language-${this.properties.language}"></code></pre>
-                <textarea class="code-block-input" spellcheck="false"></textarea>
-            `;
+        if (!this.contentElement.hasChildNodes()) {
+            const pre = document.createElement('pre');
+            this.highlightedElement = document.createElement('code');
+            this.highlightedElement.className = `language-${this.properties.language}`;
+            pre.appendChild(this.highlightedElement);
 
-            this.highlightedElement = this.contentElement.querySelector('code');
-            this.inputElement = this.contentElement.querySelector('textarea');
+            this.inputElement = document.createElement('textarea');
+            this.inputElement.className = 'code-block-input';
+            this.inputElement.spellcheck = false;
+
+            this.contentElement.appendChild(pre);
+            this.contentElement.appendChild(this.inputElement);
 
             // Set initial content and highlight
             this.inputElement.value = this.content;

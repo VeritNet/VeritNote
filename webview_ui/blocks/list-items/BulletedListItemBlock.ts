@@ -22,23 +22,28 @@ class BulletedListItemBlock extends TextBlock {
     // --- 3. 渲染 ---
 
     override _renderContent() {
-        if (!this.contentElement.innerHTML) {
-            this.contentElement.innerHTML = `
-                <div class="bullet-point">•</div>
-                <div class="list-item-content-wrapper">
-                    <div class="list-item-text-area"></div>
-                    <div class="list-item-children-container block-children-container"></div>
-                </div>
-            `;
-        
-            // 获取对关键元素的引用
-            const textArea = this.contentElement.querySelector('.list-item-text-area');
-            this.childrenContainer = this.contentElement.querySelector('.list-item-children-container');
+        if (!this.contentElement.hasChildNodes()) {
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet-point';
+            bullet.textContent = '•';
 
-            this.textElement = textArea;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'list-item-content-wrapper';
+
+            this.textElement = document.createElement('div');
+            this.textElement.className = 'list-item-text-area';
             this.textElement.contentEditable = 'true';
-            this.textElement.innerHTML = this.content || '';
+            this.textElement.textContent = this.content || '';
             this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
+
+            this.childrenContainer = document.createElement('div');
+            this.childrenContainer.className = 'list-item-children-container block-children-container';
+
+            wrapper.appendChild(this.textElement);
+            wrapper.appendChild(this.childrenContainer);
+
+            this.contentElement.appendChild(bullet);
+            this.contentElement.appendChild(wrapper);
         }
 
         this._applyListItemStyles();

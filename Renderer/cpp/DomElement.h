@@ -3,6 +3,9 @@
 #include <map>
 #include <vector>
 
+// 在 C++ 环境中定义
+std::string CreateBlockWrapper(const std::string& id, const std::string& innerHtml);
+
 class DomElement {
 public:
     std::string tagName;

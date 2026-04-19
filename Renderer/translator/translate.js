@@ -37,6 +37,7 @@ function translateClass(classNode, sourceFile) {
 
     let renderContentMethod = null;
     let createWrapper = true; // 默认 true
+    let blockType = ""; 
     const customMethods = new Map();
 
     // 1. 扫描类成员，记录类作用域变量和方法
@@ -47,6 +48,9 @@ function translateClass(classNode, sourceFile) {
 
             if (isStatic && propName === 'createWrapper') {
                 createWrapper = member.initializer.kind === ts.SyntaxKind.TrueKeyword;
+            }
+            if (isStatic && propName === 'type' && member.initializer && ts.isStringLiteral(member.initializer)) {
+                blockType = member.initializer.text;
             }
             // 记录类的成员变量
             const isDom = propName.toLowerCase().includes('element');
@@ -67,14 +71,15 @@ function translateClass(classNode, sourceFile) {
 
     // 初始化 C++ 翻译上下文
     let cppCode = `// Generated C++ code for ${className}\n`;
-    cppCode += `#include "DomElement.h"\n`;
-    cppCode += `#include <string>\n\n`;
+    //cppCode += `#include "DomElement.h"\n`;
+    //cppCode += `#include <string>\n\n`;
 
-    // 增加 const std::string& content 参数
-    cppCode += `std::string ${className}_Render(const nlohmann::json& properties, const std::string& content) {\n`;
+    cppCode += `std::string ${className}_Render(const std::string& id, const nlohmann::json& properties, const std::string& content) {\n`;
     cppCode += `    // [Virtual DOM Context Initialization]\n`;
     cppCode += `    DomElement* contentElement = new DomElement("div");\n`;
     cppCode += `    contentElement->setAttribute("class", "block-content");\n`;
+    cppCode += `    contentElement->setDataset("id", id);\n`;
+    cppCode += `    contentElement->setDataset("type", "${blockType}");\n`;
 
     // 注册内置变量 (tsName, cppName, type, isDom)
     scopeManager.declareVar('this.contentElement', 'contentElement', 'DomElement*', true);
@@ -106,10 +111,8 @@ function translateClass(classNode, sourceFile) {
     cppCode += `    std::string finalHtml = "";\n`;
 
     if (createWrapper) {
-        cppCode += `    finalHtml += "<div class=\\"block-container\\">";\n`;
-        cppCode += `    finalHtml += "<div class=\\"block-controls\\"><span class=\\"drag-handle\\">⠿</span></div>";\n`;
-        cppCode += `    finalHtml += contentElement->toHTML();\n`;
-        cppCode += `    finalHtml += "</div>";\n`;
+        // 调用 C++ 助手函数，传入 id 和 contentElement 转换后的 HTML
+        cppCode += `    finalHtml += CreateBlockWrapper(id, contentElement->toHTML());\n`;
     } else {
         cppCode += `    finalHtml += contentElement->toHTML();\n`;
     }

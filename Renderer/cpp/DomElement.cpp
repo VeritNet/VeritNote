@@ -1,6 +1,17 @@
 #include "DomElement.h"
 #include <sstream>
 
+std::string CreateBlockWrapper(const std::string& id, const std::string& innerHtml) {
+    return "<div class=\"block-container\" data-id=\"" + id + "\" draggable=\"true\">"
+        "<div class=\"block-controls\">"
+        "<span class=\"drag-handle\" title=\"Drag to move\">⠿</span>"
+        "</div>" +
+        innerHtml +
+        "</div>";
+}
+
+
+
 DomElement::DomElement(const std::string& tag) : tagName(tag), parent(nullptr) {}
 
 DomElement::~DomElement() {

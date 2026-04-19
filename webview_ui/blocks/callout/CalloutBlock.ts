@@ -36,13 +36,15 @@ class CalloutBlock extends Block {
     }
 
     _renderContent() {
-        if (!this.contentElement.innerHTML) {
-            this.contentElement.innerHTML = `
-                <div class="callout-icon"></div>
-                <div class="callout-content-wrapper block-children-container"></div>
-            `;
-            this.iconElement = this.contentElement.querySelector('.callout-icon');
-            this.childrenContainer = this.contentElement.querySelector('.callout-content-wrapper');
+        if (!this.contentElement.hasChildNodes()) {
+            this.iconElement = document.createElement('div');
+            this.iconElement.className = 'callout-icon';
+
+            this.childrenContainer = document.createElement('div');
+            this.childrenContainer.className = 'callout-content-wrapper block-children-container';
+
+            this.contentElement.appendChild(this.iconElement);
+            this.contentElement.appendChild(this.childrenContainer);
         }
 
         const p = this.properties;
