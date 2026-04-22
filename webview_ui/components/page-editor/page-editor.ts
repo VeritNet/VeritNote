@@ -493,6 +493,7 @@ export class PageEditor extends Editor {
      * This is necessary because resizers need to know about their neighbors.
      * @private
      */
+    // Todo: 解耦
     _postRenderProcess() {
         this.container.querySelectorAll('.block-content[data-type="columns"]').forEach(columnsEl => {
             const columnsBlock = this._findBlockInstanceById(this.blocks, (columnsEl as HTMLElement).dataset['id'])?.block;

@@ -1,13 +1,34 @@
 {
-  "allowedBaseClasses": [ "Block", "TextBlock", "DataBlock" ],
-  "requiredStaticOverrides": [ "type", "canBeToggled", "label" ],
-  "optionalStaticOverrides": [
-    "icon",
-    "description",
-    "keywords",
-    "placeholder",
-    "createWrapper",
-    "previewExclusionSelectors",
-    "exportExclusionSelectors"
+  "Base": {
+    "Class": "Block",
+    "Path": "D:/Code/Projects/VeritNote/webview_ui/blocks/Block.ts",
+    "requiredStaticOverrides": [
+      "type",
+      "canBeToggled",
+      "label"
+    ],
+    "optionalStaticOverrides": [
+      "icon",
+      "description",
+      "keywords",
+      "placeholder",
+      "createWrapper",
+      "previewExclusionSelectors",
+      "exportExclusionSelectors"
+    ]
+  },
+  "Templates": [
+    {
+      "Class": "TextBlock",
+      "Path": "D:/Code/Projects/VeritNote/webview_ui/blocks/TextBlock.ts",
+      "requiredStaticOverrides": [],
+      "optionalStaticOverrides": []
+    },
+    {
+      "Class": "DataChildBlock",
+      "Path": "D:/Code/Projects/VeritNote/webview_ui/blocks/data/DataBlock.ts",
+      "requiredStaticOverrides": [],
+      "optionalStaticOverrides": []
+    }
   ]
 }

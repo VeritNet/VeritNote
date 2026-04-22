@@ -46,10 +46,11 @@ class BulletedListItemBlock extends TextBlock {
             this.contentElement.appendChild(wrapper);
         }
 
-        this._applyListItemStyles();
+        this._applyListItemStyles(1);
     }
 
-    _applyListItemStyles() {
+    _applyListItemStyles(a: number) {
+        const b = a;
         const p = this.properties;
          
         this.applyTextStyles();

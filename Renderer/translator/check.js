@@ -1,6 +1,19 @@
 const ts = require('typescript');
 const config = require('./config.json');
 
+
+function verifyProperties(propertyMap, className, reqList, optList) {
+    for (const reqProp of reqList) {
+        const propInfo = propertyMap.get(reqProp);
+        if (!propInfo) throw new Error(`Missing required property: "${reqProp}". It must be defined in class ${className}.`);
+        if (!propInfo.isStatic) throw new Error(`Property "${reqProp}" in class ${className} MUST be static.`);
+    }
+    for (const optProp of optList) {
+        const propInfo = propertyMap.get(optProp);
+        if (propInfo && !propInfo.isStatic) throw new Error(`Optional property "${optProp}" in class ${className} was found, but it is NOT static.`);
+    }
+}
+
 function checkFile(sourceFile, filename) {
     let targetClass = null;
 
@@ -21,17 +34,19 @@ function checkFile(sourceFile, filename) {
                 }
             }
 
-            if (baseClassName && config.allowedBaseClasses.includes(baseClassName)) {
-                targetClass = node;
+            const allowedTemplates = config.Templates.map(t => t.Class);
+            if (baseClassName && (baseClassName === config.Base.Class || allowedTemplates.includes(baseClassName))) {
+                targetClass = { node, baseClassName };
             }
         }
     });
 
     if (!targetClass) {
-        throw new Error(`No valid class extending ${config.allowedBaseClasses.join(', ')} found (abstract classes are ignored).`);
+        throw new Error(`No valid block class extending ${config.Base.Class} or defined Templates found (abstract classes are ignored).`);
     }
 
-    const className = targetClass.name.text;
+    const classNode = targetClass.node;
+    const className = classNode.name.text;
 
     // 3. 检查命名规范 (首字母大写，以 Block 结尾)
     if (!/^[A-Z]\w*Block$/.test(className)) {
@@ -40,36 +55,24 @@ function checkFile(sourceFile, filename) {
 
     // 4. 检查成员变量
     const propertyMap = new Map();
-
-    for (const member of targetClass.members) {
+    for (const member of classNode.members) {
         if (ts.isPropertyDeclaration(member)) {
             const propName = member.name.getText(sourceFile);
             const isStatic = member.modifiers && member.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
-
             propertyMap.set(propName, { isStatic, node: member });
         }
     }
 
-    // 检查必须存在的静态变量
-    for (const reqProp of config.requiredStaticOverrides) {
-        const propInfo = propertyMap.get(reqProp);
-        if (!propInfo) {
-            throw new Error(`Missing required property: "${reqProp}". It must be defined in class ${className}.`);
-        }
-        if (!propInfo.isStatic) {
-            throw new Error(`Property "${reqProp}" in class ${className} MUST be static. (Found instance property instead, which causes ambiguity).`);
-        }
+    // 1. 始终执行 Base 约束检查
+    verifyProperties(propertyMap, className, config.Base.requiredStaticOverrides, config.Base.optionalStaticOverrides);
+
+    // 2. 如果继承自具体模板，追加执行模板约束检查
+    if (targetClass.baseClassName !== config.Base.Class) {
+        const templateConfig = config.Templates.find(t => t.Class === targetClass.baseClassName);
+        verifyProperties(propertyMap, className, templateConfig.requiredStaticOverrides, templateConfig.optionalStaticOverrides);
     }
 
-    // 检查可选的静态变量（如果存在，必须是 static）
-    for (const optProp of config.optionalStaticOverrides) {
-        const propInfo = propertyMap.get(optProp);
-        if (propInfo && !propInfo.isStatic) {
-            throw new Error(`Optional property "${optProp}" in class ${className} was found, but it is NOT static. Subclass instance variables cannot share names with base class static variables.`);
-        }
-    }
-
-    return targetClass;
+    return classNode;
 }
 
 module.exports = { checkFile };

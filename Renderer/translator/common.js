@@ -1,7 +1,7 @@
 const ts = require('typescript');
 const tools = require('./tools');
 
-function translateExpression(node, sourceFile, scope) {
+function translateExpression(node, sourceFile, scope, options = {}) {
     if (!node) return "";
     const text = node.getText(sourceFile);
 
@@ -58,7 +58,7 @@ function translateExpression(node, sourceFile, scope) {
     // 拦截一元前缀表达式 (如 !myvar)
     if (ts.isPrefixUnaryExpression(node)) {
         const op = ts.tokenToString(node.operator); // e.g., '!'
-        const operand = translateExpression(node.operand, sourceFile, scope);
+        const operand = translateExpression(node.operand, sourceFile, scope, op === '!' ? { asCondition: true } : options);
         return `${op}${operand}`;
     }
 
@@ -76,42 +76,81 @@ function translateExpression(node, sourceFile, scope) {
         return `nlohmann::json{${jsonProps.join(', ')}}`;
     }
 
+    // 拦截静态属性读取 (如 (this.constructor as typeof Block).placeholder )
+    if (ts.isPropertyAccessExpression(node)) {
+        const exprText = node.expression.getText(sourceFile).replace(/\s+/g, '');
+        if (exprText.startsWith('(this.constructorastypeof')) {
+            const propName = node.name.getText(sourceFile);
+            try {
+                const staticVar = scope.getVar(`STATIC_${propName}`);
+                return staticVar.cppName; // cppName 里此时存的就是翻译阶段记录的字符串字面量
+            } catch (e) {
+                throw new Error(`Translation Error: Static variable "${propName}" not found or initialized in inheritance chain.`);
+            }
+        }
+    }
+
     if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
         const path = tools.getPropertyPath(node, sourceFile);
         const baseVarName = path[0];
 
         let targetVar;
-        try { targetVar = scope.getVar(baseVarName); } catch (e) { }
+        try {
+            targetVar = scope.getVar(baseVarName);
+        } catch (e) { }
 
-        // 仅当基础变量确定是 DOM 元素时，才拦截 style/dataset/className
-        if (targetVar && targetVar.isDomElement) {
-            if (path.length === 3 && path[1] === 'style') {
-                return `${targetVar.cppName}->getStyle("${tools.toKebabCase(path[2])}")`;
+        // 当基础变量是 DOM 元素，或是其 style/dataset 别名时，拦截属性
+        if (targetVar) {
+            let isDomContext = targetVar.isDomElement;
+            let effectivePath = path;
+            let cppBaseName = targetVar.cppName;
+
+            if (targetVar.type === 'alias') {
+                isDomContext = true;
+                effectivePath = [targetVar.cppName, targetVar.domAlias, ...path.slice(1)];
             }
-            if (path.length === 3 && path[1] === 'dataset') {
-                return `${targetVar.cppName}->getDataset("${tools.toKebabCase(path[2])}")`;
-            }
-            if (path.length === 2 && path[1] === 'className') {
-                return `${targetVar.cppName}->getAttribute("class")`;
-            }
-            // 普通 DOM 属性读取 (如 .value, .id)
-            if (path.length === 2) {
-                return `${targetVar.cppName}->getAttribute("${path[1]}")`;
+
+            if (isDomContext) {
+                if (effectivePath.length === 3 && effectivePath[1] === 'style') {
+                    return `${cppBaseName}->getStyle("${tools.toKebabCase(effectivePath[2])}")`;
+                }
+                if (effectivePath.length === 3 && effectivePath[1] === 'dataset') {
+                    return `${cppBaseName}->getDataset("${tools.toKebabCase(effectivePath[2])}")`;
+                }
+                if (effectivePath.length === 2 && effectivePath[1] === 'className') {
+                    return `${cppBaseName}->getAttribute("class")`;
+                }
+                // 普通 DOM 属性读取 (如 .value, .id)
+                if (effectivePath.length === 2) {
+                    return `${cppBaseName}->getAttribute("${effectivePath[1]}")`;
+                }
             }
         }
 
         // JSON 读取拦截 (支持任意深度的嵌套，如 abc.testa.icon 或 this.properties.iconSize)
+        // JSON 读取拦截 (支持任意深度的嵌套，如 abc.testa.icon 或 this.properties.iconSize)
         if (targetVar && targetVar.type === 'nlohmann::json') {
-            let jsonResult = targetVar.cppName;
-
-            // 1. 遍历并拼接中间路径 (例如 abc.testa.icon 中的 testa -> abc["testa"])
-            for (let i = 1; i < path.length - 1; i++) {
-                jsonResult += `["${path[i]}"]`;
+            if (options.asCondition) {
+                // 如果是在 if 等条件中被求值，翻译为存在性检查
+                if (path.length > 1) {
+                    let containsExpr = targetVar.cppName;
+                    for (let i = 1; i < path.length - 1; i++) {
+                        containsExpr += `["${path[i]}"]`;
+                    }
+                    return `${containsExpr}.contains("${path[path.length - 1]}")`;
+                } else {
+                    // 如果是对 json 本身判空 (如 if(this.properties))
+                    return `!${targetVar.cppName}.empty()`;
+                }
+            } else {
+                // 普通取值，提供默认空字符串
+                let jsonResult = targetVar.cppName;
+                for (let i = 1; i < path.length - 1; i++) {
+                    jsonResult += `["${path[i]}"]`;
+                }
+                const lastProp = path[path.length - 1];
+                return `${jsonResult}.value("${lastProp}", "")`;
             }
-
-            // 2. 最后一层使用 .value() 提供默认空字符串，保证 C++ 类型安全
-            const lastProp = path[path.length - 1];
-            return `${jsonResult}.value("${lastProp}", "")`;
         }
 
         // --- 普通对象属性访问降级 ---
@@ -174,6 +213,23 @@ function translateStatement(node, sourceFile, scope, processBlock) {
         let isDom = false;
 
         if (decl.initializer) {
+            // DOM Style / Dataset 别名拦截
+            if (ts.isPropertyAccessExpression(decl.initializer) || ts.isElementAccessExpression(decl.initializer) || ts.isIdentifier(decl.initializer)) {
+                const initPath = tools.getPropertyPath(decl.initializer, sourceFile);
+                try {
+                    const baseVar = scope.getVar(initPath[0]);
+                    if (baseVar && baseVar.isDomElement) {
+                        if (initPath.length === 1) {
+                            isDom = true;
+                        } else if (initPath.length === 2 && (initPath[1] === 'style' || initPath[1] === 'dataset')) {
+                            // 创建宏别名，阻止输出真实 C++ 变量
+                            scope.declareVar(varTsName, baseVar.cppName, 'alias', false, initPath[1]);
+                            return `    // [Alias mapped] ${varTsName} -> ${baseVar.cppName}.${initPath[1]}\n`;
+                        }
+                    }
+                } catch (e) { }
+            }
+
             initExpr = ` = ${translateExpression(decl.initializer, sourceFile, scope)}`;
             const initText = decl.initializer.getText(sourceFile);
 
@@ -183,10 +239,9 @@ function translateStatement(node, sourceFile, scope, processBlock) {
                 inferredType = 'DomElement*';
                 isDom = true;
             } else if (initExpr.includes('nlohmann::json')) {
-                // 识别对象字面量生成的 nlohmann::json
+                // 识别对象字面量生成的 nlohmann::json 类型
                 inferredType = 'nlohmann::json';
             } else {
-                // 尝试从赋值来源继承类型信息
                 try {
                     const srcVar = scope.getVar(initText);
                     if (srcVar) {
@@ -214,7 +269,7 @@ function translateStatement(node, sourceFile, scope, processBlock) {
 
     // 4. If / Else 语句
     if (ts.isIfStatement(node)) {
-        const cond = translateExpression(node.expression, sourceFile, scope);
+        const cond = translateExpression(node.expression, sourceFile, scope, { asCondition: true });
         let code = `if (${cond}) {\n`;
 
         scope.pushScope();

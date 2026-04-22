@@ -3,11 +3,35 @@ const path = require('path');
 const ts = require('typescript');
 const { checkFile } = require('./check');
 const { translateClass } = require('./translate');
+const config = require('./config.json');
+
+function loadClassAST(filePath) {
+    if (!fs.existsSync(filePath)) throw new Error(`Base/Template file not found: ${filePath}`);
+    const code = fs.readFileSync(filePath, 'utf-8');
+    const sf = ts.createSourceFile(filePath, code, ts.ScriptTarget.Latest, true);
+    let classNode = null;
+    ts.forEachChild(sf, node => {
+        if (ts.isClassDeclaration(node)) classNode = node;
+    });
+    return { sf, classNode };
+}
 
 function main() {
     const args = process.argv.slice(2);
     if (args.length === 0) {
         console.error("Usage: node cli.js <file1.ts> <file2.ts> ...");
+        process.exit(1);
+    }
+
+    // 预加载依赖树
+    const globalBaseClasses = new Map();
+    try {
+        globalBaseClasses.set(config.Base.Class, loadClassAST(config.Base.Path));
+        for (const t of config.Templates) {
+            globalBaseClasses.set(t.Class, loadClassAST(t.Path));
+        }
+    } catch (e) {
+        console.error("Initialization Error:", e.message);
         process.exit(1);
     }
 
@@ -36,7 +60,7 @@ function main() {
             console.log("[Check] Passed successfully.");
 
             // 2. 翻译阶段
-            const cppCode = translateClass(targetClassNode, sourceFile);
+            const cppCode = translateClass(targetClassNode, sourceFile, globalBaseClasses);
             
             // 3. 输出结果
             console.log("\n--- Generated C++ Code ---");

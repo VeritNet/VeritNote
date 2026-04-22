@@ -656,9 +656,8 @@ abstract class Block {
      * @param {HTMLElement} [targetContainer] - 指定渲染的目标容器区。如果不传，则默认尝试渲染到交互容器(childrenContainer)。
      * @protected
      */
-    protected _renderChildren(targetContainer = null) {
-        // 渲染目标：优先使用传入的 target，否则使用交互容器 childrenContainer
-        const destination = targetContainer || this.childrenContainer;
+    protected _renderChildren() {
+        const destination = this.childrenContainer;
 
         if (destination && this.children.length > 0) {
             this.children.forEach(childInstance => {

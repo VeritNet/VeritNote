@@ -47,7 +47,11 @@ abstract class TextBlock extends Block {
         if (p.lineHeight) s.lineHeight = p.lineHeight;
         if (p.letterSpacing) s.letterSpacing = p.letterSpacing;
         if (p.textDecoration) s.textDecoration = p.textDecoration;
-        if (p.fontFamily && p.fontFamily !== 'inherit') s.fontFamily = p.fontFamily;
+        if (p.fontFamily) {
+            if (p.fontFamily !== 'inherit') {
+                s.fontFamily = p.fontFamily;
+            }
+        }
     }
 
     override get toolbarButtons() {
