@@ -132,15 +132,17 @@ function translateClass(classNode, sourceFile, globalBaseClasses) {
 
     // 初始化 C++ 翻译上下文
     let cppCode = `// Generated C++ code for ${className}\n`;
-    //cppCode += `#include "DomElement.h"\n`;
-    //cppCode += `#include <string>\n\n`;
 
-    cppCode += `std::string ${className}_Render(const std::string& id, const nlohmann::json& properties, const std::string& content) {\n`;
+    cppCode += `DomElement* ${className}_Render(const nlohmann::json& blockData) {\n`;
+    cppCode += `    std::string id = blockData.value("id", "");\n`;
+    cppCode += `    nlohmann::json properties = blockData.contains("properties") ? blockData["properties"] : nlohmann::json::object();\n`;
+    cppCode += `    std::string content = blockData.value("content", "");\n`;
     cppCode += `    // [Virtual DOM Context Initialization]\n`;
     cppCode += `    DomElement* contentElement = new DomElement("div");\n`;
     cppCode += `    contentElement->setAttribute("class", "block-content");\n`;
     cppCode += `    contentElement->setDataset("id", id);\n`;
     cppCode += `    contentElement->setDataset("type", "${blockType}");\n`;
+    cppCode += `    DomElement* childrenContainer = nullptr;\n`;
 
     // 注册内置变量 (tsName, cppName, type, isDom)
     scopeManager.declareVar('this.contentElement', 'contentElement', 'DomElement*', true);
@@ -167,25 +169,31 @@ function translateClass(classNode, sourceFile, globalBaseClasses) {
     cppCode += translateBlockStatements(renderContentMethod.body.statements, sourceFile, scopeManager, customMethods, superMethods);
     scopeManager.popScope();
 
-    // 3. 组装最终的 HTML 生成逻辑
-    cppCode += `\n    // [Final Assembly]\n`;
-    cppCode += `    std::string finalHtml = "";\n`;
-
-    if (createWrapper) {
-        // 调用 C++ 助手函数，传入 id 和 contentElement 转换后的 HTML
-        cppCode += `    finalHtml += CreateBlockWrapper(id, contentElement->toHTML());\n`;
-    } else {
-        cppCode += `    finalHtml += contentElement->toHTML();\n`;
-    }
-
-    // Custom CSS 附加逻辑 (假设在 C++ 层面 properties["customCSS"] 是可用的)
-    cppCode += `\n    // [Custom CSS Injection]\n`;
-    cppCode += `    if (properties.contains("customCSS")) {\n`;
-    cppCode += `        finalHtml += GenerateCustomCSSStyleTag(properties["customCSS"]);\n`;
+    // 3. 递归渲染子块
+    cppCode += `\n    // [Recursive Children Rendering]\n`;
+    cppCode += `    if (childrenContainer != nullptr && blockData.contains("children") && blockData["children"].is_array()) {\n`;
+    cppCode += `        for (const auto& childData : blockData["children"]) {\n`;
+    cppCode += `            DomElement* childEl = RenderBlockRegistry(childData);\n`;
+    cppCode += `            if (childEl) {\n`;
+    cppCode += `                childrenContainer->appendChild(childEl);\n`;
+    cppCode += `            }\n`;
+    cppCode += `        }\n`;
     cppCode += `    }\n`;
 
-    cppCode += `\n    delete contentElement;\n`;
-    cppCode += `    return finalHtml;\n`;
+    // Custom CSS 附加逻辑
+    cppCode += `\n    // [Custom CSS Injection]\n`;
+    cppCode += `    if (properties.contains("customCSS")) {\n`;
+    cppCode += `        DomElement* styleTag = new DomElement("style");\n`;
+    cppCode += `        //styleTag->???properties["customCSS"];\n`;
+    cppCode += `        contentElement->appendChild(styleTag);\n`;
+    cppCode += `    }\n`;
+
+    cppCode += `\n    // [Final Assembly]\n`;
+    if (createWrapper) {
+        cppCode += `    return CreateBlockWrapper(id, contentElement);\n`;
+    } else {
+        cppCode += `    return contentElement;\n`;
+    }
     cppCode += `}\n`;
 
     return cppCode;

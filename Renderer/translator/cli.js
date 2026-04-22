@@ -35,6 +35,9 @@ function main() {
         process.exit(1);
     }
 
+    const validBlocks = [];
+
+    // 检查所有文件并收集元数据
     for (const filePath of args) {
         const absolutePath = path.resolve(filePath);
         if (!fs.existsSync(absolutePath)) {
@@ -43,36 +46,63 @@ function main() {
         }
 
         const code = fs.readFileSync(absolutePath, 'utf-8');
-        
-        // 使用 TS 编译器 API 生成 AST
-        const sourceFile = ts.createSourceFile(
-            filePath,
-            code,
-            ts.ScriptTarget.Latest,
-            true
-        );
-
-        console.log(`\n--- Processing: ${filePath} ---`);
+        const sourceFile = ts.createSourceFile(filePath, code, ts.ScriptTarget.Latest, true);
 
         try {
-            // 1. 检查阶段
-            const targetClassNode = checkFile(sourceFile, filePath);
-            console.log("[Check] Passed successfully.");
-
-            // 2. 翻译阶段
-            const cppCode = translateClass(targetClassNode, sourceFile, globalBaseClasses);
-            
-            // 3. 输出结果
-            console.log("\n--- Generated C++ Code ---");
-            console.log(cppCode);
-            console.log("--------------------------\n");
-
+            const { classNode, blockType } = checkFile(sourceFile, filePath);
+            validBlocks.push({
+                filePath,
+                sourceFile,
+                classNode,
+                className: classNode.name.text,
+                blockType
+            });
         } catch (error) {
-            console.error(`\n[Check/Translate Failed in ${filePath}]`);
+            console.error(`\n[Check Failed in ${filePath}]`);
             console.error(error.message);
             process.exit(1);
         }
     }
+
+    // 统一生成 C++ 代码
+    let finalCppCode = `// --- Auto Generated Block Rendering Code ---\n`;
+    //finalCppCode += `#include "DomElement.h"\n`;
+    //finalCppCode += `#include <nlohmann/json.hpp>\n\n`;
+
+    // 1. 声明全局路由函数
+    finalCppCode += `DomElement* RenderBlockRegistry(const nlohmann::json& blockData);\n\n`;
+
+    // 2. 翻译所有类并附加到代码中
+    for (const block of validBlocks) {
+        try {
+            finalCppCode += translateClass(block.classNode, block.sourceFile, globalBaseClasses) + "\n";
+        } catch (error) {
+            console.error(`\n[Translation Failed in ${block.filePath}]`);
+            console.error(error.message);
+            process.exit(1);
+        }
+    }
+
+    // 3. 生成对照表/路由函数实现
+    finalCppCode += `// Block Type Registry Router\n`;
+    finalCppCode += `DomElement* RenderBlockRegistry(const nlohmann::json& blockData) {\n`;
+    finalCppCode += `    std::string type = blockData.value("type", "");\n`;
+
+    for (let i = 0; i < validBlocks.length; i++) {
+        const block = validBlocks[i];
+        const condition = i === 0 ? "if" : "else if";
+        finalCppCode += `    ${condition} (type == "${block.blockType}") {\n`;
+        finalCppCode += `        return ${block.className}_Render(blockData);\n`;
+        finalCppCode += `    }\n`;
+    }
+
+    finalCppCode += `    return nullptr; // Unknown type\n`;
+    finalCppCode += `}\n`;
+
+    // 输出最终结果
+    console.log("\n--- Generated C++ Code ---");
+    console.log(finalCppCode);
+    console.log("--------------------------\n");
 }
 
 main();

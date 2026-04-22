@@ -3,8 +3,10 @@
 #include <map>
 #include <vector>
 
+class DomElement;
+
 // 在 C++ 环境中定义
-std::string CreateBlockWrapper(const std::string& id, const std::string& innerHtml);
+DomElement* CreateBlockWrapper(const std::string& id, DomElement* innerElement);
 
 class DomElement {
 public:

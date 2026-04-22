@@ -72,7 +72,10 @@ function checkFile(sourceFile, filename) {
         verifyProperties(propertyMap, className, templateConfig.requiredStaticOverrides, templateConfig.optionalStaticOverrides);
     }
 
-    return classNode;
+    // 提取 blockType 供 CLI 构建对照表
+    const typeNode = propertyMap.get('type').node;
+    const blockType = typeNode.initializer.text;
+    return { classNode, blockType };
 }
 
 module.exports = { checkFile };

@@ -1,13 +1,25 @@
 #include "DomElement.h"
 #include <sstream>
 
-std::string CreateBlockWrapper(const std::string& id, const std::string& innerHtml) {
-    return "<div class=\"block-container\" data-id=\"" + id + "\" draggable=\"true\">"
-        "<div class=\"block-controls\">"
-        "<span class=\"drag-handle\" title=\"Drag to move\">⠿</span>"
-        "</div>" +
-        innerHtml +
-        "</div>";
+DomElement* CreateBlockWrapper(const std::string& id, DomElement* innerElement) {
+    DomElement* container = new DomElement("div");
+    container->setAttribute("class", "block-container");
+    container->setDataset("id", id);
+    container->setAttribute("draggable", "true");
+
+    DomElement* controls = new DomElement("div");
+    controls->setAttribute("class", "block-controls");
+
+    DomElement* handle = new DomElement("span");
+    handle->setAttribute("class", "drag-handle");
+    handle->setAttribute("title", "Drag to move");
+    handle->textContent = "⠿";
+
+    controls->appendChild(handle);
+    container->appendChild(controls);
+    container->appendChild(innerElement);
+
+    return container;
 }
 
 
