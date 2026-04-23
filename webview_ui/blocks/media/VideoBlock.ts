@@ -20,8 +20,6 @@ class VideoBlock extends Block {
         if (this.properties.autoplay === undefined) this.properties.autoplay = false;
         if (this.properties.loop === undefined) this.properties.loop = false;
         if (this.properties.muted === undefined) this.properties.muted = false;
-
-        this.content = '';
     }
 
     static override getPropertiesSchema() {

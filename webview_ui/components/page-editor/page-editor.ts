@@ -825,7 +825,7 @@ export class PageEditor extends Editor {
     _onBackgroundClick() {
         // 如果编辑器中已经有块，并且最后一个块是空的段落，则直接聚焦它，而不是创建新块
         const lastBlock = this.blocks[this.blocks.length - 1];
-        if (lastBlock && (lastBlock.constructor as typeof Block).type === 'paragraph' && (!lastBlock.content || lastBlock.content === '<br>')) {
+        if (lastBlock && lastBlock instanceof TextBlock && (lastBlock.constructor as typeof TextBlock).type === 'paragraph' && (!lastBlock.properties.text || lastBlock.properties.text === '<br>')) {
             this.PageSelectionManager.setSelect(lastBlock.id);
             return;
         }
@@ -990,12 +990,7 @@ export class PageEditor extends Editor {
         if (!blockId) return;
 
         const blockInstance = this._findBlockInstanceAndParent(blockId)?.block;
-        if (blockInstance && typeof blockInstance.onKeyDown === 'function') {
-            // A small but important detail from the original code:
-            // Sync content before processing 'Enter' to ensure the latest text is saved.
-             if (e.key === 'Enter' && !e.shiftKey) {
-                blockInstance.syncContentFromDOM();
-            }
+        if (blockInstance) {
             // Let the block handle the keydown event.
             blockInstance.onKeyDown(e);
         }
@@ -1174,9 +1169,11 @@ export class PageEditor extends Editor {
 
         const newType = item.dataset['type'];
         const targetBlock = this.activeCommandBlock;
-        targetBlock.syncContentFromDOM();
+        if (targetBlock instanceof TextBlock) {
+            targetBlock.syncContentFromDOM();
+        }
 
-        if ((targetBlock.content as string).trim() === '/' || (targetBlock.content as string).trim() === '') {
+        if (targetBlock instanceof TextBlock && ((targetBlock.properties.text as string).trim() === '/' || (targetBlock.properties.text as string).trim() === '')) {
             // Transform the block in place
             const { parentArray, index } = this._findBlockInstanceAndParent(targetBlock.id);
             const newBlockData = { id: targetBlock.id, type: newType };
@@ -1465,9 +1462,9 @@ export class PageEditor extends Editor {
     
         draggedIds.forEach(id => {
             const blockInfo = this._findBlockInstanceAndParent(id);
-            if (blockInfo?.block) blockInfo.block.syncContentFromDOM();
+            if (blockInfo?.block && blockInfo.block instanceof TextBlock) blockInfo.block.syncContentFromDOM();
         });
-        if (targetBlockInfo?.block) {
+        if (targetBlockInfo?.block && targetBlockInfo.block instanceof TextBlock) {
             targetBlockInfo.block.syncContentFromDOM();
         }
     
@@ -2234,7 +2231,9 @@ export class PageEditor extends Editor {
             selection.removeAllRanges();
             selection.addRange(savedRange);
             document.execCommand(cmd, false, value);
-            targetBlock.syncContentFromDOM();
+            if (targetBlock instanceof TextBlock) {
+                targetBlock.syncContentFromDOM();
+            }
             this.emitChange(true, 'format-text');
             this.richTextEditingState.isActive = false;
         };
@@ -2247,7 +2246,9 @@ export class PageEditor extends Editor {
                     selection.removeAllRanges();
                     selection.addRange(this.currentSelection);
                     document.execCommand(arg, false, null);
-                    blockInstance.syncContentFromDOM();
+                    if (blockInstance instanceof TextBlock) {
+                        blockInstance.syncContentFromDOM();
+                    }
                     this.emitChange(true, 'format-text');
                 }
                 break;
@@ -2268,7 +2269,7 @@ export class PageEditor extends Editor {
                 this.richTextEditingState = { isActive: true, blockId: blockInstance.id, savedRange: this.currentSelection };
                 this.popoverManager.showLink(
                     button,
-                    this.currentSelection?.commonAncestorContainer.parentNode.href || '',
+                    /*this.currentSelection?.commonAncestorContainer.parentNode.href || */'',
                     (value) => {
                         forceRestoreAndExecute(value ? 'createLink' : 'unlink', value || undefined);
                     }

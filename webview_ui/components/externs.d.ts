@@ -4,6 +4,13 @@
 
 import { Editor } from './editor.js';
 
+interface BlockData {
+    id: string,
+    type: string,
+    properties: Object,
+    children: BlockData[],
+}
+
 declare global {
     interface Window {
         blockRegistry: Map<string, typeof Block>;
@@ -47,7 +54,6 @@ declare global {
 
         id: string;
         static type: string; // Should be overridden by subclasses
-        public content: string | null;
         /**
          * Properties 被声明为特定的解构，以防止 GCC 破坏如 referenceLink, width, presetId 等键名
          */
@@ -61,7 +67,7 @@ declare global {
         public children: Block[];
 
 
-        get data(): object;
+        get data(): BlockData;
 
         get toolbarButtons(): {
             icon?: string;
@@ -72,7 +78,6 @@ declare global {
         }[];
 
         handleToolbarAction(action: string, buttonElement?: HTMLElement): void;
-        syncContentFromDOM(): void;
         render(): HTMLElement;
         focus(): void;
         onInput(e: InputEvent): void;
@@ -105,7 +110,20 @@ declare global {
     /**
      * 文本块
      */
-    class TextBlock extends Block { }
+    class TextBlock extends Block {
+        public textElement: HTMLElement;
+
+        properties: {
+            referenceLink?: any;
+            width?: any;
+            presetId?: string; // 来源于 DataBlock.properties.presetId
+            customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
+            content: string;
+            [key: string]: any;
+        };
+
+        syncContentFromDOM(): void;
+    }
 
     class QuoteBlock extends Block {
         onPageSaved(savedPath: string): void;

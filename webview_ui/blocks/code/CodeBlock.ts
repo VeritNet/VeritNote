@@ -53,6 +53,13 @@ class CodeBlock extends Block {
         ];
     }
 
+    override get data(): BlockData {
+        if (this.inputElement) {
+            this.properties.code = this.inputElement.value;
+        }
+        return super.data;
+    }
+
     _renderContent() {
         if (!this.contentElement.hasChildNodes()) {
             const pre = document.createElement('pre');
@@ -68,7 +75,7 @@ class CodeBlock extends Block {
             this.contentElement.appendChild(this.inputElement);
 
             // Set initial content and highlight
-            this.inputElement.value = this.content;
+            this.inputElement.value = this.properties.code;
             this.updateHighlight();
 
             // Add event listeners
@@ -121,13 +128,6 @@ class CodeBlock extends Block {
             // Move cursor
             this.inputElement.selectionStart = this.inputElement.selectionEnd = start + 1;
             this.onInput(); // Trigger update
-        }
-    }
-
-    // This method is called by the editor to save data
-    override syncContentFromDOM() {
-        if (this.inputElement) {
-            this.content = this.inputElement.value;
         }
     }
     

@@ -7,6 +7,8 @@ class Heading1Block extends TextBlock {
     static override keywords = ['h1', 'heading', 'title', 'header'];
     static override canBeToggled = true;
     static override placeholder = 'Heading 1';
+
+    textElement: HTMLElement;
 }
 
 window['registerBlock'](Heading1Block);

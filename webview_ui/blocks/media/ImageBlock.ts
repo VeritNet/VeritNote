@@ -16,8 +16,6 @@ class ImageBlock extends Block {
         if (!this.properties.href) {
             this.properties.href = '';
         }
-        // Content is no longer used for the image tag itself
-        this.content = '';
     }
 
     static override getPropertiesSchema() {

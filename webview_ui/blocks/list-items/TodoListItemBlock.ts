@@ -17,9 +17,7 @@ class TodoListItemBlock extends TextBlock {
     // --- 2. 构造函数 ---
     constructor(data, editor) {
         super(data, editor);
-        if (!this.properties) {
-            this.properties = {};
-        }
+
         this.properties.checked = data.properties?.checked || false;
     }
 
@@ -52,7 +50,7 @@ class TodoListItemBlock extends TextBlock {
             this.textElement = document.createElement('div');
             this.textElement.className = 'list-item-text-area';
             this.textElement.contentEditable = 'true';
-            this.textElement.innerHTML = this.content || '';
+            this.textElement.innerHTML = this.properties.text || '';
             this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
             this.childrenContainer = document.createElement('div');
@@ -99,11 +97,6 @@ class TodoListItemBlock extends TextBlock {
     }
 
     // 覆盖关键方法以指向正确的元素
-    override syncContentFromDOM() {
-        if (this.textElement) {
-            this.content = this.textElement.innerHTML;
-        }
-    }
 
     focus() {
         if (!this.textElement) return;

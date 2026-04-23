@@ -11,7 +11,7 @@ class BulletedListItemBlock extends TextBlock {
     static override placeholder = 'List item';
 
 
-    textElement;
+    textElement: HTMLElement;
 
     // --- 2. 构造函数 ---
     constructor(data, editor) {
@@ -33,7 +33,7 @@ class BulletedListItemBlock extends TextBlock {
             this.textElement = document.createElement('div');
             this.textElement.className = 'list-item-text-area';
             this.textElement.contentEditable = 'true';
-            this.textElement.textContent = this.content || '';
+            this.textElement.textContent = this.properties.text || '';
             this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
             this.childrenContainer = document.createElement('div');
@@ -62,13 +62,6 @@ class BulletedListItemBlock extends TextBlock {
     }
 
     // --- 4. 覆盖关键方法以指向正确的元素 ---
-    
-    // 确保数据从正确的文本元素同步
-    override syncContentFromDOM() {
-        if (this.textElement) {
-            this.content = this.textElement.innerHTML;
-        }
-    }
 
     // 确保聚焦到正确的文本元素
     focus() {

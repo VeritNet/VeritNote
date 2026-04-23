@@ -3,6 +3,14 @@ declare var hljs: {
     highlightElement
 };
 abstract class TextBlock extends Block {
+    public abstract textElement: HTMLElement;
+
+    override properties: {
+        customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
+        content: string; // TextBlock 特有的 content 属性，文字内容
+        [key: string]: any;
+    }
+
     constructor(data, editor) {
         super(data, editor);
     }
@@ -25,11 +33,12 @@ abstract class TextBlock extends Block {
     }
 
     _renderContent() {
-        this.contentElement.contentEditable = 'true';
-        this.contentElement.innerHTML = this.content || '';
+        this.textElement = this.contentElement; // 默认将块的 contentElement 作为文本区，子块也可用覆写此行为
+        this.textElement.contentEditable = 'true';
+        this.textElement.innerHTML = this.properties.text || '';
 
         if ((this.constructor as typeof TextBlock).placeholder) {
-            this.contentElement.dataset['placeholder'] = (this.constructor as typeof TextBlock).placeholder;
+            this.textElement.dataset['placeholder'] = (this.constructor as typeof TextBlock).placeholder;
         }
 
         this.applyTextStyles();
@@ -37,7 +46,7 @@ abstract class TextBlock extends Block {
 
     protected applyTextStyles() {
         // --- 应用文本样式 ---
-        const s = this.contentElement.style;
+        const s = this.textElement.style;
         const p = this.properties;
 
         if (p.color) s.color = p.color;
@@ -67,6 +76,32 @@ abstract class TextBlock extends Block {
         return buttons;
     }
 
+
+    /**
+     * Updates the block's `content` property from its DOM element.
+     */
+    public readonly syncContentFromDOM = () => {
+        if (this.textElement && this.textElement.isContentEditable) {
+            this.properties.text = this.textElement.innerHTML;
+        }
+    };
+
+    /**
+     * Updates the block's DOM element from its `content` property.
+     */
+    private syncContentToDOM() {
+        if (this.textElement) {
+            this.textElement.innerHTML = this.properties.text;
+        }
+    }
+
+
+    override get data(): BlockData {
+        this.syncContentFromDOM();
+        return super.data;
+    }
+
+
     override onKeyDown(e) {
         // 处理 Enter 键
         if (e.key === 'Enter') {
@@ -87,7 +122,7 @@ abstract class TextBlock extends Block {
         // 浏览器在清空 contenteditable 时有时会留下 <br>，所以要同时检查
         if (
             (e.key === 'Backspace' || e.key === 'Delete') &&
-            (this.contentElement.innerHTML === '' || this.contentElement.innerHTML === '<br>')
+            (this.textElement.innerHTML === '' || this.textElement.innerHTML === '<br>')
         ) {
 
             e.preventDefault(); // 阻止默认行为（例如删除整个块的DOM节点）
@@ -113,7 +148,7 @@ abstract class TextBlock extends Block {
 
     override renderDetailsPanel_custom() {
         this.syncContentFromDOM();
-        const currentHtml = this.content || '';
+        const currentHtml = this.properties.text || '';
 
         return `
         <div tc="1" class="details-section-header">Content Source</div>
@@ -214,7 +249,7 @@ abstract class TextBlock extends Block {
             updateHighlight(newHtml);
 
             // 更新数据模型和编辑器 DOM
-            this.content = newHtml;
+            this.properties.text = newHtml;
             this.syncContentToDOM();
             this.BAPI_PE.emitChange(true, 'source-edit', this);
         });

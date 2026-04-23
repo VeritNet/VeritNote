@@ -139,7 +139,6 @@ function translateClass(classNode, sourceFile, globalBaseClasses) {
     cppCode += `DomElement* ${className}_Render(const nlohmann::json& blockData) {\n`;
     cppCode += `    std::string id = blockData.value("id", "");\n`;
     cppCode += `    nlohmann::json properties = blockData.contains("properties") ? blockData["properties"] : nlohmann::json::object();\n`;
-    cppCode += `    std::string content = blockData.value("content", "");\n`;
     cppCode += `    // [Virtual DOM Context Initialization]\n`;
     cppCode += `    DomElement* contentElement = new DomElement("div");\n`;
     cppCode += `    contentElement->setAttribute("class", "block-content");\n`;
@@ -150,7 +149,6 @@ function translateClass(classNode, sourceFile, globalBaseClasses) {
     // 注册内置变量 (tsName, cppName, type, isDom)
     scopeManager.declareVar('this.contentElement', 'contentElement', 'DomElement*', true);
     scopeManager.declareVar('this.properties', 'properties', 'nlohmann::json');
-    scopeManager.declareVar('this.content', 'content', 'std::string');
     scopeManager.declareVar('this.childrenContainer', 'childrenContainer', 'DomElement*', true);
 
     // 提前声明类成员变量 (将 this.xxx 映射为 C++ 局部变量)
@@ -158,7 +156,7 @@ function translateClass(classNode, sourceFile, globalBaseClasses) {
         if (ts.isPropertyDeclaration(member)) {
             const propName = member.name.getText(sourceFile);
             const isStatic = member.modifiers && member.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
-            if (!isStatic && !['contentElement', 'properties', 'content', 'childrenContainer'].includes(propName)) {
+            if (!isStatic && !['contentElement', 'properties', 'childrenContainer'].includes(propName)) {
                 let isDom = false;
                 if (member.type && member.type.getText(sourceFile).includes('Element')) {
                     isDom = true;

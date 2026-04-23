@@ -1,5 +1,12 @@
 ﻿// blocks/Block.js
 
+interface BlockData {
+    id: string,
+    type: string,
+    properties: Object,
+    children: BlockData[],
+}
+
 /**
  * 函数规范：
  * 覆写基类函数必须显示 override 关键词
@@ -12,7 +19,6 @@ abstract class Block {
     // --- Static properties for registration and slash command ---
     id: string;
     static type: string; // Should be overridden by subclasses
-    public content: string | null;
     public properties: {
         customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
         [key: string]: any;
@@ -69,7 +75,6 @@ abstract class Block {
      */
     constructor(data, editor) {
         this.id = data.id || this._generateUUID();
-        this.content = data.content || '';
         this.properties = data.properties || {};
 
         // Initialize Custom CSS Property
@@ -113,13 +118,10 @@ abstract class Block {
      * Returns the block's data for saving.
      * @returns {object} The serializable data object for this block.
      */
-    get data() {
-        this.syncContentFromDOM();
-
+    get data(): BlockData {
         return {
             id: this.id,
             type: (this.constructor as typeof Block).type,
-            content: this.content,
             properties: this.properties,
             // *** FIX: Always generate children data from the live this.children instance array. ***
             children: this.children.map(child => child.data),
@@ -131,7 +133,7 @@ abstract class Block {
      * Subclasses should override this.
      * @returns {Array} An array of button definition objects.
      */
-    protected get toolbarButtons(): { html?: string; title?: string; action?: string; icon?: string; arg?: string }[] {
+    public get toolbarButtons(): { html?: string; title?: string; action?: string; icon?: string; arg?: string }[] {
         // We define this in the base class so all blocks get it.
         // It's an array so subclasses can push their own buttons to it.
         return [
@@ -176,15 +178,6 @@ abstract class Block {
     }
 
     /**
-     * Updates the block's `content` property from its DOM element.
-     */
-    syncContentFromDOM() {
-        if (this.contentElement && this.contentElement.isContentEditable) {
-            this.content = this.contentElement.innerHTML;
-        }
-    }
-
-    /**
      * Handles input events on the block.
      * @param {InputEvent} e The event object.
      */
@@ -205,7 +198,6 @@ abstract class Block {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             // *** FIX: Force sync THIS block's content before telling the editor to create a new one. ***
-            this.syncContentFromDOM();
             this.BAPI_PE.insertNewBlockAfter(this);
         }
 
@@ -218,7 +210,7 @@ abstract class Block {
      * Renders the HTML content for this block to be displayed in the details panel.
      * @returns {string} The HTML string to be inserted into the details panel.
      */
-    renderDetailsPanel() {
+    readonly renderDetailsPanel = (): string => {
         // --- Step 1: Build the Hierarchy Data Structure ---
         const hierarchyData = [];
         let maxAncestorDepth = 0;
@@ -329,7 +321,7 @@ abstract class Block {
      * This attaches event listeners to the inputs.
      * @param {HTMLElement} container - The details panel container.
      */
-    onDetailsPanelOpen(container) {
+    readonly onDetailsPanelOpen = (container) => {
         this.onDetailsPanelOpen_custom(container);
 
         // 0. 处理重置按钮点击事件
@@ -617,9 +609,9 @@ abstract class Block {
 
     /**
      * Creates the main wrapper element (.block-container).
-     * @protected
+     * @private
      */
-    protected _createWrapperElement(): HTMLElement {
+    private _createWrapperElement(): HTMLElement {
         const element = document.createElement('div');
         element.className = 'block-container';
         element.dataset['id'] = this.id;
@@ -634,9 +626,9 @@ abstract class Block {
 
     /**
      * Creates the content element (.block-content).
-     * @protected
+     * @private
      */
-    protected _createContentElement(): HTMLElement {
+    private _createContentElement(): HTMLElement {
         const content = document.createElement('div');
         content.className = 'block-content';
         content.dataset['id'] = this.id;
@@ -653,9 +645,9 @@ abstract class Block {
     /**
      * Renders child blocks and appends them to the correct container.
      * @param {HTMLElement} [targetContainer] - 指定渲染的目标容器区。如果不传，则默认尝试渲染到交互容器(childrenContainer)。
-     * @protected
+     * @private
      */
-    protected _renderChildren() {
+    private _renderChildren() {
         const destination = this.childrenContainer;
 
         if (destination && this.children.length > 0) {
@@ -663,15 +655,6 @@ abstract class Block {
                 childInstance.parent = this;
                 destination.appendChild(childInstance.render());
             });
-        }
-    }
-
-    /**
-     * Updates the block's DOM element from its `content` property.
-     */
-    protected syncContentToDOM() {
-        if (this.contentElement) {
-            this.contentElement.innerHTML = this.content;
         }
     }
 
@@ -798,7 +781,7 @@ abstract class Block {
      */
     onDetailsPanelOpen_custom(container: HTMLElement) { };
 
-    protected _refreshDetailsPanel() {
+    protected readonly _refreshDetailsPanel = () => {
         this._applyCustomCSS();
         this.BAPI_PE.emitChange(false, 'css-ui-update', this); // Don't record history for every UI click
         this.BAPI_PE.updateDetailsPanel(); // Force re-render of panel
@@ -892,7 +875,7 @@ abstract class Block {
         styleTag.textContent = cssString;
     }
 
-    protected _reRenderSelf() {
+    protected readonly _reRenderSelf = () => {
         // 1. 保存旧的 DOM 元素引用
         const oldElement = this.element;
         // 2. 调用自身的 render 方法生成全新的 DOM 结构

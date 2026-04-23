@@ -75,11 +75,11 @@ export class PageSelectionManager {
     // 内部私有方法：处理实际的 DOM 光标聚焦
     _focusDOMElement(blockId: string) {
         const blockInstance = this.editor._findBlockInstanceById(this.editor.blocks, blockId)?.block;
-        if (blockInstance && blockInstance.contentElement && blockInstance.contentElement.isContentEditable) {
-            blockInstance.contentElement.focus();
+        if (blockInstance && blockInstance instanceof TextBlock && blockInstance.textElement) {
+            blockInstance.textElement.focus();
             const range = document.createRange();
-            const selection = window.getSelection() as Selection;;
-            range.selectNodeContents(blockInstance.contentElement);
+            const selection = window.getSelection() as Selection;
+            range.selectNodeContents(blockInstance.textElement);
             range.collapse(false); // 光标移至末尾
             selection.removeAllRanges();
             selection.addRange(range);

@@ -36,7 +36,7 @@
         // 1. 外层容器不再可编辑
         this.contentElement.contentEditable = 'false';
 
-        const textContent = this.content || 'Button';
+        //const textContent = this.content || 'Button';
 
         // 构建样式
         const p = this.properties;
@@ -51,7 +51,7 @@
 
         // 2. 将 contentEditable 加在 a 标签上，并强制 display: inline-block 确保行为正常
         // 注意：我们需要防止点击 a 标签跳转，这通常由编辑器拦截，但 contentEditable 为 true 时浏览器通常不会跳转
-        this.contentElement.innerHTML = `<a href="${p.url || '#'}" style="${style}" contenteditable="true">${textContent}</a>`;
+        //this.contentElement.innerHTML = `<a href="${p.url || '#'}" style="${style}" contenteditable="true">${textContent}</a>`;
     }
 
     override get toolbarButtons() {
@@ -60,16 +60,6 @@
         ];
         buttons.push(...super.toolbarButtons as any);
         return buttons;
-    }
-    
-    // Override sync to save only the text part from the contentEditable element
-    override syncContentFromDOM() {
-        if (this.contentElement) {
-            // We get the textContent of the inner <a> tag, or the element itself if <a> is missing
-            const linkElement = this.contentElement.querySelector('a');
-            this.content = linkElement ? linkElement.textContent : this.contentElement.textContent;
-            this.content = this.content || ''; // Ensure it's not null
-        }
     }
 
     /**
@@ -86,7 +76,7 @@
                     // Re-render content with the new URL after a delay
                     // This ensures the popover has time to close and doesn't interfere
                     setTimeout(() => {
-                        this.syncContentFromDOM(); // First, save any text changes the user made
+                        //this.syncContentFromDOM(); // First, save any text changes the user made
                         this._renderContent();   // Then, re-render the link with the new URL
                         this.BAPI_PE.emitChange(true, 'edit-button-link', this);
                     }, 0);

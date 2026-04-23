@@ -7,6 +7,8 @@ class ParagraphBlock extends TextBlock {
     static override keywords = ['text', 'paragraph', 'p'];
     static override canBeToggled = true;
     static override placeholder = 'Type \'/\' for commands...';
+
+    textElement: HTMLElement;
 }
 
 window['registerBlock'](ParagraphBlock);

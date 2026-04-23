@@ -11,15 +11,13 @@ class ToggleListItemBlock extends TextBlock {
     static override placeholder = 'Toggle';
 
     
-    textElement;
-    toggleElement;
+    textElement: HTMLElement;
+    toggleElement: HTMLElement;
 
     // --- 2. Constructor ---
     constructor(data, editor) {
         super(data, editor);
-        if (!this.properties) {
-            this.properties = {};
-        }
+
         // The core state property: isCollapsed
         this.properties.isCollapsed = data.properties?.isCollapsed || false;
     }
@@ -48,7 +46,7 @@ class ToggleListItemBlock extends TextBlock {
             this.textElement = document.createElement('div');
             this.textElement.className = 'list-item-text-area';
             this.textElement.contentEditable = 'true';
-            this.textElement.innerHTML = this.content || '';
+            this.textElement.innerHTML = this.properties.text || '';
             this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
             this.childrenContainer = document.createElement('div');
@@ -88,11 +86,6 @@ class ToggleListItemBlock extends TextBlock {
     }
 
     // Override key methods to point to the correct text element
-    override syncContentFromDOM() {
-        if (this.textElement) {
-            this.content = this.textElement.innerHTML;
-        }
-    }
 
     focus() {
         if (!this.textElement) return;

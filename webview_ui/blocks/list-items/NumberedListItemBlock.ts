@@ -17,12 +17,8 @@ class NumberedListItemBlock extends TextBlock {
     // --- 2. Constructor ---
     constructor(data, editor) {
         super(data, editor);
-        
-        // Ensure properties object exists and initialize the number
-        if (!this.properties) {
-            this.properties = {};
-        }
-        this.properties.number = data.properties?.number || 1;
+
+        this.properties.number = this.properties?.number || 1;
     }
 
     // --- 3. Rendering ---
@@ -49,7 +45,7 @@ class NumberedListItemBlock extends TextBlock {
             this.textElement = document.createElement('div');
             this.textElement.className = 'list-item-text-area';
             this.textElement.contentEditable = 'true';
-            this.textElement.textContent = this.content || '';
+            this.textElement.textContent = this.properties.text || '';
             this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
 
             this.childrenContainer = document.createElement('div');
@@ -86,14 +82,6 @@ class NumberedListItemBlock extends TextBlock {
             const num = parseInt(this.numberElement.textContent, 10);
             this.properties.number = isNaN(num) ? 1 : num;
         }
-    }
-
-    // Syncs both the main text and the number
-    override syncContentFromDOM() {
-        if (this.textElement) {
-            this.content = this.textElement.innerHTML;
-        }
-        this.syncNumberFromDOM();
     }
 
     focus() {
