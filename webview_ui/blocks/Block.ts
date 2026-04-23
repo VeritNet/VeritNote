@@ -49,7 +49,6 @@ abstract class Block {
         '.quadrant-overlay'
     ];
     public element: HTMLElement | null;
-    public contentElement: HTMLElement | null;
 
     /**
      * 当 childrenContainer 为 null 切 children 数组不为空时，说明该子块是父级不可分割的结构块（如 Row 是 Table 的结构块）。
@@ -67,6 +66,8 @@ abstract class Block {
 
     protected exportReadyResolve;
     public exportReadyPromise: Promise<any>;
+
+    protected contentElement: HTMLElement | null;
 
 
     /**

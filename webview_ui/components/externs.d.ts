@@ -102,7 +102,6 @@ declare global {
 
         element: HTMLElement | null;
 
-        contentElement: HTMLElement | null;
         childrenContainer: HTMLElement | null;
         parent?: Block;
     }

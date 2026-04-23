@@ -494,33 +494,6 @@ export class PageEditor extends Editor {
                 this.elements.editorAreaContainer.appendChild(blockEl);
             }
         });
-        // Special handling for columns, which might need resizers between them
-        this._postRenderProcess();
-    }
-
-    /**
-     * Post-render tasks, like adding column resizers.
-     * This is necessary because resizers need to know about their neighbors.
-     * @private
-     */
-    // Todo: 解耦
-    _postRenderProcess() {
-        this.container.querySelectorAll('.block-content[data-type="columns"]').forEach(columnsEl => {
-            const columnsBlock = this._findBlockInstanceById(this.blocks, (columnsEl as HTMLElement).dataset['id'])?.block;
-            if (!columnsBlock || columnsBlock.children.length <= 1) return;
-
-            for (let i = 1; i < columnsBlock.children.length; i++) {
-                const leftCol = columnsBlock.children[i - 1];
-                const rightCol = columnsBlock.children[i];
-                const resizer = this._createColumnResizer(leftCol, rightCol);
-                
-                // Insert resizer between the column elements
-                const leftColEl = columnsBlock.element.querySelector(`.block-content[data-id="${leftCol.id}"]`);
-                if (leftColEl && leftColEl.nextSibling) {
-                    leftColEl.parentElement.insertBefore(resizer, leftColEl.nextSibling);
-                }
-            }
-        });
     }
 
     deleteBlock(blockInstance: Block, recordHistory = true) {
@@ -1003,7 +976,7 @@ export class PageEditor extends Editor {
      * @param {Block} blockInstance The block that triggered the command.
      */
     showCommandMenuForBlock(blockInstance: Block) {
-        const blockEl = blockInstance.contentElement;
+        const blockEl = blockInstance.element;
         if (!blockEl || this.elements.commandMenu.classList.contains('is-visible')) {
             return; // Don't show if no element or already visible
         }
@@ -1112,11 +1085,9 @@ export class PageEditor extends Editor {
      * @private
      */
     _handleCommandMenuLifecycle(blockInstance: Block) {
-        let content: string;
-        if (!blockInstance.contentElement) {
-            content = '';
-        } else {
-            content = blockInstance.contentElement.textContent || '';
+        let content: string = '';
+        if (blockInstance instanceof TextBlock) {
+            content = blockInstance.textElement.textContent;
         }
 
         // --- DECISION 1: Should the menu exist at all? ---
@@ -1342,7 +1313,7 @@ export class PageEditor extends Editor {
             (e.target as HTMLElement).classList.contains('callout-content-wrapper')) {
 
             // 找到了对应的容器块实例
-            // 注意：e.target 是 childrenContainer，它的 parentElement 通常是 contentElement 或 blockElement
+            // 注意：e.target 是 childrenContainer，它的 parentElement 通常是 contentElement
             const containerBlockEl = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
             const containerInst = this._findBlockInstanceById(this.blocks, containerBlockEl.dataset['id'])?.block;
 
@@ -1557,8 +1528,6 @@ export class PageEditor extends Editor {
     
         if (needsFullRender || structuralChange) {
             this.render();
-        } else {
-            this._postRenderProcess();
         }
         
         // 2. 收集所有受影响的父容器
@@ -1847,79 +1816,6 @@ export class PageEditor extends Editor {
         targetEl.appendChild(indicator);
     }
 
-    _createColumnResizer(leftColumn, rightColumn) {
-        const resizer = document.createElement('div');
-        resizer.className = 'column-resizer';
-
-        // 找到共同的父级 ColumnsBlock 实例
-        const parentColumnsBlock = this._findBlockInstanceAndParent(leftColumn.id)?.parentInstance;
-
-        resizer.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-        
-            // 如果找不到父级，则不执行任何操作
-            if (!parentColumnsBlock || !parentColumnsBlock.contentElement) return;
-
-            const startX = e.clientX;
-            const leftInitialWidth = leftColumn.properties.width;
-            const rightInitialWidth = rightColumn.properties.width;
-        
-            const onMouseMove = (moveEvent) => {
-                // 关键修复：从稳定的 JS 实例获取父容器宽度
-                const parentWidth = parentColumnsBlock.contentElement.offsetWidth;
-                if (parentWidth === 0) return;
-
-                const deltaX = moveEvent.clientX - startX;
-                const deltaPercentage = deltaX / parentWidth;
-            
-                let newLeftWidth = leftInitialWidth + deltaPercentage;
-                let newRightWidth = rightInitialWidth - deltaPercentage;
-
-                // 限制最小宽度，防止一列完全消失
-                const minWidth = 0.1; // 10%
-                if (newLeftWidth < minWidth || newRightWidth < minWidth) return;
-
-                // 直接更新 DOM 以提供实时反馈
-                leftColumn.contentElement.style.width = `${newLeftWidth * 100}%`;
-                rightColumn.contentElement.style.width = `${newRightWidth * 100}%`;
-            };
-
-            const onMouseUp = (upEvent) => {
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
-            
-                const parentWidth = parentColumnsBlock.contentElement.offsetWidth;
-                if (parentWidth === 0) return;
-
-                const deltaX = upEvent.clientX - startX;
-                const deltaPercentage = deltaX / parentWidth;
-            
-                let finalLeftWidth = leftInitialWidth + deltaPercentage;
-                let finalRightWidth = rightInitialWidth - deltaPercentage;
-
-                // 最终计算时再次确保不小于最小宽度
-                const minWidth = 0.1;
-                if (finalLeftWidth < minWidth) {
-                    finalRightWidth += (finalLeftWidth - minWidth);
-                    finalLeftWidth = minWidth;
-                }
-                if (finalRightWidth < minWidth) {
-                    finalLeftWidth += (finalRightWidth - minWidth);
-                    finalRightWidth = minWidth;
-                }
-
-                // 关键：将最终计算出的比例保存回数据模型
-                leftColumn.properties.width = finalLeftWidth;
-                rightColumn.properties.width = finalRightWidth;
-            
-                this.emitChange(true, 'resize-column');
-            };
-
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-        });
-        return resizer;
-    }
 
     _handleReferenceItemDrop(event, refData) {
         if (!this.currentDropInfo) return;
@@ -2226,7 +2122,9 @@ export class PageEditor extends Editor {
                 this.richTextEditingState.isActive = false;
                 return;
             }
-            targetBlock.contentElement.focus();
+            if (targetBlock instanceof TextBlock) {
+                targetBlock.textElement.focus();
+            }
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(savedRange);
@@ -2239,9 +2137,9 @@ export class PageEditor extends Editor {
         };
 
         switch (action) {
-            case 'format':
+            case 'format': // e.g. bold, italic, underline
                 if (this.currentSelection) {
-                    blockInstance.contentElement.focus();
+                    (blockInstance as TextBlock).textElement.focus();
                     const selection = window.getSelection();
                     selection.removeAllRanges();
                     selection.addRange(this.currentSelection);

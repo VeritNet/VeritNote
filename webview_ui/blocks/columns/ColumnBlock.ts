@@ -1,23 +1,25 @@
-﻿// blocks/ColumnBlock.js
+﻿// blocks/ColumnBlock.ts
 class ColumnBlock extends Block {
     static override type = 'column';
     static override canBeToggled = false;
     static override createWrapper = false;
-    
-    constructor(data, editor) {
+
+    constructor(data: any, editor: any) {
         super(data, editor);
         if (!this.properties.width) {
             this.properties.width = 0.5;
         }
     }
 
-    _renderContent() {
+    override _renderContent() {
         this.childrenContainer = this.element;
-        this.contentElement.style.width = `${this.properties.width * 100}%`;
+        if (this.contentElement) {
+            this.contentElement.style.width = `${this.properties.width * 100}%`;
+        }
     }
 
-    override onInput(e) { /* no-op */ }
-    override onKeyDown(e) { /* no-op */ }
+    override onInput(e: Event) { /* no-op */ }
+    override onKeyDown(e: Event) { /* no-op */ }
 }
 
 window['registerBlock'](ColumnBlock);
