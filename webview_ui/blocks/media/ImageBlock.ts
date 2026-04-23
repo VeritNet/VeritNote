@@ -42,29 +42,38 @@ class ImageBlock extends Block {
 
     _renderContent() {
         const p = this.properties;
+        while (this.contentElement.firstChild) {
+            this.contentElement.removeChild(this.contentElement.firstChild);
+        }
 
-        // 构建样式字符串
-        let style = `display: block;`;
-        if (p.width) style += `width: ${p.width};`;
-        if (p.height) style += `height: ${p.height};`;
-        if (p.objectFit) style += `object-fit: ${p.objectFit};`;
-        if (p.filter) style += `filter: ${p.filter};`;
+        if (!p.src) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'image-placeholder';
+            placeholder.textContent = 'Click 🖼️ to add an image';
+            this.contentElement.appendChild(placeholder);
+            return;
+        }
 
-        // 注意：圆角等样式应该应用在 img 标签上，而不是外层 wrapper，因为 wrapper 可能是全宽的
-        if (p.borderRadius) style += `border-radius: ${p.borderRadius};`;
+        const img = document.createElement('img');
+        img.src = p.src;
+        img.alt = p.alt || 'image';
+        
+        img.style.display = 'block';
+        if (p.width) img.style.width = p.width;
+        if (p.height) img.style.height = p.height;
+        if (p.objectFit) img.style.objectFit = p.objectFit;
+        if (p.filter) img.style.filter = p.filter;
+        if (p.borderRadius) img.style.borderRadius = p.borderRadius;
 
-        if (p.src) {
-            const alt = p.alt || 'image';
-            const imgHtml = `<img src="${p.src}" alt="${alt}" style="${style}">`;
-
-            // 如果存在超链接属性，则用 <a> 标签包裹图片
-            if (p.href) {
-                this.contentElement.innerHTML = `<a href="${p.href}" target="_blank" rel="noopener noreferrer">${imgHtml}</a>`;
-            } else {
-                this.contentElement.innerHTML = imgHtml;
-            }
+        if (p.href) {
+            const link = document.createElement('a');
+            link.href = p.href;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.appendChild(img);
+            this.contentElement.appendChild(link);
         } else {
-            this.contentElement.innerHTML = `<div class="image-placeholder">Click 🖼️ to add an image</div>`;
+            this.contentElement.appendChild(img);
         }
     }
     

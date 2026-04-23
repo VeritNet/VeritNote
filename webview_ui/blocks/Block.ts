@@ -647,7 +647,6 @@ abstract class Block {
     /**
      * Renders the specific content of the block into `this.contentElement`.
      * Subclasses MUST override this method.
-     * @private
      */
     abstract _renderContent(): void;
 

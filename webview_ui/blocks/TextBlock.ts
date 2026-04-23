@@ -79,7 +79,7 @@ abstract class TextBlock extends Block {
 
             // 如果只按下了 Enter，则创建新的列表项
             this.syncContentFromDOM();
-            this.BAPI_PE.insertNewBlockAfter(this, 'bulletedListItem');
+            this.BAPI_PE.insertNewBlockAfter(this, (this.constructor as typeof Block).type);
             return;
         }
 

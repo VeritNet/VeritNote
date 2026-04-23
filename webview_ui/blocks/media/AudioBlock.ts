@@ -40,38 +40,68 @@ class AudioBlock extends Block {
 
     _renderContent() {
         const p = this.properties;
+        while (this.contentElement.firstChild) {
+            this.contentElement.removeChild(this.contentElement.firstChild);
+        }
 
         if (!p.src) {
-            this.contentElement.innerHTML = `<div class="media-placeholder audio-placeholder">Click 🎵 to add an audio file</div>`;
+            const placeholder = document.createElement('div');
+            placeholder.className = 'media-placeholder audio-placeholder';
+            placeholder.textContent = 'Click 🎵 to add an audio file';
+            this.contentElement.appendChild(placeholder);
             return;
         }
 
-        let attrs = '';
-        if (p.controls) attrs += ' controls';
-        if (p.autoplay) attrs += ' autoplay';
-        if (p.loop) attrs += ' loop';
-        if (p.muted) attrs += ' muted';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'audio-block-wrapper';
 
-        const audioHtml = `<audio src="${p.src}" ${attrs}></audio>`;
+        const deco = document.createElement('div');
+        deco.className = 'audio-icon-deco';
+        deco.textContent = '🎵';
+        wrapper.appendChild(deco);
 
-        // 音频的外链按钮，放置在播放器右侧
-        let linkHtml = '';
+        const audio = document.createElement('audio');
+        audio.src = p.src;
+        audio.controls = !!p.controls;
+        audio.autoplay = !!p.autoplay;
+        audio.loop = !!p.loop;
+        audio.muted = !!p.muted;
+        wrapper.appendChild(audio);
+
         if (p.href) {
-            linkHtml = `
-                <a href="${p.href}" target="_blank" rel="noopener noreferrer" class="audio-link" title="Visit Link">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                </a>
-            `;
+            const link = document.createElement('a');
+            link.href = p.href;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.className = 'audio-link';
+            link.title = 'Visit Link';
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '16');
+            svg.setAttribute('height', '16');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('stroke-width', '2');
+            svg.setAttribute('stroke-linecap', 'round');
+            svg.setAttribute('stroke-linejoin', 'round');
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6');
+            const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            polyline.setAttribute('points', '15 3 21 3 21 9');
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', '10'); line.setAttribute('y1', '14');
+            line.setAttribute('x2', '21'); line.setAttribute('y2', '3');
+
+            svg.appendChild(path);
+            svg.appendChild(polyline);
+            svg.appendChild(line);
+            link.appendChild(svg);
+            wrapper.appendChild(link);
         }
 
-        // 使用 Flex 容器包裹，让 Audio 播放器和 Link 按钮同行排列
-        this.contentElement.innerHTML = `
-            <div class="audio-block-wrapper">
-                <div class="audio-icon-deco">🎵</div>
-                ${audioHtml}
-                ${linkHtml}
-            </div>
-        `;
+        this.contentElement.appendChild(wrapper);
     }
 
     override onInput(e) { /* no-op */ }

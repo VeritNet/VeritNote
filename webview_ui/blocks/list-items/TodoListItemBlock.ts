@@ -11,8 +11,8 @@ class TodoListItemBlock extends TextBlock {
     static override placeholder = 'To-do';
 
     
-    textElement;
-    checkbox;
+    textElement: HTMLDivElement;
+    checkbox: HTMLInputElement;
 
     // --- 2. 构造函数 ---
     constructor(data, editor) {
@@ -25,46 +25,57 @@ class TodoListItemBlock extends TextBlock {
 
     // --- 3. 渲染 ---
     override _renderContent() {
-        // 创建独特的内部布局: [Checkbox] [Text Area]
-        this.contentElement.innerHTML = `
-            <div class="todo-checkbox-wrapper">
-                <input type="checkbox" class="todo-checkbox" id="todo-${this.id}" data-id="${this.id}">
-            </div>
-            <div class="list-item-content-wrapper">
-                <div class="list-item-text-area"></div>
-                <div class="list-item-children-container block-children-container"></div>
-            </div>
-        `;
-        
-        // 获取关键元素的引用
-        this.checkbox = this.contentElement.querySelector('.todo-checkbox');
-        const contentWrapper = this.contentElement.querySelector('.list-item-content-wrapper');
-        this.textElement = contentWrapper.querySelector('.list-item-text-area');
-        this.childrenContainer = contentWrapper.querySelector('.list-item-children-container');
+        if (!this.contentElement.hasChildNodes()) {
+            const checkboxWrapper = document.createElement('div');
+            checkboxWrapper.className = 'todo-checkbox-wrapper';
 
-        // 初始化 checkbox 的状态
-        this.checkbox.checked = this.properties.checked;
-        if (this.properties.checked) {
-            this.checkbox.setAttribute('checked', '');
-        } else {
-            this.checkbox.removeAttribute('checked');
+            let cb = document.createElement('input');
+            cb.type = 'checkbox';
+
+            this.checkbox = document.createElement('input');
+            this.checkbox.type = 'checkbox';
+            this.checkbox.className = 'todo-checkbox';
+            this.checkbox.id = `todo-${this.id}`;
+            this.checkbox.dataset['id'] = this.id;
+            
+            this.checkbox.addEventListener('change', () => {
+                this.properties.checked = this.checkbox.checked;
+                this.updateCheckedStateStyle();
+                this.BAPI_PE.emitChange(true, 'toggle-todo', this);
+            });
+
+            checkboxWrapper.appendChild(this.checkbox);
+
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'list-item-content-wrapper';
+
+            this.textElement = document.createElement('div');
+            this.textElement.className = 'list-item-text-area';
+            this.textElement.contentEditable = 'true';
+            this.textElement.innerHTML = this.content || '';
+            this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
+
+            this.childrenContainer = document.createElement('div');
+            this.childrenContainer.className = 'list-item-children-container block-children-container';
+
+            contentWrapper.appendChild(this.textElement);
+            contentWrapper.appendChild(this.childrenContainer);
+
+            this.contentElement.appendChild(checkboxWrapper);
+            this.contentElement.appendChild(contentWrapper);
         }
-        this.updateCheckedStateStyle();
-
-        // 初始化文本区域
-        this.textElement.contentEditable = 'true';
-        this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
-
-        this._applyListItemStyles();
         
-        // --- 事件监听 ---
-        // 监听 checkbox 的状态变化
-        this.checkbox.addEventListener('change', () => {
-            this.properties.checked = this.checkbox.checked;
-            this.updateCheckedStateStyle();
-            this.BAPI_PE.emitChange(true, 'toggle-todo', this); // 通知编辑器内容已更改
-        });
+        if (this.checkbox) {
+            this.checkbox.checked = this.properties.checked;
+            if (this.properties.checked) {
+                this.checkbox.setAttribute('checked', '');
+            } else {
+                this.checkbox.removeAttribute('checked');
+            }
+        }
+
+        this.updateCheckedStateStyle();
+        this._applyListItemStyles();
     }
 
     _applyListItemStyles() {

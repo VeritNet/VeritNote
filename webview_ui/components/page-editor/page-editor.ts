@@ -18,6 +18,14 @@ export enum EditorMode {
     preview
 }
 
+enum BlockRelPos {
+    Left,
+    Right,
+    Before,
+    After,
+    InsideLast
+}
+
 export class PageEditor extends Editor {
     elements: Record<string, HTMLElement>; // To store references to DOM elements
     mode: EditorMode; // 'edit' or 'preview'
@@ -27,11 +35,11 @@ export class PageEditor extends Editor {
     history: PageHistoryManager;
     activeCommandBlock: Block | null;
     draggedBlock: HTMLElement | null;
-    currentDropInfo;
+    currentDropInfo: { targetId: string, position: BlockRelPos } | null;
     activeToolbarBlock: Block | null;
-    toolbarHideTimeout;
-    currentSelection;
-    richTextEditingState: { isActive: boolean; blockId: string | null; savedRange };
+    toolbarHideTimeout: number | undefined;
+    currentSelection: Range | null;
+    richTextEditingState: { isActive: boolean; blockId: string | null; savedRange: Range | null };
 
     commandMenuSelectedIndex: number;
 
@@ -58,7 +66,7 @@ export class PageEditor extends Editor {
         this.draggedBlock = null;
         this.currentDropInfo = null;
         this.activeToolbarBlock = null;
-        this.toolbarHideTimeout = null;
+        this.toolbarHideTimeout = undefined;
         this.currentSelection = null;
         this.richTextEditingState = { isActive: false, blockId: null, savedRange: null };
         this.commandMenuSelectedIndex = 0;
@@ -66,6 +74,8 @@ export class PageEditor extends Editor {
         this.hoveredChildrenContainer = null;
 
         this.PageSelectionManager = new PageSelectionManager(this);
+        this.PageReferenceManager = null; // Will be initialized in onLoad after HTML is ready
+        this.popoverManager = null; // Will be initialized in onLoad after HTML is ready
     }
 
     // --- ========================================================== ---
@@ -73,25 +83,25 @@ export class PageEditor extends Editor {
     // --- ========================================================== ---
     ['BAPI_PE'] = {
         // Page Editor Functions
-        ['_populateToolbar']: (blockInstance) => {
+        ['_populateToolbar']: (blockInstance: Block) => {
             return this._populateToolbar(blockInstance);
         },
-        ['_findBlockToFocusAfterTextBlockDeleted']: (id) => {
+        ['_findBlockToFocusAfterTextBlockDeleted']: (id: string) => {
             return this._findBlockToFocusAfterTextBlockDeleted(id);
         },
         ['updateDetailsPanel']: () => {
             return this.updateDetailsPanel();
         },
-        ['insertNewBlockAfter']: (targetBlock, type = 'paragraph') => {
+        ['insertNewBlockAfter']: (targetBlock: Block, type = 'paragraph') => {
             return this.insertNewBlockAfter(targetBlock, type);
         },
-        ['showCommandMenuForBlock']: (blockInstance) => {
+        ['showCommandMenuForBlock']: (blockInstance: Block) => {
             return this.showCommandMenuForBlock(blockInstance);
         },
-        ['_handleCommandMenuLifecycle']: (blockInstance) => {
+        ['_handleCommandMenuLifecycle']: (blockInstance: Block) => {
             return this._handleCommandMenuLifecycle(blockInstance);
         },
-        ['deleteBlock']: (blockInstance, recordHistory = true) => {
+        ['deleteBlock']: (blockInstance: Block, recordHistory = true) => {
             return this.deleteBlock(blockInstance, recordHistory);
         },
         ['emitChange']: (recordHistory = true, actionType = 'unknown', blockInstance = null) => {
@@ -100,7 +110,7 @@ export class PageEditor extends Editor {
         ['createBlockInstance']: (blockData) => {
             return this.createBlockInstance(blockData);
         },
-        ['selectBlock']: (blockId) => {
+        ['selectBlock']: (blockId: string) => {
             return this.PageSelectionManager.setSelect(blockId);
         },
 
@@ -346,7 +356,7 @@ export class PageEditor extends Editor {
                 // Add visual feedback and set the drop info, just like in the main _onDragOver.
                 deleteZone.classList.add('is-active');
                 this._cleanupDragIndicators(); // Hide any block indicators.
-                this.currentDropInfo = { targetId: 'DELETE_ZONE', position: 'inside' };
+                this.currentDropInfo = { targetId: 'DELETE_ZONE', position: BlockRelPos.InsideLast };
             });
     
             // Listener 2: When a draggable element LEAVES the delete zone.
@@ -577,7 +587,7 @@ export class PageEditor extends Editor {
         this.emitChange(true, 'batch-delete', null);
     }
 
-    insertNewBlockAfter(targetBlock, type = 'paragraph') {
+    insertNewBlockAfter(targetBlock: Block, type = 'paragraph') {
         const newBlockData = { type: type, content: '' };
         const newBlockInstance = this.createBlockInstance(newBlockData);
         if (!newBlockInstance) return;
@@ -1323,7 +1333,7 @@ export class PageEditor extends Editor {
         // ============================================================
 
         let finalTargetId = directBlockInstance.id;
-        let position = '';
+        let position: BlockRelPos;
 
         // 我们需要判断鼠标到底在哪个“区域”：
         // A. 某块的 childrenContainer 的“空白区” (无子块覆盖，或子块间隙)
@@ -1341,7 +1351,7 @@ export class PageEditor extends Editor {
 
             if (containerInst) {
                 // 命中容器空白区 -> 放入容器
-                position = 'inside_last';
+                position = BlockRelPos.InsideLast;
                 finalTargetId = containerInst.id;
 
                 // 视觉更新：虚线变实线
@@ -1366,18 +1376,18 @@ export class PageEditor extends Editor {
         const xZone = rect.width * 0.15; // 左右分栏触发区
 
         if (e.clientX < rect.left + xZone) {
-            position = 'left';
+            position = BlockRelPos.Left;
         } else if (e.clientX > rect.right - xZone) {
-            position = 'right';
+            position = BlockRelPos.Right;
         } else if (e.clientY < yMidpoint) {
-            position = 'before';
+            position = BlockRelPos.Before;
         } else {
-            position = 'after';
+            position = BlockRelPos.After;
         }
 
         // 视觉更新：绘制指示线 (蓝色条)
         // 这一步由 _showHorizontalIndicator / _showVerticalIndicator 完成
-        if (position === 'left' || position === 'right') {
+        if (position === BlockRelPos.Left || position === BlockRelPos.Right) {
             this._showVerticalIndicator(directTargetEl, position);
         } else {
             this._showHorizontalIndicator(directTargetEl, position);
@@ -1503,21 +1513,21 @@ export class PageEditor extends Editor {
         let needsFullRender = false;
     
         switch (position) {
-            case 'left':
-            case 'right':
+            case BlockRelPos.Left:
+            case BlockRelPos.Right:
                 this._handleColumnDrop(finalRemovedBlocks, targetBlockInstance, position);
                 needsFullRender = true;
                 break;
-             case 'before':
-            case 'after': { 
+             case BlockRelPos.Before:
+            case BlockRelPos.After: { 
                 const parentEl = targetBlockInstance.element.parentElement;
                 if (!parentEl) {
                     needsFullRender = true;
                     break;
                 }
-                const insertIndex = (position === 'before') ? toIndex : toIndex + 1;
+                const insertIndex = (position === BlockRelPos.Before) ? toIndex : toIndex + 1;
                 toParentArray.splice(insertIndex, 0, ...finalRemovedBlocks);
-                const anchorNode = (position === 'before') ? targetBlockInstance.element : targetBlockInstance.element.nextSibling;
+                const anchorNode = (position === BlockRelPos.Before) ? targetBlockInstance.element : targetBlockInstance.element.nextSibling;
                 finalRemovedBlocks.forEach(block => {
                     const newEl = block.render();
                     parentEl.insertBefore(newEl, anchorNode);
@@ -1525,7 +1535,7 @@ export class PageEditor extends Editor {
                 break;
             }
     
-            case 'inside_last':
+            case BlockRelPos.InsideLast:
                 if (targetBlockInstance.childrenContainer) {
                     targetBlockInstance.children.push(...finalRemovedBlocks);
 
@@ -1564,7 +1574,7 @@ export class PageEditor extends Editor {
         });
     
         // (b) 添加拖放的目标父容器
-        if (position === 'inside_last' && targetBlockInstance.childrenContainer) {
+        if (position === BlockRelPos.InsideLast && targetBlockInstance.childrenContainer) {
             affectedParents.add(targetBlockInstance);
         } else if (toParentInstance) {
             // 否则，目标容器是目标块的父级
@@ -1611,7 +1621,7 @@ export class PageEditor extends Editor {
         }
     }
 
-    _handleColumnDrop(draggedBlocks: Block[], targetBlockInstance: Block, position: 'left' | 'right') {
+    _handleColumnDrop(draggedBlocks: Block[], targetBlockInstance: Block, position: BlockRelPos.Left | BlockRelPos.Right) {
         let targetInfo = this._findBlockInstanceAndParent(targetBlockInstance.id);
         if (!targetInfo) return;
         const { block, parentInstance, parentArray, index: targetIndex } = targetInfo;
@@ -1623,7 +1633,7 @@ export class PageEditor extends Editor {
             newColumn.children.push(...draggedBlocks);
             
             // Insert the new column next to the target column
-            const insertIndex = position === 'left' ? targetIndex : targetIndex + 1;
+            const insertIndex = position === BlockRelPos.Left ? targetIndex : targetIndex + 1;
             parentInstance.children.splice(insertIndex, 0, newColumn);
             
             // Rebalance widths of all columns in the container
@@ -1644,9 +1654,9 @@ export class PageEditor extends Editor {
             const newColumnsContainer = this.createBlockInstance({ type: 'columns' }) as Block;
             
             // Arrange the new columns based on the drop position
-            if (position === 'left') {
+            if (position === BlockRelPos.Left) {
                 newColumnsContainer.children.push(draggedColumn, targetColumn);
-            } else { // 'right'
+            } else { // BlockRelPos.Right
                 newColumnsContainer.children.push(targetColumn, draggedColumn);
             }
             
@@ -1799,7 +1809,7 @@ export class PageEditor extends Editor {
         }
     }
 
-    _showHorizontalIndicator(targetEl, position) {
+    _showHorizontalIndicator(targetEl, position: BlockRelPos) {
         this.container.querySelectorAll('.drop-indicator').forEach(el => el.remove());
 
         const indicator = document.createElement('div');
@@ -1811,12 +1821,12 @@ export class PageEditor extends Editor {
         indicator.style.width = '100%'; // It should span the full width of its container context.
         indicator.style.position = 'relative'; // Ensure it flows within the document layout.
         
-        if (position === 'before') {
+        if (position === BlockRelPos.Before) {
              targetEl.parentElement.insertBefore(indicator, targetEl);
-        } else if (position === 'after') {
+        } else if (position === BlockRelPos.After) {
             // insertAfter logic
             targetEl.parentElement.insertBefore(indicator, targetEl.nextSibling);
-        } else if (position === 'inside_last') {
+        } else if (position === BlockRelPos.InsideLast) {
             const contentWrapper = targetEl.querySelector('.callout-content-wrapper, .block-content[data-type="column"]');
             if (contentWrapper) {
                 indicator.style.width = 'auto'; // Let it fit inside the container
@@ -1826,15 +1836,15 @@ export class PageEditor extends Editor {
         }
     }
 
-    _showVerticalIndicator(targetEl, position) {
+    _showVerticalIndicator(targetEl, position: BlockRelPos) {
         this.container.querySelectorAll('.drop-indicator-vertical').forEach(el => el.remove());
 
         const indicator = document.createElement('div');
         indicator.className = 'drop-indicator-vertical';
         indicator.style.height = `${targetEl.offsetHeight}px`;
-        if (position === 'left') {
+        if (position === BlockRelPos.Left) {
             indicator.style.left = '0';
-        } else { // right
+        } else { // BlockRelPos.Right
             indicator.style.right = '0';
         }
         targetEl.appendChild(indicator);
@@ -1953,7 +1963,7 @@ export class PageEditor extends Editor {
         window.addEventListener('popoverClosed', cleanup, { once: true });
     }
 
-    _executeReferenceDropAction(action, refData, targetBlockInfo, position) {
+    _executeReferenceDropAction(action, refData, targetBlockInfo, position: BlockRelPos) {
         let newBlockInstance;
         const relativeFilePath = file.makePathRelativeToWorkspace(refData.filePath);
 
@@ -2000,7 +2010,7 @@ export class PageEditor extends Editor {
     }
 
     // --- A helper function to insert a block instance based on drop info ---
-    _insertBlockAtPosition(blockToInsert: Block, targetInfo, position) {
+    _insertBlockAtPosition(blockToInsert: Block, targetInfo, position: BlockRelPos) {
         const { block: targetBlockInstance, parentArray: toParentArray, index: toIndex, parentInstance: toParentInstance } = targetInfo;
         
         const parentDomElement = targetBlockInstance.element.parentElement;
@@ -2013,17 +2023,17 @@ export class PageEditor extends Editor {
         const newEl = blockToInsert.render();
 
         switch (position) {
-            case 'before':
+            case BlockRelPos.Before:
                 toParentArray.splice(toIndex, 0, blockToInsert);
                 // 使用正确的父节点
                 parentDomElement.insertBefore(newEl, targetBlockInstance.element);
                 break;
-            case 'after':
+            case BlockRelPos.After:
                 toParentArray.splice(toIndex + 1, 0, blockToInsert);
                 // 使用正确的父节点
                 parentDomElement.insertBefore(newEl, targetBlockInstance.element.nextSibling);
                 break;
-            case 'inside_last':
+            case BlockRelPos.InsideLast:
                 if (targetBlockInstance.childrenContainer) {
                     targetBlockInstance.children.push(blockToInsert);
                     targetBlockInstance.childrenContainer.appendChild(newEl);
@@ -2034,8 +2044,8 @@ export class PageEditor extends Editor {
                     parentDomElement.insertBefore(newEl, targetBlockInstance.element.nextSibling);
                 }
                 break;
-            case 'left':
-            case 'right':
+            case BlockRelPos.Left:
+            case BlockRelPos.Right:
                 this._handleColumnDrop([blockToInsert], targetBlockInstance, position);
                 this.render(); // render() 会处理好 DOM 结构，所以是安全的
                 break;

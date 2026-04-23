@@ -11,8 +11,8 @@ class NumberedListItemBlock extends TextBlock {
     static override placeholder = 'List item';
 
     
-    textElement;
-    numberElement;
+    textElement: HTMLDivElement;
+    numberElement: HTMLDivElement;
 
     // --- 2. Constructor ---
     constructor(data, editor) {
@@ -27,32 +27,42 @@ class NumberedListItemBlock extends TextBlock {
 
     // --- 3. Rendering ---
     override _renderContent() {
-        // Layout with an editable number point
-        this.contentElement.innerHTML = `
-            <div class="number-point-wrapper">
-                <div class="number-point" contenteditable="true"></div>
-                <span>.</span>
-            </div>
-            <div class="list-item-content-wrapper">
-                <div class="list-item-text-area"></div>
-                <div class="list-item-children-container block-children-container"></div>
-            </div>
-        `;
-    
-        // Get references to key elements
-        this.numberElement = this.contentElement.querySelector('.number-point');
-        const textArea = this.contentElement.querySelector('.list-item-text-area');
-        this.childrenContainer = this.contentElement.querySelector('.list-item-children-container');
+        if (!this.contentElement.hasChildNodes()) {
+            const numberWrapper = document.createElement('div');
+            numberWrapper.className = 'number-point-wrapper';
 
-        // Set up the editable number
-        this.numberElement.textContent = this.properties.number;
-        this.numberElement.addEventListener('input', () => this.syncNumberFromDOM());
-        
-        // Set up the main text area
-        this.textElement = textArea;
-        this.textElement.contentEditable = 'true';
-        this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
+            this.numberElement = document.createElement('div');
+            this.numberElement.className = 'number-point';
+            this.numberElement.contentEditable = 'true';
+            this.numberElement.textContent = this.properties.number;
+            //this.numberElement.addEventListener('input', () => this.syncNumberFromDOM());
+
+            const dot = document.createElement('span');
+            dot.textContent = '.';
+
+            numberWrapper.appendChild(this.numberElement);
+            numberWrapper.appendChild(dot);
+
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'list-item-content-wrapper';
+
+            this.textElement = document.createElement('div');
+            this.textElement.className = 'list-item-text-area';
+            this.textElement.contentEditable = 'true';
+            this.textElement.textContent = this.content || '';
+            this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
+
+            this.childrenContainer = document.createElement('div');
+            this.childrenContainer.className = 'list-item-children-container block-children-container';
+
+            contentWrapper.appendChild(this.textElement);
+            contentWrapper.appendChild(this.childrenContainer);
+
+            this.contentElement.appendChild(numberWrapper);
+            this.contentElement.appendChild(contentWrapper);
+        } else if (this.numberElement) {
+            this.numberElement.textContent = this.properties.number;
+        }
 
         this._applyListItemStyles();
     }
@@ -119,6 +129,29 @@ class NumberedListItemBlock extends TextBlock {
                 }
             }
         }
+    }
+
+
+    override onKeyDown(e) {
+        // 处理 Enter 键
+        if (e.key === 'Enter') {
+            e.preventDefault();
+
+            if (e.shiftKey) {
+                return;
+            }
+
+            // 如果只按下了 Enter，则创建新的列表项
+            this.syncContentFromDOM();
+            let newBlockInstance = this.BAPI_PE.insertNewBlockAfter(this, 'numberedListItem');
+            // 将新列表项的编号设置为当前项的编号 + 1
+            newBlockInstance.properties.number = this.properties.number + 1;
+            newBlockInstance._renderContent();
+
+            return;
+        }
+
+        super.onKeyDown(e);
     }
 }
 

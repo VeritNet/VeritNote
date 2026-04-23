@@ -44,6 +44,23 @@ declare global {
     class Block {
         constructor(data: any, editor: Editor);
 
+
+        id: string;
+        static type: string; // Should be overridden by subclasses
+        public content: string | null;
+        /**
+         * Properties 被声明为特定的解构，以防止 GCC 破坏如 referenceLink, width, presetId 等键名
+         */
+        properties: {
+            referenceLink?: any;
+            width?: any;
+            presetId?: string; // 来源于 DataBlock.properties.presetId
+            customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
+            [key: string]: any;
+        };
+        public children: Block[];
+
+
         get data(): object;
 
         get toolbarButtons(): {
@@ -68,7 +85,6 @@ declare global {
         static canBeToggled: boolean;
         static previewExclusionSelectors: string[];
         static exportExclusionSelectors: string[];
-        static type: string;
         static icon: string;
         static label: string;
         static description: string;
@@ -79,25 +95,10 @@ declare global {
         // --- 实例属性 (Instance Properties) ---
         exportReadyPromise: Promise<any>;
 
-        id: string;
-
         element: HTMLElement | null;
-        content: string | null;
-
-        /**
-         * Properties 被声明为特定的解构，以防止 GCC 破坏如 referenceLink, width, presetId 等键名
-         */
-        properties: {
-            referenceLink?: any;
-            width?: any;
-            presetId?: string; // 来源于 DataBlock.properties.presetId
-            customCSS?: Array<{ selector: string; rules: Array<{ prop: string; val: string }> }>;
-            [key: string]: any;
-        };
 
         contentElement: HTMLElement | null;
         childrenContainer: HTMLElement | null;
-        children: Block[];
         parent?: Block;
     }
 

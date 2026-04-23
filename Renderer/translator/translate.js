@@ -107,7 +107,10 @@ function translateClass(classNode, sourceFile, globalBaseClasses) {
                         }
                     }
                 } else {
-                    const isDom = propName.toLowerCase().includes('element');
+                    let isDom = false;
+                    if (member.type && member.type.getText(sourceFile).includes('Element')) {
+                        isDom = true;
+                    }
                     scopeManager.declareVar(`this.${propName}`, propName, isDom ? 'DomElement*' : 'auto', isDom);
                 }
             } else if (ts.isMethodDeclaration(member)) {
@@ -156,8 +159,11 @@ function translateClass(classNode, sourceFile, globalBaseClasses) {
             const propName = member.name.getText(sourceFile);
             const isStatic = member.modifiers && member.modifiers.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
             if (!isStatic && !['contentElement', 'properties', 'content', 'childrenContainer'].includes(propName)) {
-                const isDom = propName.toLowerCase().includes('element');
-                const cppType = isDom ? 'DomElement*' : 'auto'; // 简化类型推断
+                let isDom = false;
+                if (member.type && member.type.getText(sourceFile).includes('Element')) {
+                    isDom = true;
+                }
+                const cppType = isDom ? 'DomElement*' : 'auto';
                 scopeManager.declareVar(`this.${propName}`, propName, cppType, isDom);
                 cppCode += `    ${cppType} ${propName} = ${isDom ? 'nullptr' : '0'}; // Class member mapping\n`;
             }
@@ -268,15 +274,30 @@ function translateBlockStatements(statements, sourceFile, scope, customMethods, 
                     }
                 }
 
-                // 普通变量赋值映射
+                // --- 普通变量/对象属性赋值兜底 (统一逻辑) ---
                 const leftStr = expr.left.getText(sourceFile);
-                let targetCppName;
+                const rightCode = common.translateExpression(expr.right, sourceFile, scope);
+
+                // 1. 动态类型推断：如果向基础变量赋值 DOM 对象，实时更新作用域将其标记为 DOM 元素
                 try {
-                    targetCppName = scope.getVar(leftStr).cppName;
+                    const varInfo = scope.getVar(leftStr);
+                    if (rightCode.includes('new DomElement') || rightCode.includes('RenderBlockRegistry')) {
+                        varInfo.isDomElement = true;
+                        varInfo.type = 'DomElement*';
+                    }
                 } catch (e) {
-                    throw new Error(`Translation Error: Assignment to undeclared variable "${leftStr}".`);
+                    // 忽略：如果左值是对象属性链(如 this.data.count)，getVar 找不到基础变量是正常的
                 }
-                code += `    ${targetCppName} = ${common.translateExpression(expr.right, sourceFile, scope)};\n`;
+
+                // 2. 使用与读取变量一致的 translateExpression 解析左值，完美支持 this.obj.count 等属性链赋值
+                let leftCode;
+                try {
+                    leftCode = common.translateExpression(expr.left, sourceFile, scope);
+                } catch (e) {
+                    throw new Error(`Translation Error: Invalid assignment target "${leftStr}". Details: ${e.message}`);
+                }
+
+                code += `    ${leftCode} = ${rightCode};\n`;
                 continue;
             }
 

@@ -26,40 +26,43 @@ class ToggleListItemBlock extends TextBlock {
 
     // --- 3. Rendering ---
     override _renderContent() {
-        // Create the unique layout: [Toggle Triangle] [Text Area]
-        this.contentElement.innerHTML = `
-            <div class="toggle-triangle-wrapper">
-                <div class="toggle-triangle" data-id="${this.id}"></div>
-            </div>
-            <div class="list-item-content-wrapper">
-                <div class="list-item-text-area"></div>
-                <div class="list-item-children-container block-children-container"></div>
-            </div>
-        `;
-        
-        // Get references to key elements
-        this.toggleElement = this.contentElement.querySelector('.toggle-triangle');
-        const contentWrapper = this.contentElement.querySelector('.list-item-content-wrapper');
-        this.textElement = contentWrapper.querySelector('.list-item-text-area');
-        this.childrenContainer = contentWrapper.querySelector('.list-item-children-container');
+        if (!this.contentElement.hasChildNodes()) {
+            const toggleWrapper = document.createElement('div');
+            toggleWrapper.className = 'toggle-triangle-wrapper';
 
-        // Initialize the collapsed state from loaded data
+            this.toggleElement = document.createElement('div');
+            this.toggleElement.className = 'toggle-triangle';
+            this.toggleElement.dataset['id'] = this.id;
+            
+            this.toggleElement.addEventListener('click', () => {
+                this.properties.isCollapsed = !this.properties.isCollapsed;
+                this.updateCollapsedStateStyle();
+                this.BAPI_PE.emitChange(true, 'toggle-collapse', this);
+            });
+
+            toggleWrapper.appendChild(this.toggleElement);
+
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'list-item-content-wrapper';
+
+            this.textElement = document.createElement('div');
+            this.textElement.className = 'list-item-text-area';
+            this.textElement.contentEditable = 'true';
+            this.textElement.innerHTML = this.content || '';
+            this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
+
+            this.childrenContainer = document.createElement('div');
+            this.childrenContainer.className = 'list-item-children-container block-children-container';
+
+            contentWrapper.appendChild(this.textElement);
+            contentWrapper.appendChild(this.childrenContainer);
+
+            this.contentElement.appendChild(toggleWrapper);
+            this.contentElement.appendChild(contentWrapper);
+        }
+
         this.updateCollapsedStateStyle();
-
-        // Initialize the text area
-        this.textElement.contentEditable = 'true';
-        this.textElement.innerHTML = this.content || '';
-        this.textElement.dataset['placeholder'] = (this.constructor as typeof Block).placeholder;
-
         this._applyListItemStyles();
-        
-        // --- Event Listeners ---
-        // Listen for clicks on the triangle to toggle the state
-        this.toggleElement.addEventListener('click', () => {
-            this.properties.isCollapsed = !this.properties.isCollapsed;
-            this.updateCollapsedStateStyle();
-            this.BAPI_PE.emitChange(true, 'toggle-collapse', this); // Notify the editor of the change
-        });
     }
 
     _applyListItemStyles() {
