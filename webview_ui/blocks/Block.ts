@@ -67,7 +67,7 @@ abstract class Block {
     protected exportReadyResolve;
     public exportReadyPromise: Promise<any>;
 
-    protected contentElement: HTMLElement | null;
+    protected readonly contentElement: HTMLElement | null;
 
 
     /**
@@ -93,6 +93,19 @@ abstract class Block {
         */
         this.contentElement = null;
         this.childrenContainer = null; //如果为null，则不是容器块，一个容器块只能有一个容器区
+
+
+        const staticThis = this.constructor as typeof Block;
+
+        if (staticThis.createWrapper) {
+            this.element = this._createWrapperElement();
+            this.contentElement = this._createContentElement();
+            this.element.appendChild(this.contentElement);
+        } else {
+            this.contentElement = this._createContentElement();
+            this.element = this.contentElement;
+        }
+
 
         this.BAPI_PE = this.editor.BAPI_PE;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 PageEditor 定义和维护
         this.BAPI_WD = (window as any).BAPI_WD;// 提供给Block使用的编辑器 API 访问对象，包含一些工具方法和事件接口等，具体内容由 Window 定义和维护
@@ -154,23 +167,6 @@ abstract class Block {
      * @returns {HTMLElement} The fully rendered block element.
      */
     public readonly render = (): HTMLElement => {
-        const staticThis = this.constructor as typeof Block;
-
-        if (staticThis.createWrapper) {
-            if (!this.element) {
-                this.element = this._createWrapperElement();
-            }
-            if (!this.contentElement) {
-                this.contentElement = this._createContentElement();
-                this.element.appendChild(this.contentElement);
-            }
-        } else {
-            if (!this.contentElement) {
-                this.contentElement = this._createContentElement();
-            }
-            this.element = this.contentElement;
-        }
-
         this._renderContent();
         this._renderChildren();
         this._applyCustomCSS();

@@ -1087,18 +1087,19 @@ export class PageEditor extends Editor {
     _handleCommandMenuLifecycle(blockInstance: Block) {
         let content: string = '';
         if (blockInstance instanceof TextBlock) {
-            content = blockInstance.textElement.textContent;
+            content = blockInstance.textElement.textContent || '';
         }
 
+        const lastSlashIndex = content.lastIndexOf('/');
+
         // --- DECISION 1: Should the menu exist at all? ---
-        // If content doesn't start with '/', hide and exit immediately.
-        if (!content.startsWith('/')) {
+        if (lastSlashIndex === -1) {
             this.hideCommandMenu();
             return;
         }
 
         // --- DECISION 2: Are there any commands to show? ---
-        const searchTerm = content.substring(1);
+        const searchTerm = content.substring(lastSlashIndex + 1);
         const filteredCommands = this._getFilteredCommands(searchTerm);
 
         // If the filter returns no results, hide and exit.
@@ -1140,27 +1141,80 @@ export class PageEditor extends Editor {
 
         const newType = item.dataset['type'];
         const targetBlock = this.activeCommandBlock;
+
+        let replaceInPlace = false;
+        let contentToTransfer = '';
+
         if (targetBlock instanceof TextBlock) {
             targetBlock.syncContentFromDOM();
+
+            // 无论追加还是替换，都需要删除文本框末尾敲出的 / 以及附带的命令内容
+            const removeLastCommand = (el: HTMLElement) => {
+                const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+                let textNodes = [];
+                let node;
+                while (node = walker.nextNode()) {
+                    textNodes.push(node);
+                }
+                // 从后往前遍历文本节点，找到最后一个包含 / 的节点，并截断
+                for (let i = textNodes.length - 1; i >= 0; i--) {
+                    let tNode = textNodes[i];
+                    let lastIdx = tNode.nodeValue.lastIndexOf('/');
+                    if (lastIdx !== -1) {
+                        tNode.nodeValue = tNode.nodeValue.substring(0, lastIdx);
+                        // 将同处命令尾随的后续文本节点清空
+                        for (let j = i + 1; j < textNodes.length; j++) {
+                            textNodes[j].nodeValue = '';
+                        }
+                        break;
+                    }
+                }
+            };
+            removeLastCommand(targetBlock.textElement);
+            targetBlock.syncContentFromDOM();
+
+            // 提取被删掉命令后的文本，以便替换模式时带入新块
+            contentToTransfer = targetBlock.textElement.innerHTML;
+
+            // 只要当前块没有子块，就进行原位替换
+            const hasNoChildren = !targetBlock.children || targetBlock.children.length === 0;
+
+            if (hasNoChildren) {
+                replaceInPlace = true;
+            }
         }
 
-        if (targetBlock instanceof TextBlock && ((targetBlock.properties.text as string).trim() === '/' || (targetBlock.properties.text as string).trim() === '')) {
-            // Transform the block in place
+        let finalFocusBlock: Block | null = null;
+
+        if (replaceInPlace) {
+            // --- 场景 A：原位替换 ---
             const { parentArray, index } = this._findBlockInstanceAndParent(targetBlock.id);
-            const newBlockData = { id: targetBlock.id, type: newType };
+            // 将之前提取的 contentToTransfer 赋值给新块
+            const newBlockData = { id: targetBlock.id, type: newType, properties: { text: contentToTransfer } };
             const newBlockInstance = this.createBlockInstance(newBlockData);
+
             if (newBlockInstance) {
                 parentArray.splice(index, 1, newBlockInstance);
-                
+
                 const oldEl = targetBlock.element as HTMLElement;
                 const newEl = newBlockInstance.render();
                 (oldEl.parentElement as HTMLElement).replaceChild(newEl, oldEl);
-                
+
                 this.PageSelectionManager.setSelect(newBlockInstance.id);
+                finalFocusBlock = newBlockInstance;
             }
         } else {
-            // Insert a new block after (reusing the new partial-rendering function)
-            this.insertNewBlockAfter(targetBlock, newType);
+            // --- 场景 B：在下方追加 ---
+            const newBlockInstance = this.insertNewBlockAfter(targetBlock, newType);
+            finalFocusBlock = newBlockInstance;
+        }
+
+        // 统一处理新块的聚焦逻辑
+        if (finalFocusBlock && finalFocusBlock instanceof TextBlock) {
+            // 延迟一帧确保 DOM 已挂载并可以聚焦
+            requestAnimationFrame(() => {
+                (finalFocusBlock as TextBlock).textElement.focus();
+            });
         }
 
         this.hideCommandMenu();

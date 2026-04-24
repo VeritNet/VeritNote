@@ -62,8 +62,8 @@ class ColumnsBlock extends Block {
                 const minWidth = 0.1; // 10%
                 if (newLeftWidth < minWidth || newRightWidth < minWidth) return;
 
-                if (leftColumn.contentElement) leftColumn.contentElement.style.width = `${newLeftWidth * 100}%`;
-                if (rightColumn.contentElement) rightColumn.contentElement.style.width = `${newRightWidth * 100}%`;
+                if (leftColumn.element) leftColumn.element.style.width = `${newLeftWidth * 100}%`;
+                if (rightColumn.element) rightColumn.element.style.width = `${newRightWidth * 100}%`;
             };
 
             const onMouseUp = (upEvent: MouseEvent) => {
