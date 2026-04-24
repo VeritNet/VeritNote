@@ -520,23 +520,25 @@ export class PageEditor extends Editor {
                 parentToUpdate = grandParentInfo ? grandParentInfo.parentBlock : null;
             }
     
-            // 1. Call _cleanupData and capture the IDs of containers that were structurally changed.
-            const { modifiedContainerIds } = this._cleanupData();
-            
-            // 2. Explicitly emit an update event for each modified container.
+            // 1. 获取并解构 structuralChange 标志位，捕获是否有列被彻底销毁解包
+            const { structuralChange, modifiedContainerIds } = this._cleanupData();
+
             modifiedContainerIds.forEach(id => {
                 const blockInfo = this._findBlockInstanceById(this.blocks, id);
                 if (blockInfo?.block) {
-                    // We use 'false' for recordHistory because the main deletion action will handle it.
-                    // This just ensures the data state is correct before the history snapshot.
                     this.emitChange(false, 'cleanup-structure', blockInfo.block);
                 }
             });
-    
+
             if (blockInstance.element && blockInstance.element.parentElement) {
                 blockInstance.element.parentElement.removeChild(blockInstance.element);
             }
-    
+
+            // 2. 核心修复：如果删除了列导致了结构性坍塌解包，必须全量重渲染以同步界面 DOM
+            if (structuralChange) {
+                this.render();
+            }
+
             if (recordHistory) {
                 this.emitChange(true, 'delete-block', null);
             }
@@ -1363,8 +1365,8 @@ export class PageEditor extends Editor {
 
         // 检查 1: 鼠标是否直接悬停在某个 childrenContainer 上？
         // (这种情况通常发生在容器有 padding，或者鼠标在子块之间的缝隙)
-        if ((e.target as HTMLElement).classList.contains('block-children-container') ||
-            (e.target as HTMLElement).classList.contains('callout-content-wrapper')) {
+        const targetEl = e.target as HTMLElement;
+        if (targetEl.classList.contains('block-children-container')) {
 
             // 找到了对应的容器块实例
             // 注意：e.target 是 childrenContainer，它的 parentElement 通常是 contentElement
@@ -1658,7 +1660,7 @@ export class PageEditor extends Editor {
             
             // Rebalance widths of all columns in the container
             const numCols = parentInstance.children.length;
-            parentInstance.children.forEach(col => col.properties.width = 1 / numCols);
+            parentInstance.properties.widths = parentInstance.children.map(() => 1 / numCols);
         } else {
             // Scene B: Two or more blocks merge into a brand new Columns block.
             
@@ -1672,6 +1674,8 @@ export class PageEditor extends Editor {
             
             // Third, create the main Columns container
             const newColumnsContainer = this.createBlockInstance({ type: 'columns' }) as Block;
+            // 明确初始化父容器的宽度分配比例
+            newColumnsContainer.properties.widths = [0.5, 0.5];
             
             // Arrange the new columns based on the drop position
             if (position === BlockRelPos.Left) {
@@ -1699,17 +1703,11 @@ export class PageEditor extends Editor {
                 }
     
                 if ((block.constructor as typeof Block).type === 'columns') {
-                    const columnsToRemoveFromDOM = [];
                     const originalColumnCount = block.children.length;
-                
-                    block.children = block.children.filter(col => {
-                        if (col.children.length > 0) return true;
-                        if (col.element) columnsToRemoveFromDOM.push(col.element);
-                        return false;
-                    });
-    
-                    columnsToRemoveFromDOM.forEach(el => el.parentElement?.removeChild(el));
-    
+
+                    // 仅在数据层过滤空列，不手动删除 DOM 节点
+                    block.children = block.children.filter(col => col.children.length > 0);
+
                     const newColumnCount = block.children.length;
                     const columnsWereRemoved = newColumnCount < originalColumnCount;
     
@@ -1734,8 +1732,9 @@ export class PageEditor extends Editor {
     
                     } else if (newColumnCount === 1) {
                         const survivingBlocks = block.children[0].children;
+                        survivingBlocks.forEach(b => b.parent = info.parentInstance);
                         info.parentArray.splice(info.index, 1, ...survivingBlocks);
-                        
+
                         if (block.element) {
                             const survivingBlockElements = survivingBlocks.map(b => b.render());
                             block.element.replaceWith(...survivingBlockElements);
@@ -1743,14 +1742,15 @@ export class PageEditor extends Editor {
     
                     } else if (columnsWereRemoved) {
                         const numCols = block.children.length;
-                        block.children.forEach(col => {
-                           col.properties.width = 1 / numCols;
-                           if(col.element) {
-                               col.element.style.width = `${col.properties.width * 100}%`;
-                           }
-                        });
-                        
-                        // --- 核心修改：不再发送事件，而是记录ID ---
+                        // 统一由父级 ColumnsBlock 的 widths 数组接管
+                        block.properties.widths = block.children.map(() => 1 / numCols);
+
+                        // 重新渲染整个父块，利用新逻辑搭建全新的 Wrapper 和 Resizer 并原位替换
+                        if (block.element) {
+                            const newEl = block.render();
+                            block.element.replaceWith(newEl);
+                        }
+
                         // Case C: ColumnsBlock 的内部结构改变，它自己被修改。
                         modifiedContainerIds.add(block.id);
                     }
@@ -2221,7 +2221,7 @@ export class PageEditor extends Editor {
                 this.richTextEditingState = { isActive: true, blockId: blockInstance.id, savedRange: this.currentSelection };
                 this.popoverManager.showLink(
                     button,
-                    /*this.currentSelection?.commonAncestorContainer.parentNode.href || */'',
+                    (this.currentSelection?.commonAncestorContainer.parentNode as HTMLAnchorElement | null)?.href || '',
                     (value) => {
                         forceRestoreAndExecute(value ? 'createLink' : 'unlink', value || undefined);
                     }
@@ -2295,7 +2295,9 @@ export class PageEditor extends Editor {
         if (mode === EditorMode.edit) {
             editScrollContainer.style.display = 'flex';
             previewScrollContainer.style.display = 'none';
-            requestAnimationFrame(() => { this._scrollToBlock(editScrollContainer, topBlockId); });
+            requestAnimationFrame(() => {
+                this._scrollToBlock(editScrollContainer, topBlockId);
+            });
         } else { // preview
             // 因为现在支持原生异步渲染，不需要传预载 Cache 了
             this.elements.previewView.innerHTML = await this.getSanitizedHtml(false, { options: {} });

@@ -17,27 +17,50 @@ class ColumnsBlock extends Block {
     }
 
     private _mountResizers() {
-        if (!this.contentElement || this.children.length <= 1) return;
+        if (!this.contentElement || this.children.length === 0) return;
 
-        // 清理可能遗留的 resizer，防止多次 render 导致重复
-        this.contentElement.querySelectorAll('.column-resizer').forEach(el => el.remove());
+        // 1. 仅提取真正的子列 DOM（精准匹配 data-type="column"）
+        // 这样可以避开基类生成的 .block-controls 等 UI 元素，杜绝“虚空列”
+        const childNodes = Array.from(this.contentElement.children).filter(
+            el => el.getAttribute('data-type') === 'column'
+        );
 
-        for (let i = 1; i < this.children.length; i++) {
-            const leftCol = this.children[i - 1];
-            const rightCol = this.children[i];
-            const resizer = this._createColumnResizer(leftCol, rightCol);
+        if (childNodes.length === 0) return;
 
-            // 将 resizer 插入到 DOM 中的左列和右列之间
-            const leftColEl = leftCol.element;
-            if (leftColEl && leftColEl.nextSibling) {
-                this.contentElement.insertBefore(resizer, leftColEl.nextSibling);
-            } else {
-                this.contentElement.appendChild(resizer);
-            }
+        // 2. 统一由父块属性管理分配宽度
+        if (!this.properties.widths || this.properties.widths.length !== childNodes.length) {
+            const defaultWidth = 1 / childNodes.length;
+            this.properties.widths = childNodes.map(() => defaultWidth);
         }
+
+        // 3. 清理旧的包装器和调整条（不要用 innerHTML = ''，以保护 block-controls）
+        this.contentElement.querySelectorAll('.column-wrapper, .column-resizer').forEach(el => el.remove());
+
+        const fragment = document.createDocumentFragment();
+        const wrappers: HTMLElement[] = [];
+
+        // 4. 为每个真实子节点创建 wrapper 包装器
+        childNodes.forEach((node, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'column-wrapper';
+            wrapper.style.width = `${this.properties.widths[index] * 100}%`;
+
+            // appendChild 会自动将 node 从原父级移动到 wrapper 中
+            wrapper.appendChild(node);
+            wrappers.push(wrapper);
+            fragment.appendChild(wrapper);
+
+            if (index < childNodes.length - 1) {
+                const resizer = this._createColumnResizer(index, wrappers);
+                fragment.appendChild(resizer);
+            }
+        });
+
+        // 5. 挂载搭建好的包装器结构（追加在尾部）
+        this.contentElement.appendChild(fragment);
     }
 
-    private _createColumnResizer(leftColumn: Block, rightColumn: Block): HTMLElement {
+    private _createColumnResizer(leftIndex: number, wrappers: HTMLElement[]): HTMLElement {
         const resizer = document.createElement('div');
         resizer.className = 'column-resizer';
 
@@ -46,8 +69,12 @@ class ColumnsBlock extends Block {
             if (!this.contentElement) return;
 
             const startX = e.clientX;
-            const leftInitialWidth = leftColumn.properties.width;
-            const rightInitialWidth = rightColumn.properties.width;
+            // 访问父块自己维护的 widths 数组
+            const leftInitialWidth = this.properties.widths[leftIndex];
+            const rightInitialWidth = this.properties.widths[leftIndex + 1];
+            // 获取我们自己创建的左右 Wrapper DOM
+            const leftWrapper = wrappers[leftIndex];
+            const rightWrapper = wrappers[leftIndex + 1];
 
             const onMouseMove = (moveEvent: MouseEvent) => {
                 const parentWidth = this.contentElement!.offsetWidth;
@@ -62,8 +89,9 @@ class ColumnsBlock extends Block {
                 const minWidth = 0.1; // 10%
                 if (newLeftWidth < minWidth || newRightWidth < minWidth) return;
 
-                if (leftColumn.element) leftColumn.element.style.width = `${newLeftWidth * 100}%`;
-                if (rightColumn.element) rightColumn.element.style.width = `${newRightWidth * 100}%`;
+                // 调整 Wrapper 的样式
+                leftWrapper.style.width = `${newLeftWidth * 100}%`;
+                rightWrapper.style.width = `${newRightWidth * 100}%`;
             };
 
             const onMouseUp = (upEvent: MouseEvent) => {
@@ -89,10 +117,13 @@ class ColumnsBlock extends Block {
                     finalRightWidth = minWidth;
                 }
 
-                leftColumn.properties.width = finalLeftWidth;
-                rightColumn.properties.width = finalRightWidth;
+                // 固化最新比例到父块 properties
+                this.properties.widths[leftIndex] = finalLeftWidth;
+                this.properties.widths[leftIndex + 1] = finalRightWidth;
 
-                // 通过基类提供的 BAPI_PE 触发页面的历史记录与保存变更
+                leftWrapper.style.width = `${finalLeftWidth * 100}%`;
+                rightWrapper.style.width = `${finalRightWidth * 100}%`;
+
                 this.BAPI_PE.emitChange(true, 'resize-column');
             };
 

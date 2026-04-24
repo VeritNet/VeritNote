@@ -6,9 +6,15 @@
     margin: 0 calc(var(--spacing-m) / -2); /* Negative margin to align with parent content */
 }
 
-.block-content[data-type="column"] {
+/* 父块创建的包装器样式，接管宽度与防收缩特性 */
+.column-wrapper {
     min-width: 80px;
     flex-shrink: 0;
+}
+
+/* 子块自身只需填充满包装器，不直接参与 flex 布局排版 */
+.block-content[data-type="column"] {
+    width: 100%;
     padding: 0 calc(var(--spacing-m) / 2);
     position: relative;
     padding-bottom: 24px; /* Space for dropping inside */

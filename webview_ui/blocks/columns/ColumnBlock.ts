@@ -6,16 +6,10 @@ class ColumnBlock extends Block {
 
     constructor(data: any, editor: any) {
         super(data, editor);
-        if (!this.properties.width) {
-            this.properties.width = 0.5;
-        }
     }
 
     override _renderContent() {
-        this.childrenContainer = this.element;
-        if (this.contentElement) {
-            this.contentElement.style.width = `${this.properties.width * 100}%`;
-        }
+        this.childrenContainer = this.contentElement;
     }
 
     override onInput(e: Event) { /* no-op */ }
