@@ -498,6 +498,7 @@ export class PageEditor extends Editor {
 
     deleteBlock(blockInstance: Block, recordHistory = true) {
         const info = this._findBlockInstanceAndParent(blockInstance.id);
+        
         if (info) {
             window.dispatchEvent(new CustomEvent('block:deleted', {
                 detail: {
@@ -534,7 +535,7 @@ export class PageEditor extends Editor {
                 blockInstance.element.parentElement.removeChild(blockInstance.element);
             }
 
-            // 2. 核心修复：如果删除了列导致了结构性坍塌解包，必须全量重渲染以同步界面 DOM
+            // 2. 核心修复：如果删除了列导致了结构性坍塌解包，全量重渲染以同步界面 DOM
             if (structuralChange) {
                 this.render();
             }
@@ -543,6 +544,7 @@ export class PageEditor extends Editor {
                 this.emitChange(true, 'delete-block', null);
             }
         }
+
     }
 
     deleteMultipleBlocks(blockIds: string[]) {
@@ -1184,6 +1186,10 @@ export class PageEditor extends Editor {
             if (hasNoChildren) {
                 replaceInPlace = true;
             }
+
+            if (!(window.blockRegistry.get(newType).prototype instanceof TextBlock)) {
+                replaceInPlace = false;
+            }
         }
 
         let finalFocusBlock: Block | null = null;
@@ -1293,17 +1299,22 @@ export class PageEditor extends Editor {
         // 1. 如果没有父块，说明是根级别块，允许。
         if (!blockInstance.parent) return true;
 
-        // 2. 特例：如果父块是 'columns'。
-        // 虽然 ColumnsBlock 的 childrenContainer 也是 null (我们在上一步修改中设定的)，
+        // 2.1 特例：如果父块是 'columns'。
+        // 虽然 ColumnsBlock 的 childrenContainer 没有 block-children-container 类名
         // 但我们允许在 Column 旁边拖放以添加新列。
         if ((blockInstance.parent.constructor as typeof Block).type === 'columns') return true;
 
-        // 3. 核心判断：如果父块拥有有效的 childrenContainer，说明当前块只是容器里的一个普通内容块。
-        // 此时允许在它旁边创建分栏。
-        if (blockInstance.parent.childrenContainer) return true;
+        // 2.2 特例：如果父块是 'column'，说明自己是列内子块，允许进行各项拖放。
+        // 防止拖放判定被提升至整个 Column 进而导致 Indicator 结构崩溃。
+        if ((blockInstance.parent.constructor as typeof Block).type === 'column') return true;
 
-        // 4. 否则（父块存在，且父块 childrenContainer 为 null，且父块不是 columns），
-        // 说明当前块是严格的结构块（例如：Table 中的 Row，或 Row 中的 Cell）。
+        // 3. 核心判断：如果父块拥有有效的 childrenContainer，且包含 block-children-container 类名
+        // 此时允许在它旁边创建分栏。
+        if (blockInstance.parent.childrenContainer) {
+            return blockInstance.parent.childrenContainer.classList.contains('block-children-container');
+        }
+
+        // 3. 说明当前块是严格的结构块（例如：Table 中的 Row，或 Row 中的 Cell）。
         // 此时拒绝左右拖放。
         return false;
     }
@@ -1364,13 +1375,13 @@ export class PageEditor extends Editor {
         // B. 某块的“非容器区域” (如 Header, Icon)
 
         // 检查 1: 鼠标是否直接悬停在某个 childrenContainer 上？
-        // (这种情况通常发生在容器有 padding，或者鼠标在子块之间的缝隙)
         const targetEl = e.target as HTMLElement;
-        if (targetEl.classList.contains('block-children-container')) {
+        // 由于 Column 没有相关类名，所以使用 dataset 作为等效条件进行兼容
+        if (targetEl.classList.contains('block-children-container') || targetEl.dataset['type'] === 'column') {
 
             // 找到了对应的容器块实例
             // 注意：e.target 是 childrenContainer，它的 parentElement 通常是 contentElement
-            const containerBlockEl = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
+            const containerBlockEl = targetEl.closest('[data-id]') as HTMLElement;
             const containerInst = this._findBlockInstanceById(this.blocks, containerBlockEl.dataset['id'])?.block;
 
             if (containerInst) {
@@ -1379,8 +1390,8 @@ export class PageEditor extends Editor {
                 finalTargetId = containerInst.id;
 
                 // 视觉更新：虚线变实线
-                (e.target as HTMLElement).classList.remove('is-drag-active');
-                (e.target as HTMLElement).classList.add('is-drop-target-solid');
+                targetEl.classList.remove('is-drag-active');
+                targetEl.classList.add('is-drop-target-solid');
 
                 this.currentDropInfo = { targetId: finalTargetId, position: position };
                 return; // 判定结束
@@ -1407,6 +1418,22 @@ export class PageEditor extends Editor {
             position = BlockRelPos.Before;
         } else {
             position = BlockRelPos.After;
+        }
+
+
+        // ============================================================
+        // 结构目标安全转移
+        // ============================================================
+        // 若直接目标是 'column'，且判定为上下方向（Before/After），
+        // 必须将目标提升到包裹它的 'columns' 容器，因为 flex 列布局内部不允许混入非列块（即水平指示器或任何普通块）
+        if (directBlockInstance && (directBlockInstance.constructor as typeof Block).type === 'column') {
+            if (position === BlockRelPos.Before || position === BlockRelPos.After) {
+                if (directBlockInstance.parent) {
+                    directBlockInstance = directBlockInstance.parent;
+                    directTargetEl = directBlockInstance.element as HTMLElement;
+                    finalTargetId = directBlockInstance.id;
+                }
+            }
         }
 
         // 视觉更新：绘制指示线 (蓝色条)
@@ -1644,68 +1671,95 @@ export class PageEditor extends Editor {
     }
 
     _handleColumnDrop(draggedBlocks: Block[], targetBlockInstance: Block, position: BlockRelPos.Left | BlockRelPos.Right) {
-        let targetInfo = this._findBlockInstanceAndParent(targetBlockInstance.id);
-        if (!targetInfo) return;
-        const { block, parentInstance, parentArray, index: targetIndex } = targetInfo;
+        // --- 1. 目标溯源 (Target Resolution) ---
+        // 逻辑：如果用户拖到一个分栏内部的子块（比如段落）的侧边，
+        // 我们应该视作他是拖到了该“列”的侧边。
+        let effectiveTarget = targetBlockInstance;
+        let info = this._findBlockInstanceAndParent(effectiveTarget.id);
 
-        // Scene A: Target is already a column inside a Columns block.
+        // 如果目标的父级是 column，说明它是列内元素。
+        // 我们向上提升一级，将“列”作为真正的落点目标。
+        if (info && info.parentInstance && (info.parentInstance.constructor as typeof Block).type === 'column') {
+            effectiveTarget = info.parentInstance;
+            info = this._findBlockInstanceAndParent(effectiveTarget.id);
+        }
+
+        if (!info) return;
+        const { parentInstance, parentArray, index: targetIndex } = info;
+
+        // --- 2. 执行逻辑 ---
+
+        // 场景 A1: 目标现在是 column（或者本身就是 column），且父级是 columns。
+        // 这就是最常见的：在现有分栏中增加一列。
         if (parentInstance && (parentInstance.constructor as typeof Block).type === 'columns') {
-            // Create a new column to hold the dropped blocks
             const newColumn = this.createBlockInstance({ type: 'column' }) as Block;
             newColumn.children.push(...draggedBlocks);
-            
-            // Insert the new column next to the target column
+
             const insertIndex = position === BlockRelPos.Left ? targetIndex : targetIndex + 1;
             parentInstance.children.splice(insertIndex, 0, newColumn);
-            
-            // Rebalance widths of all columns in the container
+
             const numCols = parentInstance.children.length;
             parentInstance.properties.widths = parentInstance.children.map(() => 1 / numCols);
-        } else {
-            // Scene B: Two or more blocks merge into a brand new Columns block.
-            
-            // First, create a column for the target block
+        }
+        // 场景 A2: 目标直接是 columns 容器本身（比如拖到了容器边缘）。
+        else if ((effectiveTarget.constructor as typeof Block).type === 'columns') {
+            const newColumn = this.createBlockInstance({ type: 'column' }) as Block;
+            newColumn.children.push(...draggedBlocks);
+
+            if (position === BlockRelPos.Left) {
+                effectiveTarget.children.unshift(newColumn);
+            } else {
+                effectiveTarget.children.push(newColumn);
+            }
+
+            const numCols = effectiveTarget.children.length;
+            effectiveTarget.properties.widths = effectiveTarget.children.map(() => 1 / numCols);
+        }
+        // 场景 B: 真正的从无到有。两个普通块并列，创建一个全新的 columns。
+        else {
             const targetColumn = this.createBlockInstance({ type: 'column' }) as Block;
-            targetColumn.children.push(targetBlockInstance);
-            
-            // Second, create a column for ALL the dragged blocks
+            targetColumn.children.push(effectiveTarget);
+
             const draggedColumn = this.createBlockInstance({ type: 'column' }) as Block;
             draggedColumn.children.push(...draggedBlocks);
-            
-            // Third, create the main Columns container
+
             const newColumnsContainer = this.createBlockInstance({ type: 'columns' }) as Block;
-            // 明确初始化父容器的宽度分配比例
             newColumnsContainer.properties.widths = [0.5, 0.5];
-            
-            // Arrange the new columns based on the drop position
+
             if (position === BlockRelPos.Left) {
                 newColumnsContainer.children.push(draggedColumn, targetColumn);
-            } else { // BlockRelPos.Right
+            } else {
                 newColumnsContainer.children.push(targetColumn, draggedColumn);
             }
-            
-            // Finally, replace the original target block with the new columns container in the DOM tree
+
             parentArray.splice(targetIndex, 1, newColumnsContainer);
         }
     }
 
     _cleanupData(): { structuralChange: boolean; modifiedContainerIds: Set<string> } {
-        // structuralChange is now only used for the return value for render() decision
-        let structuralChange = false; 
-        const modifiedContainerIds = new Set<string>(); // <--- 新增：用于记录被修改的容器
-    
+        let structuralChange = false;
+        const modifiedContainerIds = new Set<string>();
+
         const traverseAndClean = (blocks: Block[], parent: Block | null) => {
             for (let i = blocks.length - 1; i >= 0; i--) {
                 const block = blocks[i];
-    
+
                 if (block.children && block.children.length > 0) {
                     traverseAndClean(block.children, block);
                 }
-    
+
                 if ((block.constructor as typeof Block).type === 'columns') {
                     const originalColumnCount = block.children.length;
 
-                    // 仅在数据层过滤空列，不手动删除 DOM 节点
+                    // 【修复 1】：清理那些即将被作为空列过滤掉的幽灵 DOM 节点
+                    const columnsToRemove = block.children.filter(col => col.children.length === 0);
+                    columnsToRemove.forEach(col => {
+                        if (col.element && col.element.parentElement) {
+                            col.element.parentElement.removeChild(col.element);
+                        }
+                    });
+
+                    // 仅在数据层过滤空列
                     block.children = block.children.filter(col => col.children.length > 0);
 
                     const newColumnCount = block.children.length;
@@ -1847,7 +1901,7 @@ export class PageEditor extends Editor {
             // insertAfter logic
             targetEl.parentElement.insertBefore(indicator, targetEl.nextSibling);
         } else if (position === BlockRelPos.InsideLast) {
-            const contentWrapper = targetEl.querySelector('.callout-content-wrapper, .block-content[data-type="column"]');
+            const contentWrapper = targetEl.querySelector('.block-content[data-type="column"]');
             if (contentWrapper) {
                 indicator.style.width = 'auto'; // Let it fit inside the container
                 indicator.style.margin = '0 4px'; // Add some margin

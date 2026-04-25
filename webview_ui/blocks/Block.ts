@@ -51,8 +51,7 @@ abstract class Block {
     public element: HTMLElement | null;
 
     /**
-     * 当 childrenContainer 为 null 切 children 数组不为空时，说明该子块是父级不可分割的结构块（如 Row 是 Table 的结构块）。
-     * page编辑器的 _canAcceptSideDrop 等方法会拒绝尝试破坏其父块内容结构的行为。
+     * 从 Alpha 0.12 开始，块的 childrenContainer 与用户交互性解耦，现由是否有类名 block-children-container 决定用户是否可在内部破坏结构
      */
     public childrenContainer: HTMLElement | null;
 
@@ -170,6 +169,7 @@ abstract class Block {
         this._renderContent();
         this._renderChildren();
         this._applyCustomCSS();
+        this.runEditorScripts();
 
         return this.element;
     }
@@ -574,6 +574,13 @@ abstract class Block {
                 }, 10); // 微小延迟以确保 activeElement 已更新
             });
         }
+    }
+
+    /**
+     * 仅编辑器模式下渲染的内容
+     */
+    runEditorScripts() {
+
     }
 
 

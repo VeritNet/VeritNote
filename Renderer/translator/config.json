@@ -12,9 +12,7 @@
       "description",
       "keywords",
       "placeholder",
-      "createWrapper",
-      "previewExclusionSelectors",
-      "exportExclusionSelectors"
+      "createWrapper"
     ]
   },
   "Templates": [
